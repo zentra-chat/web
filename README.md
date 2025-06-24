@@ -1,2 +1,2 @@
 # Selenite
-Desktop/Web UI client for Celesite!
+Desktop/Web UI client for Zentra!

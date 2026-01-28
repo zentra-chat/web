@@ -77,11 +77,12 @@ export interface CommunityMember {
 }
 
 export interface CommunityInvite {
+	id: string;
 	code: string;
 	communityId: string;
-	creatorId: string;
+	createdBy: string;
 	maxUses: number | null;
-	uses: number;
+	useCount: number;
 	expiresAt: string | null;
 	createdAt: string;
 }

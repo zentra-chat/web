@@ -15,17 +15,30 @@
 	let requires2FA = $state(false);
 	let error = $state('');
 	let showInstanceModal = $state(false);
+	let pendingInvite = $state<string | null>(null);
 
 	onMount(() => {
+		// Check for pending invite
+		pendingInvite = sessionStorage.getItem('pendingInvite');
+
 		// Check if already logged in
 		if ($isLoggedIn && $activeInstance) {
-			goto('/app');
+			handleRedirectAfterLogin();
 		}
 		// If no instance selected, show modal
 		if (!$activeInstance) {
 			showInstanceModal = true;
 		}
 	});
+
+	function handleRedirectAfterLogin() {
+		if (pendingInvite) {
+			sessionStorage.removeItem('pendingInvite');
+			goto(`/invite/${pendingInvite}`);
+		} else {
+			goto('/app');
+		}
+	}
 
 	async function handleLogin() {
 		if (!$activeInstance) {
@@ -68,7 +81,7 @@
 			});
 
 			showToast('success', `Welcome back, ${response.user.displayName || response.user.username}!`);
-			goto('/app');
+			handleRedirectAfterLogin();
 		} catch (err) {
 			const apiError = err as { error?: string; code?: string };
 			error = apiError.error || 'Failed to login. Please check your credentials.';
@@ -90,6 +103,14 @@
 			</a>
 			<p class="text-text-secondary mt-2">Welcome back</p>
 		</div>
+
+		{#if pendingInvite}
+			<div class="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+				<p class="text-sm text-primary text-center">
+					Log in to accept your community invite
+				</p>
+			</div>
+		{/if}
 
 		{#if $activeInstance}
 			<div class="mb-6 p-3 bg-surface rounded-lg border border-border flex items-center gap-3">

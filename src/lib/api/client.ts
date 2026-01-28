@@ -11,6 +11,7 @@ import type {
 	User,
 	UserSettings,
 	Community,
+	CommunityInvite,
 	Channel,
 	ChannelCategory,
 	CommunityMember,
@@ -348,12 +349,21 @@ class ApiClient {
 		await this.request(`/communities/${communityId}/icon`, { method: 'DELETE' });
 	}
 
-	async createInvite(communityId: string, options?: { maxUses?: number; expiresAt?: string }): Promise<{ code: string }> {
-		const result = await this.request<ApiResponse<{ code: string }>>(`/communities/${communityId}/invites`, {
+	async createInvite(communityId: string, options?: { maxUses?: number; expiresIn?: number }): Promise<CommunityInvite> {
+		const result = await this.request<ApiResponse<CommunityInvite>>(`/communities/${communityId}/invites`, {
 			method: 'POST',
 			body: JSON.stringify(options || {})
 		});
 		return result.data;
+	}
+
+	async getInvites(communityId: string): Promise<CommunityInvite[]> {
+		const result = await this.request<ApiResponse<CommunityInvite[]>>(`/communities/${communityId}/invites`);
+		return result.data;
+	}
+
+	async deleteInvite(communityId: string, inviteId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/invites/${inviteId}`, { method: 'DELETE' });
 	}
 
 	async joinWithInvite(code: string): Promise<Community> {

@@ -15,17 +15,30 @@
 	let isLoading = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let showInstanceModal = $state(false);
+	let pendingInvite = $state<string | null>(null);
 
 	onMount(() => {
+		// Check for pending invite
+		pendingInvite = sessionStorage.getItem('pendingInvite');
+
 		// Check if already logged in
 		if ($isLoggedIn && $activeInstance) {
-			goto('/app');
+			handleRedirectAfterRegister();
 		}
 		// If no instance selected, show modal
 		if (!$activeInstance) {
 			showInstanceModal = true;
 		}
 	});
+
+	function handleRedirectAfterRegister() {
+		if (pendingInvite) {
+			sessionStorage.removeItem('pendingInvite');
+			goto(`/invite/${pendingInvite}`);
+		} else {
+			goto('/app');
+		}
+	}
 
 	function validateForm(): boolean {
 		errors = {};
@@ -83,7 +96,7 @@
 			});
 
 			showToast('success', 'Account created successfully! Welcome to Zentra.');
-			goto('/app');
+			handleRedirectAfterRegister();
 		} catch (err) {
 			const apiError = err as { error?: string; code?: string; details?: Record<string, string[]> };
 			if (apiError.details) {
@@ -111,6 +124,14 @@
 			</a>
 			<p class="text-text-secondary mt-2">Create your account</p>
 		</div>
+
+		{#if pendingInvite}
+			<div class="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+				<p class="text-sm text-primary text-center">
+					Create an account to accept your community invite
+				</p>
+			</div>
+		{/if}
 
 		{#if $activeInstance}
 			<div class="mb-6 p-3 bg-surface rounded-lg border border-border flex items-center gap-3">

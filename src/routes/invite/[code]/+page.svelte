@@ -14,6 +14,7 @@
 	let isLoading = $state(true);
 	let isJoining = $state(false);
 	let error = $state<string | null>(null);
+	let joinError = $state<string | null>(null);
 	let inviteInfo = $state<{ community: Community; valid: boolean } | null>(null);
 	let hasJoined = $state(false);
 
@@ -89,18 +90,22 @@
 			}, 1500);
 		} catch (err: any) {
 			console.error('Failed to join community:', err);
-			if (err.error?.includes('already a member')) {
+			const errorMessage = err.error || err.message || 'Failed to join community';
+			const lowerError = errorMessage.toLowerCase();
+
+			if (lowerError.includes('already a member')) {
 				addToast({
 					type: 'info',
 					message: 'You are already a member of this community'
 				});
 				goto('/app');
-			} else if (err.error?.includes('expired') || err.error?.includes('invalid')) {
-				error = 'This invite link has expired or is no longer valid';
+			} else if (lowerError.includes('expired') || lowerError.includes('invalid')) {
+				joinError = 'This invite link has expired or is no longer valid';
 			} else {
+				joinError = errorMessage;
 				addToast({
 					type: 'error',
-					message: 'Failed to join community. Please try again.'
+					message: errorMessage
 				});
 			}
 		} finally {
@@ -196,6 +201,13 @@
 					<Users size={18} />
 					<span>{inviteInfo.community.memberCount.toLocaleString()} member{inviteInfo.community.memberCount !== 1 ? 's' : ''}</span>
 				</div>
+
+				{#if joinError}
+					<div class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg flex items-start gap-2 text-error text-sm">
+						<AlertCircle size={16} class="mt-0.5 shrink-0" />
+						<span>{joinError}</span>
+					</div>
+				{/if}
 
 				<!-- Actions -->
 				{#if $isAuthenticated}

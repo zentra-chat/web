@@ -203,11 +203,7 @@
 			handleClose();
 		} catch (err: any) {
 			console.error('Failed to update profile:', err);
-			if (err.response?.data?.message) {
-				errors = { submit: err.response.data.message };
-			} else {
-				errors = { submit: 'Failed to update profile. Please try again.' };
-			}
+			errors = { submit: err.error || err.message || 'Failed to update profile. Please try again.' };
 		} finally {
 			isSubmitting = false;
 		}

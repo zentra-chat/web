@@ -68,11 +68,7 @@
 			handleClose();
 		} catch (err: any) {
 			console.error('Failed to create channel:', err);
-			if (err.response?.data?.message) {
-				errors = { submit: err.response.data.message };
-			} else {
-				errors = { submit: 'Failed to create channel. Please try again.' };
-			}
+			errors = { submit: err.error || err.message || 'Failed to create channel. Please try again.' };
 		} finally {
 			isSubmitting = false;
 		}

@@ -112,11 +112,7 @@
 			handleClose();
 		} catch (err: any) {
 			console.error('Failed to create community:', err);
-			if (err.response?.data?.message) {
-				errors = { submit: err.response.data.message };
-			} else {
-				errors = { submit: 'Failed to create community. Please try again.' };
-			}
+			errors = { submit: err.error || err.message || 'Failed to create community. Please try again.' };
 		} finally {
 			isSubmitting = false;
 		}

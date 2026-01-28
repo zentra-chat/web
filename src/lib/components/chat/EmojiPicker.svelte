@@ -5,9 +5,10 @@
 	interface Props {
 		onSelect: (emoji: string) => void;
 		onClose?: () => void;
+		align?: 'left' | 'right';
 	}
 
-	let { onSelect, onClose }: Props = $props();
+	let { onSelect, onClose, align = 'right' }: Props = $props();
 
 	let searchQuery = $state('');
 	let containerRef: HTMLDivElement | null = $state(null);
@@ -45,7 +46,9 @@
 
 <div
 	bind:this={containerRef}
-	class="absolute bottom-full right-0 mb-2 w-72 bg-surface border border-border rounded-lg shadow-xl overflow-hidden flex flex-col z-50 animate-in fade-in slide-in-from-bottom-2"
+	class="absolute bottom-full {align === 'left'
+		? 'left-0'
+		: 'right-0'} mb-2 w-72 bg-surface border border-border rounded-lg shadow-xl overflow-hidden flex flex-col z-50 animate-in fade-in slide-in-from-bottom-2"
 >
 	<!-- Search -->
 	<div class="p-2 border-b border-border">

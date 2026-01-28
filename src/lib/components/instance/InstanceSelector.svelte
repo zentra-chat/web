@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+
+
+
 	import {
 		activeInstance,
 		instances,

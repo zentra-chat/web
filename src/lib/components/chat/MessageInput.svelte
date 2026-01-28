@@ -23,7 +23,11 @@
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
 
-	let typingInChannel = $derived($typingUsers[channelId].filter(e=>e.userId!=$currentUserId) || []);
+	let typingInChannel = $derived(() => {
+		const users = $typingUsers[channelId] || [];
+		return users.filter(e => e.userId != $currentUserId);
+	});
+
 	let editingMessage = $derived.by(() => {
 		if (!$editingMessageId) return null;
 		const channelMsgs = $messages[channelId] || [];

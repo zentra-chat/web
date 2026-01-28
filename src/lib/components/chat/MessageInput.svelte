@@ -51,7 +51,7 @@
 				isUploading = true;
 				for (const file of attachments) {
 					try {
-						const att = await api.uploadAttachment(file);
+						const att = await api.uploadAttachment(file, channelId);
 						uploadedAttachments.push(att);
 					} catch (err) {
 						console.error('Failed to upload attachment:', err);

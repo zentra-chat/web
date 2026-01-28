@@ -101,7 +101,8 @@
 
 	function handleFileClick(event: MouseEvent, attachment: any) {
 		const previewableTypes = ['text/', 'application/json', 'application/javascript', 'application/x-typescript'];
-		const isPreviewable = previewableTypes.some(type => attachment.mimeType?.startsWith(type));
+		const contentType = attachment.contentType || attachment.mimeType || '';
+		const isPreviewable = previewableTypes.some(type => contentType.startsWith(type));
 
 		if (isPreviewable) {
 			event.preventDefault();
@@ -188,7 +189,7 @@
 			{#if message.attachments && message.attachments.length > 0}
 				<div class="mt-2 flex flex-wrap gap-2">
 					{#each message.attachments as attachment}
-						{#if attachment.mimeType?.startsWith('image/')}
+						{#if (attachment.contentType || attachment.mimeType)?.startsWith('image/')}
 							<a
 								href={attachment.url}
 								target="_blank"

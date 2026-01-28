@@ -465,9 +465,10 @@ class ApiClient {
 	}
 
 	// Media endpoints
-	async uploadAttachment(file: File): Promise<Attachment> {
+	async uploadAttachment(file: File, channelId: string): Promise<Attachment> {
 		const formData = new FormData();
 		formData.append('file', file);
+		formData.append('channelId', channelId);
 
 		const result = await this.request<ApiResponse<Attachment>>('/media/attachments', {
 			method: 'POST',

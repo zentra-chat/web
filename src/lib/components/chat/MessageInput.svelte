@@ -6,6 +6,7 @@
 	import { currentUser } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
 	import type { Message, Attachment } from '$lib/types';
+	import EmojiPicker from './EmojiPicker.svelte';
 
 	interface Props {
 		channelId: string;
@@ -17,6 +18,7 @@
 	let attachments = $state<File[]>([]);
 	let isSending = $state(false);
 	let isUploading = $state(false);
+	let showEmojiPicker = $state(false);
 	let textareaRef: HTMLTextAreaElement | null = $state(null);
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
@@ -72,7 +74,7 @@
 				const messageData: {
 					content: string;
 					replyToId?: string;
-					attachmentIds?: string[];
+					attachments?: string[];
 				} = {
 					content: trimmedContent
 				};
@@ -82,7 +84,7 @@
 				}
 
 				if (uploadedAttachments.length > 0) {
-					messageData.attachmentIds = uploadedAttachments.map(a => a.id);
+					messageData.attachments = uploadedAttachments.map(a => a.id);
 				}
 
 				const msg = await api.sendMessage(channelId, messageData);
@@ -122,6 +124,12 @@
 		websocket.sendTyping(channelId);
 	}
 
+	function handleEmojiSelect(emoji: string) {
+		content += emoji;
+		showEmojiPicker = false;
+		textareaRef?.focus();
+	}
+
 	function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (input.files) {
@@ -156,9 +164,55 @@
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
+
+	// Auto-focus message input when typing anywhere
+	$effect(() => {
+		function handleGlobalKeydown(e: KeyboardEvent) {
+			// Don't focus if we're already in an input, textarea, or contenteditable
+			const target = e.target as HTMLElement;
+			if (
+				target.tagName === 'INPUT' ||
+				target.tagName === 'TEXTAREA' ||
+				target.isContentEditable ||
+				e.ctrlKey ||
+				e.metaKey ||
+				e.altKey
+			) {
+				return;
+			}
+
+			// Focus if it's a printable character
+			if (e.key.length === 1) {
+				textareaRef?.focus();
+			}
+		}
+
+		window.addEventListener('keydown', handleGlobalKeydown, true);
+		return () => window.removeEventListener('keydown', handleGlobalKeydown, true);
+	});
 </script>
 
 <div class="px-4 pb-4">
+	<!-- Typing indicator -->
+	{#if typingInChannel.length > 0}
+		<div class="flex items-center gap-2 px-2 pt-1 text-xs mb-2 text-text-muted">
+			<div class="flex gap-1">
+				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 0ms"></span>
+				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 150ms"></span>
+				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 300ms"></span>
+			</div>
+			<span>
+				{#if typingInChannel.length === 1}
+					{typingInChannel[0].username} is typing...
+				{:else if typingInChannel.length === 2}
+					{typingInChannel[0].username} and {typingInChannel[1].username} are typing...
+				{:else}
+					Several people are typing...
+				{/if}
+			</span>
+		</div>
+	{/if}
+
 	<!-- Reply/Edit indicator -->
 	{#if $replyingToMessage}
 		<div class="flex items-center gap-2 px-4 py-2 bg-surface rounded-t-lg border border-b-0 border-border">
@@ -247,22 +301,30 @@
 			onkeydown={handleKeydown}
 			placeholder={$editingMessageId ? 'Edit message...' : 'Message...'}
 			rows={1}
-			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none max-h-48 min-h-12"
+			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none focus-visible:outline-none max-h-48 min-h-12 message-send-field"
 			disabled={isSending}
 		></textarea>
 
-		<div class="flex items-center gap-1 pr-2 shrink-0">
-			<button
-				class="p-2 text-text-muted hover:text-text-primary transition-colors"
-				aria-label="Add emoji"
-			>
-				<Smile size={20} />
-			</button>
+		<div class="flex items-center gap-1 pr-1 shrink-0">
+			<div class="relative">
+				{#if showEmojiPicker}
+					<div class="absolute bottom-full right-0 mb-4 z-50">
+						<EmojiPicker onSelect={handleEmojiSelect} onClose={() => (showEmojiPicker = false)} />
+					</div>
+				{/if}
+				<button
+					onclick={() => (showEmojiPicker = !showEmojiPicker)}
+					class="p-3 text-text-muted hover:text-text-primary transition-colors {showEmojiPicker ? 'text-primary' : ''}"
+					aria-label="Add emoji"
+				>
+					<Smile size={20} />
+				</button>
+			</div>
 
 			<button
 				onclick={handleSubmit}
 				disabled={isSending || (!content.trim() && attachments.length === 0)}
-				class="p-2 text-primary hover:text-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+				class="p-3 text-primary hover:text-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
 				aria-label={$editingMessageId ? 'Save edit' : 'Send message'}
 			>
 				{#if isSending}
@@ -273,24 +335,10 @@
 			</button>
 		</div>
 	</div>
-
-	<!-- Typing indicator -->
-	{#if typingInChannel.length > 0}
-		<div class="flex items-center gap-2 px-2 pt-1 text-xs text-text-muted">
-			<div class="flex gap-1">
-				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 0ms"></span>
-				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 150ms"></span>
-				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 300ms"></span>
-			</div>
-			<span>
-				{#if typingInChannel.length === 1}
-					{typingInChannel[0].username} is typing...
-				{:else if typingInChannel.length === 2}
-					{typingInChannel[0].username} and {typingInChannel[1].username} are typing...
-				{:else}
-					Several people are typing...
-				{/if}
-			</span>
-		</div>
-	{/if}
 </div>
+
+<style>
+	.message-send-field {
+		outline: none
+	}
+</style>

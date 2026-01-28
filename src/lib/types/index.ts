@@ -222,7 +222,9 @@ export type WebSocketEventType =
 	| 'CHANNEL_DELETE'
 	| 'COMMUNITY_UPDATE'
 	| 'MEMBER_JOIN'
-	| 'MEMBER_LEAVE';
+	| 'MEMBER_LEAVE'
+	| 'REACTION_ADD'
+	| 'REACTION_REMOVE';
 
 export interface WebSocketEvent<T = unknown> {
 	type: WebSocketEventType;

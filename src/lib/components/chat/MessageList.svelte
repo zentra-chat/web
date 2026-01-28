@@ -4,7 +4,7 @@
 	import { Hash, Megaphone, Lock } from '$lib/components/icons';
 	import MessageItem from './MessageItem.svelte';
 	import { activeChannel, messages, setMessages, addMessage, removeMessage } from '$lib/stores/community';
-	import { api } from '$lib/api';
+	import { api, websocket } from '$lib/api';
 	import type { Message, Channel } from '$lib/types';
 
 	interface Props {
@@ -18,21 +18,41 @@
 	let isLoadingMore = $state(false);
 	let hasMore = $state(true);
 	let error = $state<string | null>(null);
+	let isFirstLoad = $state(true);
 
 	let channelMessages = $derived($messages[channelId] || []);
 
 	$effect(() => {
 		if (channelId) {
+			isFirstLoad = true;
 			loadMessages();
+
+			// Subscribe to channel events
+			websocket.subscribe(channelId);
+
+			return () => {
+				websocket.unsubscribe(channelId);
+			};
 		}
 	});
 
 	// Auto-scroll to bottom when new messages arrive
 	$effect(() => {
 		if (channelMessages.length && containerRef) {
+			// If it's the first load, scroll to bottom immediately
+			if (isFirstLoad) {
+				tick().then(() => {
+					if (containerRef) {
+						containerRef.scrollTop = containerRef.scrollHeight;
+						isFirstLoad = false;
+					}
+				});
+				return;
+			}
+
 			// Check if user is near the bottom
 			const isNearBottom =
-				containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight < 100;
+				containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight < 150;
 
 			if (isNearBottom) {
 				tick().then(() => {
@@ -53,8 +73,10 @@
 
 		try {
 			const msgs = await api.getMessages(channelId);
-			setMessages(channelId, msgs);
-			hasMore = msgs.length >= 50;
+			// API returns DESC, we want ASC for display
+			const reversedMsgs = msgs ? [...msgs].reverse() : [];
+			setMessages(channelId, reversedMsgs);
+			hasMore = reversedMsgs.length >= 50;
 
 			// Scroll to bottom after initial load
 			await tick();
@@ -82,8 +104,10 @@
 				limit: 50
 			});
 
-			if (msgs.length > 0) {
-				setMessages(channelId, [...msgs, ...channelMessages]);
+			if (msgs && msgs.length > 0) {
+				// msgs are DESC from API, we want to maintain ASC in our store
+				const reversedMsgs = [...msgs].reverse();
+				setMessages(channelId, [...reversedMsgs, ...channelMessages]);
 				hasMore = msgs.length >= 50;
 
 				// Maintain scroll position

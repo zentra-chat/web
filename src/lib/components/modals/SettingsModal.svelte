@@ -172,7 +172,7 @@
 	}
 </script>
 
-<Modal isOpen={$settingsModalOpen} onclose={handleClose} title="Settings" size="lg">
+<Modal isOpen={$settingsModalOpen} onclose={handleClose} title="Settings" size="xl">
 	<div class="flex gap-6">
 		<!-- Tabs -->
 		<div class="w-40 space-y-1">

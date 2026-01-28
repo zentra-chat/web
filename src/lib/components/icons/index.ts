@@ -44,3 +44,4 @@ export { default as Copy } from './Copy.svelte';
 export { default as RefreshCw } from './RefreshCw.svelte';
 export { default as Spinner } from './Spinner.svelte';
 export { default as Folder } from './Folder.svelte';
+export { default as Download } from './Download.svelte';

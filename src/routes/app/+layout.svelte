@@ -8,15 +8,18 @@
 		DiscoverCommunitiesModal,
 		CreateChannelModal,
 		SettingsModal,
-		CommunitySettingsModal
+		CommunitySettingsModal,
+		FilePreviewModal
 	} from '$lib/components/modals';
 	import { instanceModalOpen } from '$lib/stores/ui';
 	import {
 		currentInstance,
 		instances,
 		isAuthenticated,
-		loadInstances
+		loadInstances,
+		activeAuth
 	} from '$lib/stores/instance';
+	import { websocket } from '$lib/api';
 
 	let { children } = $props();
 
@@ -32,7 +35,16 @@
 		}
 	});
 
-	// Watch for authentication changes
+	// Watch for authentication changes and connect websocket
+	$effect(() => {
+		if ($isAuthenticated && $activeAuth) {
+			websocket.connect();
+		} else {
+			websocket.disconnect();
+		}
+	});
+
+	// Watch for authentication changes for redirect
 	$effect(() => {
 		if (!isLoading && !$isAuthenticated) {
 			goto('/');
@@ -55,4 +67,5 @@
 <CreateChannelModal />
 <SettingsModal />
 <CommunitySettingsModal />
+<FilePreviewModal />
 <ToastContainer />

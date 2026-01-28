@@ -7,7 +7,9 @@ import {
 	addChannel,
 	updateChannel,
 	removeChannel,
-	updateCommunity
+	updateCommunity,
+	addMessageReaction,
+	removeMessageReaction
 } from '$lib/stores/community';
 import { setTyping, setUserPresence, showToast } from '$lib/stores/ui';
 import type {
@@ -31,6 +33,7 @@ class WebSocketManager {
 	private eventHandlers: Map<string, EventHandler[]> = new Map();
 	private messageQueue: string[] = [];
 	private isConnecting = false;
+	private activeSubscriptions: Set<string> = new Set();
 
 	connect(): void {
 		const instance = get(activeInstance);
@@ -49,7 +52,7 @@ class WebSocketManager {
 
 		// Convert http(s) to ws(s)
 		const wsUrl = instance.url.replace(/^http/, 'ws');
-		const url = `${wsUrl}/ws/?token=${auth.accessToken}`;
+		const url = `${wsUrl}/ws?token=${auth.accessToken}`;
 
 		try {
 			this.ws = new WebSocket(url);
@@ -70,6 +73,11 @@ class WebSocketManager {
 			this.reconnectAttempts = 0;
 			this.startHeartbeat();
 			this.flushMessageQueue();
+
+			// Resubscribe to active channels
+			this.activeSubscriptions.forEach((channelId) => {
+				this.send({ type: 'SUBSCRIBE', data: { channelId } });
+			});
 		};
 
 		this.ws.onmessage = (event) => {
@@ -134,6 +142,16 @@ class WebSocketManager {
 			case 'COMMUNITY_UPDATE':
 				this.handleCommunityUpdate(event.data as Community);
 				break;
+			case 'REACTION_ADD':
+				this.handleReactionAdd(
+					event.data as { channelId: string; messageId: string; userId: string; emoji: string }
+				);
+				break;
+			case 'REACTION_REMOVE':
+				this.handleReactionRemove(
+					event.data as { channelId: string; messageId: string; userId: string; emoji: string }
+				);
+				break;
 		}
 	}
 
@@ -175,6 +193,24 @@ class WebSocketManager {
 
 	private handleCommunityUpdate(community: Community): void {
 		updateCommunity(community.id, community);
+	}
+
+	private handleReactionAdd(data: {
+		channelId: string;
+		messageId: string;
+		userId: string;
+		emoji: string;
+	}): void {
+		addMessageReaction(data.channelId, data.messageId, data.userId, data.emoji);
+	}
+
+	private handleReactionRemove(data: {
+		channelId: string;
+		messageId: string;
+		userId: string;
+		emoji: string;
+	}): void {
+		removeMessageReaction(data.channelId, data.messageId, data.userId, data.emoji);
 	}
 
 	private startHeartbeat(): void {
@@ -230,10 +266,12 @@ class WebSocketManager {
 	}
 
 	subscribe(channelId: string): void {
+		this.activeSubscriptions.add(channelId);
 		this.send({ type: 'SUBSCRIBE', data: { channelId } });
 	}
 
 	unsubscribe(channelId: string): void {
+		this.activeSubscriptions.delete(channelId);
 		this.send({ type: 'UNSUBSCRIBE', data: { channelId } });
 	}
 

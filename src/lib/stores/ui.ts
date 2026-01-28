@@ -13,6 +13,8 @@ export const discoverCommunitiesModalOpen = writable(false);
 export const createChannelModalOpen = writable(false);
 export const settingsModalOpen = writable(false);
 export const communitySettingsModalOpen = writable(false);
+export const filePreviewOpen = writable(false);
+export const filePreviewData = writable<any | null>(null);
 
 // Modal state (legacy)
 export const modalState = writable<ModalState>({

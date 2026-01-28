@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { formatDistanceToNow, format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner } from '$lib/components/ui';
-	import { Edit, Trash, Reply, Pin, Paperclip, Image, File } from '$lib/components/icons';
+	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from '$lib/components/icons';
 	import type { Message, User } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
-	import { editingMessageId, replyingToMessage, setEditingMessage, setReplyingTo } from '$lib/stores/ui';
+	import { editingMessageId, replyingToMessage, setEditingMessage, setReplyingTo, filePreviewOpen, filePreviewData } from '$lib/stores/ui';
 	import { api } from '$lib/api';
+	import EmojiPicker from './EmojiPicker.svelte';
 
 	interface Props {
 		message: Message;
@@ -17,6 +18,7 @@
 
 	let isHovered = $state(false);
 	let isDeleting = $state(false);
+	let showEmojiPicker = $state(false);
 
 	let isOwnMessage = $derived(message.authorId === $currentUserId);
 	let isEditing = $derived($editingMessageId === message.id);
@@ -74,6 +76,38 @@
 
 	function handleReply() {
 		setReplyingTo(message);
+	}
+
+	async function handleReactionSelect(emoji: string) {
+		showEmojiPicker = false;
+		try {
+			await api.addReaction(message.id, emoji);
+		} catch (err) {
+			console.error('Failed to add reaction:', err);
+		}
+	}
+
+	async function handleToggleReaction(emoji: string, reacted: boolean) {
+		try {
+			if (reacted) {
+				await api.removeReaction(message.id, emoji);
+			} else {
+				await api.addReaction(message.id, emoji);
+			}
+		} catch (err) {
+			console.error('Failed to toggle reaction:', err);
+		}
+	}
+
+	function handleFileClick(event: MouseEvent, attachment: any) {
+		const previewableTypes = ['text/', 'application/json', 'application/javascript', 'application/x-typescript'];
+		const isPreviewable = previewableTypes.some(type => attachment.mimeType?.startsWith(type));
+
+		if (isPreviewable) {
+			event.preventDefault();
+			filePreviewData.set(attachment);
+			filePreviewOpen.set(true);
+		}
 	}
 
 	function getFileIcon(mimeType: string) {
@@ -143,7 +177,7 @@
 			{/if}
 
 			<!-- Message content -->
-			<div class="text-text-secondary break-words whitespace-pre-wrap">
+			<div class="text-text-secondary wrap-break-word whitespace-pre-wrap">
 				{message.content}
 				{#if message.isEdited}
 					<span class="text-xs text-text-muted ml-1">(edited)</span>
@@ -173,6 +207,7 @@
 								target="_blank"
 								rel="noopener noreferrer"
 								class="flex items-center gap-2 p-3 bg-surface border border-border rounded-lg hover:border-primary transition-colors"
+								onclick={(e) => handleFileClick(e, attachment)}
 							>
 								<File size={24} class="text-text-muted" />
 								<div class="min-w-0">
@@ -184,12 +219,52 @@
 					{/each}
 				</div>
 			{/if}
+
+			<!-- Reactions -->
+			{#if message.reactions && message.reactions.length > 0}
+				<div class="mt-2 flex flex-wrap gap-1">
+					{#each message.reactions as reaction}
+						<button
+							onclick={() => handleToggleReaction(reaction.emoji, reaction.reacted)}
+							class="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium transition-colors {reaction.reacted ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-muted hover:border-text-muted'}"
+						>
+							<span>{reaction.emoji}</span>
+							<span>{reaction.count}</span>
+						</button>
+					{/each}
+					<div class="relative">
+						{#if showEmojiPicker && !isHovered}
+							<div class="absolute bottom-full left-0 mb-4 z-50">
+								<EmojiPicker onSelect={handleReactionSelect} onClose={() => (showEmojiPicker = false)} />
+							</div>
+						{/if}
+						<button
+							onclick={() => (showEmojiPicker = !showEmojiPicker)}
+							class="flex items-center justify-center w-7 h-6 rounded-full border border-border bg-surface text-text-muted hover:border-text-muted transition-colors"
+						>
+							<Smile size={14} />
+						</button>
+					</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 
 	<!-- Action buttons -->
 	{#if isHovered && !isDeleting}
-		<div class="absolute -top-4 right-4 flex items-center bg-surface border border-border rounded shadow-lg">
+		<div class="absolute -top-4 right-4 flex items-center bg-surface border border-border rounded shadow-lg z-10">
+			{#if showEmojiPicker}
+				<div class="absolute bottom-full right-0 mb-2">
+					<EmojiPicker onSelect={handleReactionSelect} onClose={() => (showEmojiPicker = false)} />
+				</div>
+			{/if}
+			<button
+				onclick={() => (showEmojiPicker = !showEmojiPicker)}
+				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+				aria-label="Add Reaction"
+			>
+				<Smile size={16} />
+			</button>
 			<button
 				onclick={handleReply}
 				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"

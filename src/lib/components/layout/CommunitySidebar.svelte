@@ -64,83 +64,102 @@
 	{$isMobileMenuOpen ? 'fixed left-18 top-0 bottom-0 z-50' : 'hidden md:flex'}"
 >
 	<!-- Home / DMs button -->
-	<Tooltip text="Home" position="right">
-		<button
-			onclick={handleHomeClick}
-			class="w-12 h-12 rounded-2xl {$activeCommunityId === null
-				? 'rounded-xl bg-primary text-background'
-				: 'bg-surface-hover hover:bg-surface-active text-text-secondary hover:text-text-primary'} transition-all duration-200 flex items-center justify-center"
-		>
-			<Home size={24} />
-		</button>
-	</Tooltip>
-
-	<div class="w-8 h-0.5 bg-border rounded-full my-1"></div>
-
-	<!-- Communities list -->
-	<div class="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center gap-2 px-3 scrollbar-hide">
-		{#if $isLoadingCommunities}
-			<div class="w-12 h-12 rounded-2xl bg-surface-hover animate-pulse"></div>
-			<div class="w-12 h-12 rounded-2xl bg-surface-hover animate-pulse"></div>
-		{:else}
-			{#each communities as community (community.id)}
-				<Tooltip text={community.name} position="right">
-					<button
-						onclick={() => handleCommunityClick(community)}
-						class="relative w-12 h-12 rounded-2xl {$activeCommunityId === community.id
-							? 'rounded-xl'
-							: 'hover:rounded-xl'} bg-surface-hover hover:bg-surface-active transition-all duration-200 flex items-center justify-center group"
-					>
-						{#if community.iconUrl}
-							<img
-								src={community.iconUrl}
-								alt={community.name}
-								class="w-full h-full object-cover rounded-[inherit]"
-							/>
-						{:else}
-							<span class="text-lg font-bold text-primary">
-								{community.name.charAt(0).toUpperCase()}
-							</span>
-						{/if}
-						{#if $activeCommunityId === community.id}
-							<div
-								class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1.5 w-1.5 h-8 bg-text-primary rounded-full transition-all duration-200"
-							></div>
-						{:else}
-							<div
-								class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1.5 w-1.5 h-2 bg-text-primary rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
-							></div>
-						{/if}
-					</button>
-				</Tooltip>
-			{/each}
-		{/if}
-
-		<!-- Add community button -->
-		<Tooltip text="Create Community" position="right">
+	<div class="relative group">
+		<div
+			class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 bg-text-primary rounded-r-full transition-all duration-200
+			{$activeCommunityId === null ? 'h-10' : 'h-0 group-hover:h-5'}"
+		></div>
+		<Tooltip text="Home" position="right">
 			<button
-				onclick={openCreateCommunityModal}
-				class="w-12 h-12 rounded-2xl hover:rounded-xl border-2 border-dashed border-border hover:border-primary text-text-muted hover:text-primary transition-all duration-200 flex items-center justify-center"
+				onclick={handleHomeClick}
+				class="w-12 h-12 flex items-center justify-center transition-all duration-200
+				{$activeCommunityId === null
+					? 'bg-primary text-background rounded-xl'
+					: 'bg-surface-hover hover:bg-primary hover:text-background rounded-2xl hover:rounded-xl text-text-secondary'}"
 			>
-				<Plus size={24} />
-			</button>
-		</Tooltip>
-
-		<!-- Discover button -->
-		<Tooltip text="Discover Communities" position="right">
-			<button
-				onclick={openDiscoverCommunitiesModal}
-				class="w-12 h-12 rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-success/20 text-text-muted hover:text-success transition-all duration-200 flex items-center justify-center"
-			>
-				<Search size={20} />
+				<Home size={24} />
 			</button>
 		</Tooltip>
 	</div>
 
 	<div class="w-8 h-0.5 bg-border rounded-full my-1"></div>
 
+	<!-- Communities list -->
+	<div class="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center gap-2 px-3 scrollbar-hide">
+		{#if $isLoadingCommunities}
+			{#each Array(3) as _}
+				<div class="w-12 h-12 rounded-2xl bg-surface-hover animate-pulse"></div>
+			{/each}
+		{:else}
+			{#each communities as community (community.id)}
+				<div class="relative group">
+					<div
+						class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 bg-text-primary rounded-r-full transition-all duration-200
+						{$activeCommunityId === community.id ? 'h-10' : 'h-0 group-hover:h-5'}"
+					></div>
+					<Tooltip text={community.name} position="right">
+						<button
+							onclick={() => handleCommunityClick(community)}
+							class="w-12 h-12 transition-all duration-200 flex items-center justify-center overflow-hidden
+							{$activeCommunityId === community.id
+								? 'rounded-xl'
+								: 'rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-primary'}"
+						>
+							{#if community.iconUrl}
+								<img
+									src={community.iconUrl}
+									alt={community.name}
+									class="w-full h-full object-cover"
+								/>
+							{:else}
+								<div
+									class="w-full h-full flex items-center justify-center font-bold text-lg
+									{$activeCommunityId === community.id ? 'text-white' : 'text-text-secondary group-hover:text-white'}"
+								>
+									{community.name.substring(0, 1).toUpperCase()}
+								</div>
+							{/if}
+						</button>
+					</Tooltip>
+				</div>
+			{/each}
+		{/if}
+
+		<!-- Add community button -->
+		<div class="relative group">
+			<div
+				class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 bg-success rounded-r-full transition-all duration-200 h-0 group-hover:h-5"
+			></div>
+			<Tooltip text="Create Community" position="right">
+				<button
+					onclick={openCreateCommunityModal}
+					class="w-12 h-12 rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-success text-success hover:text-white transition-all duration-200 flex items-center justify-center"
+				>
+					<Plus size={24} />
+				</button>
+			</Tooltip>
+		</div>
+
+		<!-- Discover button -->
+		<div class="relative group">
+			<div
+				class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 bg-success rounded-r-full transition-all duration-200 h-0 group-hover:h-5"
+			></div>
+			<Tooltip text="Discover Communities" position="right">
+				<button
+					onclick={openDiscoverCommunitiesModal}
+					class="w-12 h-12 rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-success text-success hover:text-white transition-all duration-200 flex items-center justify-center"
+				>
+					<Search size={20} />
+				</button>
+			</Tooltip>
+		</div>
+	</div>
+
+	<div class="w-8 h-0.5 bg-border rounded-full my-1"></div>
+
 	<!-- User section -->
-	<div class="flex flex-col items-center gap-2">
+	<div class="flex flex-col items-center gap-2 mt-auto">
 		<Tooltip text="Settings" position="right">
 			<button
 				onclick={openSettingsModal}
@@ -153,7 +172,7 @@
 		<Tooltip text={$currentUser?.username || 'Profile'} position="right">
 			<button
 				onclick={() => openModal('profile')}
-				class="w-12 h-12 rounded-full overflow-hidden hover:opacity-80 transition-opacity"
+				class="w-12 h-12 rounded-full overflow-hidden hover:opacity-80 transition-opacity flex items-center justify-center"
 			>
 				<Avatar user={$currentUser} size="lg" />
 			</button>

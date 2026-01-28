@@ -214,7 +214,7 @@
 	}
 </script>
 
-<Modal isOpen={$communitySettingsModalOpen} onclose={handleClose} title="Community Settings" size="lg">
+<Modal isOpen={$communitySettingsModalOpen} onclose={handleClose} title="Community Settings" size="xl">
 	<div class="flex gap-6">
 		<!-- Tabs -->
 		<div class="w-40 space-y-1">

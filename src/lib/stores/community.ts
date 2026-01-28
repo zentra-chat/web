@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Community, Channel, ChannelCategory, CommunityMember, Message } from '$lib/types';
+import { activeInstance, currentUserId } from './instance';
 
 // Currently selected community
 export const activeCommunityId = writable<string | null>(null);
@@ -89,16 +90,22 @@ export const activeChannelMessages = derived(
 
 // Cache management functions
 export function setCommunities(communities: Community[]): void {
+	const instance = get(activeInstance);
+	if (!instance) return;
+
 	communitiesCache.update((cache) => ({
 		...cache,
-		default: communities
+		[instance.id]: communities
 	}));
 }
 
 export function addCommunity(community: Community): void {
+	const instance = get(activeInstance);
+	if (!instance) return;
+
 	communitiesCache.update((cache) => ({
 		...cache,
-		default: [...(cache.default || []), community]
+		[instance.id]: [...(cache[instance.id] || []), community]
 	}));
 }
 
@@ -194,10 +201,16 @@ export function setMessages(channelId: string, messages: Message[]): void {
 }
 
 export function addMessage(channelId: string, message: Message): void {
-	messagesCache.update((cache) => ({
-		...cache,
-		[channelId]: [...(cache[channelId] || []), message]
-	}));
+	messagesCache.update((cache) => {
+		const channelMsgs = cache[channelId] || [];
+		if (channelMsgs.some((m) => m.id === message.id)) {
+			return cache;
+		}
+		return {
+			...cache,
+			[channelId]: [...channelMsgs, message]
+		};
+	});
 }
 
 export function updateMessage(channelId: string, messageId: string, updates: Partial<Message>): void {
@@ -214,6 +227,75 @@ export function removeMessage(channelId: string, messageId: string): void {
 		...cache,
 		[channelId]: (cache[channelId] || []).filter((m) => m.id !== messageId)
 	}));
+}
+
+export function addMessageReaction(
+	channelId: string,
+	messageId: string,
+	userId: string,
+	emoji: string
+): void {
+	const currentId = get(currentUserId);
+	messagesCache.update((cache) => {
+		const channelMsgs = cache[channelId] || [];
+		return {
+			...cache,
+			[channelId]: channelMsgs.map((m) => {
+				if (m.id !== messageId) return m;
+
+				const reactions = [...(m.reactions || [])];
+				const existingIndex = reactions.findIndex((r) => r.emoji === emoji);
+
+				if (existingIndex !== -1) {
+					const r = reactions[existingIndex];
+					reactions[existingIndex] = {
+						...r,
+						count: r.count + 1,
+						reacted: r.reacted || userId === currentId
+					};
+				} else {
+					reactions.push({
+						emoji,
+						count: 1,
+						reacted: userId === currentId
+					});
+				}
+
+				return { ...m, reactions };
+			})
+		};
+	});
+}
+
+export function removeMessageReaction(
+	channelId: string,
+	messageId: string,
+	userId: string,
+	emoji: string
+): void {
+	const currentId = get(currentUserId);
+	messagesCache.update((cache) => {
+		const channelMsgs = cache[channelId] || [];
+		return {
+			...cache,
+			[channelId]: channelMsgs.map((m) => {
+				if (m.id !== messageId) return m;
+
+				const reactions = (m.reactions || [])
+					.map((r) => {
+						if (r.emoji !== emoji) return r;
+						return {
+							...r,
+							count: Math.max(0, r.count - 1),
+							reacted: userId === currentId ? false : r.reacted
+						};
+					})
+					.filter((r) => r.count > 0);
+
+				return { ...m, reactions };
+			})
+		};
+	});
 }
 
 export function prependMessages(channelId: string, messages: Message[]): void {

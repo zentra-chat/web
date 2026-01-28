@@ -26,15 +26,14 @@ class ApiClient {
 		return `${instance.url}/api/v1`;
 	}
 
-	private getHeaders(includeAuth = true): HeadersInit {
-		const headers: HeadersInit = {
-			'Content-Type': 'application/json'
-		};
+	private getHeaders(includeAuth = true): Headers {
+		const headers = new Headers();
+		headers.set('Content-Type', 'application/json');
 
 		if (includeAuth) {
 			const auth = get(activeAuth);
 			if (auth) {
-				headers['Authorization'] = `Bearer ${auth.accessToken}`;
+				headers.set('Authorization', `Bearer ${auth.accessToken}`);
 			}
 		}
 
@@ -83,19 +82,29 @@ class ApiClient {
 		const url = `${this.getBaseUrl()}${endpoint}`;
 		const headers = this.getHeaders(includeAuth);
 
+		// Remove Content-Type if we're sending FormData
+		if (options.body instanceof FormData) {
+			headers.delete('Content-Type');
+		}
+
 		try {
 			const response = await fetch(url, {
 				...options,
-				headers: { ...headers, ...options.headers }
+				headers: { ...Object.fromEntries(headers.entries()), ...options.headers }
 			});
 
 			return await this.handleResponse<T>(response);
 		} catch (error) {
 			if (retry && (error as any).shouldRetry) {
 				// Retry the request after token refresh
+				const newHeaders = this.getHeaders(includeAuth);
+				if (options.body instanceof FormData) {
+					newHeaders.delete('Content-Type');
+				}
+
 				const response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
 					...options,
-					headers: { ...this.getHeaders(includeAuth), ...options.headers }
+					headers: { ...Object.fromEntries(newHeaders.entries()), ...options.headers }
 				});
 				return await this.handleResponse<T>(response);
 			}
@@ -196,17 +205,11 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('avatar', file);
 
-		const auth = get(activeAuth);
-		const response = await fetch(`${this.getBaseUrl()}/media/avatars/user`, {
+		const result = await this.request<ApiResponse<{ url: string }>>('/media/avatars/user', {
 			method: 'POST',
-			headers: {
-				Authorization: auth ? `Bearer ${auth.accessToken}` : ''
-			},
 			body: formData
 		});
 
-		const result: ApiResponse<{ url: string }> = await response.json();
-		if (!response.ok) throw result;
 		return result.data.url;
 	}
 
@@ -304,17 +307,11 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('icon', file);
 
-		const auth = get(activeAuth);
-		const response = await fetch(`${this.getBaseUrl()}/media/communities/${communityId}/icon`, {
+		const result = await this.request<ApiResponse<{ url: string }>>(`/media/communities/${communityId}/icon`, {
 			method: 'POST',
-			headers: {
-				Authorization: auth ? `Bearer ${auth.accessToken}` : ''
-			},
 			body: formData
 		});
 
-		const result: ApiResponse<{ url: string }> = await response.json();
-		if (!response.ok) throw result;
 		return result.data.url;
 	}
 
@@ -472,17 +469,11 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('file', file);
 
-		const auth = get(activeAuth);
-		const response = await fetch(`${this.getBaseUrl()}/media/attachments`, {
+		const result = await this.request<ApiResponse<Attachment>>('/media/attachments', {
 			method: 'POST',
-			headers: {
-				Authorization: auth ? `Bearer ${auth.accessToken}` : ''
-			},
 			body: formData
 		});
 
-		const result: ApiResponse<Attachment> = await response.json();
-		if (!response.ok) throw result;
 		return result.data;
 	}
 

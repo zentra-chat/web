@@ -89,13 +89,14 @@
 			const community = await api.createCommunity({
 				name: name.trim(),
 				description: description.trim() || undefined,
-				isPrivate
+				isPublic: !isPrivate
 			});
 
 			// Upload icon if provided
 			if (icon && community.id) {
 				try {
 					const iconUrl = await api.updateCommunityIcon(community.id, icon);
+					community.iconUrl = iconUrl;
 					community.icon = iconUrl;
 				} catch (err) {
 					console.error('Failed to upload icon:', err);

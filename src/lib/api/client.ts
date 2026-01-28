@@ -336,12 +336,12 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('icon', file);
 
-		const result = await this.request<ApiResponse<{ url: string }>>(`/media/communities/${communityId}/icon`, {
+		const result = await this.request<ApiResponse<{ iconUrl: string }>>(`/media/communities/${communityId}/icon`, {
 			method: 'POST',
 			body: formData
 		});
 
-		return result.data.url;
+		return result.data.iconUrl;
 	}
 
 	async removeCommunityIcon(communityId: string): Promise<void> {

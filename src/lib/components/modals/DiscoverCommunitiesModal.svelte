@@ -19,7 +19,7 @@
 		hasSearched = true;
 
 		try {
-			communities = await api.discoverCommunities(searchQuery.trim(), 1, 20);
+			communities = (await api.discoverCommunities(searchQuery.trim(), 1, 20)) || [];
 		} catch (err) {
 			console.error('Failed to search communities:', err);
 			addToast({

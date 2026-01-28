@@ -3,7 +3,7 @@
 	import { Send, Plus, X, Smile, Image, Paperclip, Gift } from '$lib/components/icons';
 	import { replyingToMessage, editingMessageId, typingUsers, setReplyingTo, setEditingMessage, addToast } from '$lib/stores/ui';
 	import { addMessage, updateMessage, messages } from '$lib/stores/community';
-	import { currentUser } from '$lib/stores/instance';
+	import { currentUser, currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
 	import type { Message, Attachment } from '$lib/types';
 	import EmojiPicker from './EmojiPicker.svelte';
@@ -22,7 +22,8 @@
 	let textareaRef: HTMLTextAreaElement | null = $state(null);
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
-	let typingInChannel = $derived($typingUsers[channelId] || []);
+
+	let typingInChannel = $derived($typingUsers[channelId].filter(e=>e.userId!=$currentUserId) || []);
 	let editingMessage = $derived.by(() => {
 		if (!$editingMessageId) return null;
 		const channelMsgs = $messages[channelId] || [];

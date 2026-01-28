@@ -252,7 +252,7 @@
 	</div>
 
 	<!-- Action buttons -->
-	{#if isHovered && !isDeleting}
+	{#if (isHovered || showEmojiPicker) && !isDeleting}
 		<div class="absolute -top-4 right-4 flex items-center bg-surface border border-border rounded shadow-lg z-10">
 			{#if showEmojiPicker}
 				<div class="absolute bottom-full right-0 mb-2">

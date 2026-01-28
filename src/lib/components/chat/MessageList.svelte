@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { Spinner } from '$lib/components/ui';
-	import { Hash, Megaphone, Lock } from '$lib/components/icons';
+	import { Hash, Megaphone, Lock, Users } from '$lib/components/icons';
 	import MessageItem from './MessageItem.svelte';
 	import { activeChannel, messages, setMessages, addMessage, removeMessage } from '$lib/stores/community';
+	import { showMemberSidebar, toggleMemberSidebar } from '$lib/stores/ui';
 	import { api, websocket } from '$lib/api';
 	import type { Message, Channel } from '$lib/types';
 
@@ -161,6 +162,18 @@
 				<span class="text-text-muted mx-2">|</span>
 				<p class="text-sm text-text-muted truncate">{$activeChannel.description}</p>
 			{/if}
+
+			<div class="ml-auto flex items-center gap-2">
+				<button
+					onclick={toggleMemberSidebar}
+					class="p-2 {$showMemberSidebar
+						? 'text-text-primary'
+						: 'text-text-muted'} hover:text-text-primary transition-colors"
+					title={$showMemberSidebar ? 'Hide Member List' : 'Show Member List'}
+				>
+					<Users size={20} />
+				</button>
+			</div>
 		</div>
 	{/if}
 

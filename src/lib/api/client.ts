@@ -248,6 +248,35 @@ class ApiClient {
 		return result.data;
 	}
 
+	async changePassword(password: string): Promise<void> {
+		await this.request('/auth/change-password', {
+			method: 'POST',
+			body: JSON.stringify({ password })
+		});
+	}
+
+	async enable2FA(): Promise<{ secret: string; qrCode: string }> {
+		const result = await this.request<ApiResponse<{ secret: string; qrCode: string }>>('/auth/2fa/enable', {
+			method: 'POST'
+		});
+		return result.data;
+	}
+
+	async verify2FA(code: string): Promise<{ backupCodes: string[] }> {
+		const result = await this.request<ApiResponse<{ backupCodes: string[] }>>('/auth/2fa/verify', {
+			method: 'POST',
+			body: JSON.stringify({ code })
+		});
+		return result.data;
+	}
+
+	async disable2FA(code: string): Promise<void> {
+		await this.request('/auth/2fa/disable', {
+			method: 'POST',
+			body: JSON.stringify({ code })
+		});
+	}
+
 	// Community endpoints
 	async discoverCommunities(query?: string, page = 1, pageSize = 20): Promise<Community[]> {
 		const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });

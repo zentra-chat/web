@@ -19,14 +19,79 @@
 
 	// Load current user data when modal opens
 	$effect(() => {
-		if ($settingsModalOpen && $currentUser) {
-			displayName = $currentUser.displayName || '';
-			username = $currentUser.username || '';
-			bio = $currentUser.bio || '';
-			customStatus = $currentUser.customStatus || '';
-			avatarPreview = $currentUser.avatar || null;
+		if ($settingsModalOpen) {
+			if ($currentUser) {
+				displayName = $currentUser.displayName || '';
+				username = $currentUser.username || '';
+				bio = $currentUser.bio || '';
+				customStatus = $currentUser.customStatus || '';
+				avatarPreview = $currentUser.avatar || $currentUser.avatarUrl || null;
+			}
+
+			// Fetch latest user data to ensure we have everything (bio, customStatus, etc)
+			api.getCurrentUser()
+				.then((user) => {
+					updateCurrentUser(user);
+					displayName = user.displayName || '';
+					username = user.username || '';
+					bio = user.bio || '';
+					customStatus = user.customStatus || '';
+					avatarPreview = user.avatar || user.avatarUrl || null;
+				})
+				.catch((err) => {
+					console.error('Failed to fetch latest user data:', err);
+				});
 		}
 	});
+
+	async function handlePasswordChange() {
+		const newPassword = prompt('Enter new password:');
+		if (!newPassword) return;
+
+		try {
+			await api.changePassword(newPassword);
+			addToast({
+				type: 'success',
+				message: 'Password changed successfully'
+			});
+		} catch (err) {
+			console.error('Failed to change password:', err);
+			addToast({
+				type: 'error',
+				message: 'Failed to change password'
+			});
+		}
+	}
+
+	async function handleToggle2FA() {
+		if ($currentUser?.mfaEnabled) {
+			const code = prompt('Enter 2FA code to disable:');
+			if (!code) return;
+			try {
+				await api.disable2FA(code);
+				updateCurrentUser({ mfaEnabled: false, totpEnabled: false });
+				addToast({ type: 'success', message: '2FA disabled' });
+			} catch (err) {
+				addToast({ type: 'error', message: 'Failed to disable 2FA' });
+			}
+		} else {
+			try {
+				const { secret, qrCode } = await api.enable2FA();
+				// In a real app, show a modal with the QR code.
+				// For now, we'll prompt for the verification code.
+				alert(`2FA Secret: ${secret}\n\nPlease enter this into your authenticator app.`);
+				const code = prompt('Enter verification code from app:');
+				if (!code) return;
+
+				await api.verify2FA(code);
+				updateCurrentUser({ mfaEnabled: true, totpEnabled: true });
+				addToast({ type: 'success', message: '2FA enabled successfully!' });
+			} catch (err) {
+				console.error('Failed to enable 2FA:', err);
+				addToast({ type: 'error', message: 'Failed to enable 2FA' });
+			}
+		}
+	}
 
 	function handleClose() {
 		closeSettingsModal();
@@ -34,8 +99,12 @@
 	}
 
 	function resetForm() {
+		displayName = $currentUser?.displayName || '';
+		username = $currentUser?.username || '';
+		bio = $currentUser?.bio || '';
+		customStatus = $currentUser?.customStatus || '';
 		avatar = null;
-		avatarPreview = $currentUser?.avatar || null;
+		avatarPreview = $currentUser?.avatar || $currentUser?.avatarUrl || null;
 		errors = {};
 	}
 
@@ -303,14 +372,14 @@
 
 					<div>
 						<h3 class="text-lg font-semibold text-text-primary mb-2">Password</h3>
-						<Button variant="secondary">Change Password</Button>
+						<Button variant="secondary" onclick={handlePasswordChange}>Change Password</Button>
 					</div>
 
 					<div>
 						<h3 class="text-lg font-semibold text-text-primary mb-2">Two-Factor Authentication</h3>
 						<p class="text-sm text-text-muted mb-2">Add an extra layer of security to your account</p>
-						<Button variant="secondary">
-							{$currentUser?.mfaEnabled ? 'Manage 2FA' : 'Enable 2FA'}
+						<Button variant="secondary" onclick={handleToggle2FA}>
+							{$currentUser?.mfaEnabled || $currentUser?.totpEnabled ? 'Manage 2FA' : 'Enable 2FA'}
 						</Button>
 					</div>
 

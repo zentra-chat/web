@@ -235,9 +235,10 @@ export function addMessageReaction(
 	userId: string,
 	emoji: string
 ): void {
-	const currentId = get(currentUserId);
 	messagesCache.update((cache) => {
-		const channelMsgs = cache[channelId] || [];
+		const channelMsgs = cache[channelId];
+		if (!channelMsgs) return cache;
+
 		return {
 			...cache,
 			[channelId]: channelMsgs.map((m) => {
@@ -248,16 +249,19 @@ export function addMessageReaction(
 
 				if (existingIndex !== -1) {
 					const r = reactions[existingIndex];
-					reactions[existingIndex] = {
-						...r,
-						count: r.count + 1,
-						reacted: r.reacted || userId === currentId
-					};
+					// Only increment if we haven't already reacted
+					if (!r.reacted) {
+						reactions[existingIndex] = {
+							...r,
+							count: r.count + 1,
+							reacted: true
+						};
+					}
 				} else {
 					reactions.push({
 						emoji,
 						count: 1,
-						reacted: userId === currentId
+						reacted: true
 					});
 				}
 
@@ -273,9 +277,10 @@ export function removeMessageReaction(
 	userId: string,
 	emoji: string
 ): void {
-	const currentId = get(currentUserId);
 	messagesCache.update((cache) => {
-		const channelMsgs = cache[channelId] || [];
+		const channelMsgs = cache[channelId];
+		if (!channelMsgs) return cache;
+
 		return {
 			...cache,
 			[channelId]: channelMsgs.map((m) => {
@@ -284,11 +289,15 @@ export function removeMessageReaction(
 				const reactions = (m.reactions || [])
 					.map((r) => {
 						if (r.emoji !== emoji) return r;
-						return {
-							...r,
-							count: Math.max(0, r.count - 1),
-							reacted: userId === currentId ? false : r.reacted
-						};
+						// Only decrement if we had already reacted
+						if (r.reacted) {
+							return {
+								...r,
+								count: Math.max(0, r.count - 1),
+								reacted: false
+							};
+						}
+						return r;
 					})
 					.filter((r) => r.count > 0);
 

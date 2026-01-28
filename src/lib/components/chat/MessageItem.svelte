@@ -18,7 +18,8 @@
 
 	let isHovered = $state(false);
 	let isDeleting = $state(false);
-	let showEmojiPicker = $state(false);
+	let showActionBarPicker = $state(false);
+	let showReactionsPicker = $state(false);
 
 	let isOwnMessage = $derived(message.authorId === $currentUserId);
 	let isEditing = $derived($editingMessageId === message.id);
@@ -79,12 +80,10 @@
 	}
 
 	async function handleReactionSelect(emoji: string) {
-		showEmojiPicker = false;
-		try {
-			await api.addReaction(message.id, emoji);
-		} catch (err) {
-			console.error('Failed to add reaction:', err);
-		}
+		showActionBarPicker = false;
+		showReactionsPicker = false;
+		const existingReaction = message.reactions?.find((r) => r.emoji === emoji);
+		handleToggleReaction(emoji, !!existingReaction?.reacted);
 	}
 
 	async function handleToggleReaction(emoji: string, reacted: boolean) {
@@ -234,13 +233,17 @@
 						</button>
 					{/each}
 					<div class="relative">
-						{#if showEmojiPicker && !isHovered}
+						{#if showReactionsPicker}
 							<div class="absolute bottom-full left-0 mb-4 z-50">
-								<EmojiPicker onSelect={handleReactionSelect} onClose={() => (showEmojiPicker = false)} />
+								<EmojiPicker
+									align="left"
+									onSelect={handleReactionSelect}
+									onClose={() => (showReactionsPicker = false)}
+								/>
 							</div>
 						{/if}
 						<button
-							onclick={() => (showEmojiPicker = !showEmojiPicker)}
+							onclick={() => (showReactionsPicker = !showReactionsPicker)}
 							class="flex items-center justify-center w-7 h-6 rounded-full border border-border bg-surface text-text-muted hover:border-text-muted transition-colors"
 						>
 							<Smile size={14} />
@@ -252,15 +255,20 @@
 	</div>
 
 	<!-- Action buttons -->
-	{#if (isHovered || showEmojiPicker) && !isDeleting}
-		<div class="absolute -top-4 right-4 flex items-center bg-surface border border-border rounded shadow-lg z-10">
-			{#if showEmojiPicker}
+	{#if (isHovered || showActionBarPicker) && !isDeleting}
+		<div
+			class="absolute -top-4 right-4 flex items-center bg-surface border border-border rounded shadow-lg z-10"
+		>
+			{#if showActionBarPicker}
 				<div class="absolute bottom-full right-0 mb-2">
-					<EmojiPicker onSelect={handleReactionSelect} onClose={() => (showEmojiPicker = false)} />
+					<EmojiPicker
+						onSelect={handleReactionSelect}
+						onClose={() => (showActionBarPicker = false)}
+					/>
 				</div>
 			{/if}
 			<button
-				onclick={() => (showEmojiPicker = !showEmojiPicker)}
+				onclick={() => (showActionBarPicker = !showActionBarPicker)}
 				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
 				aria-label="Add Reaction"
 			>

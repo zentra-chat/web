@@ -70,11 +70,11 @@
 				{/if}
 				{#if isActive}
 					<div
-						class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1.5 w-1.5 h-8 bg-primary rounded-full"
+						class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-5.5 w-4 h-12 rounded-r-full bg-white rounded-full"
 					></div>
 				{:else}
 					<div
-						class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1.5 w-1.5 h-2 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
+						class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3.25 w-1.5 h-2 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
 					></div>
 				{/if}
 				<span

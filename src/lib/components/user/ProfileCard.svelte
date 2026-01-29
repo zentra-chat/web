@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import { Avatar, Button } from '$lib/components/ui';
+	import { Button } from '$lib/components/ui';
 	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from '$lib/components/icons';
 	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
@@ -30,14 +30,20 @@
 		transition:fade={{ duration: 150 }}
 	>
 		<div
-			class="pointer-events-auto w-75 bg-bg-secondary rounded-xl shadow-2xl border border-b0order overflow-hidden bg-background-secondary"
+			class="pointer-events-auto w-[300px] bg-bg-secondary rounded-xl shadow-2xl border border-border overflow-visible bg-background"
 			use:clickOutside={closeProfileCard}
 			transition:scale={{ duration: 150, start: 0.95 }}
 		>
 			<!-- Header/Banner -->
-			<div class="h-20 bg-primary/20 relative">
-				<div class="absolute -bottom-10 left-4 border-4 border-bg-secondary rounded-full bg-bg-secondary">
-					<Avatar {user} size="xl" />
+			<div class="h-20 bg-primary/20 relative overflow-visible">
+				<div class="absolute -bottom-10 left-4 profile-avatar-wrapper border-4 border-bg-secondary rounded-full bg-bg-secondary overflow-hidden flex items-center justify-center">
+					{#if user.avatarUrl}
+						<img src={user.avatarUrl} alt={user.displayName || user.username} class="w-[64px] h-[64px] object-cover block" />
+					{:else}
+						<div class="w-[64px] h-[64px] flex items-center justify-center font-medium text-primary bg-linear-to-br from-primary/20 to-secondary/20">
+							{(user.displayName || user.username).split(' ').map((n) => n[0]).join('').slice(0,2).toUpperCase()}
+						</div>
+					{/if}
 				</div>
 			</div>
 

@@ -77,7 +77,7 @@
 		} else {
 			try {
 				const { secret, qrCode } = await api.enable2FA();
-				// In a real app, show a modal with the QR code.
+				// Later we should, show a modal with the QR code.
 				// For now, we'll prompt for the verification code.
 				alert(`2FA Secret: ${secret}\n\nPlease enter this into your authenticator app.`);
 				const code = prompt('Enter verification code from app:');

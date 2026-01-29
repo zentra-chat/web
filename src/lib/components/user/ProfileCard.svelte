@@ -12,7 +12,7 @@
 	let isOwnProfile = $derived(user?.id === $currentUserId);
 
 	function handleMessage() {
-		// In a real app, this would navigate to DMs
+		// DM: Once DM's have been implmented, this needs to be updated
 		alert('Direct messages not yet implemented');
 		closeProfileCard();
 	}
@@ -30,7 +30,7 @@
 		transition:fade={{ duration: 150 }}
 	>
 		<div
-			class="pointer-events-auto w-[300px] bg-bg-secondary rounded-xl shadow-2xl border border-border overflow-hidden"
+			class="pointer-events-auto w-75 bg-bg-secondary rounded-xl shadow-2xl border border-b0order overflow-hidden bg-background-secondary"
 			use:clickOutside={closeProfileCard}
 			transition:scale={{ duration: 150, start: 0.95 }}
 		>
@@ -61,7 +61,7 @@
 			</div>
 
 			<!-- Content -->
-			<div class="px-4 pb-4 mt-6">
+			<div class="px-4 pb-4 mt-2">
 				<div class="mb-4">
 					<h2 class="text-xl font-bold text-text-primary truncate">
 						{user.displayName || user.username}

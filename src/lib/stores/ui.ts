@@ -86,7 +86,8 @@ export function openProfileCard(user: User, event?: MouseEvent): void {
 		let x = event.clientX;
 		let y = event.clientY;
 
-		// Basic adjustment - in a real app would use a more robust positioning logic (floating-ui)
+		// Basic adjustment to keep within viewport
+		// These values need to be changed later
 		const cardWidth = 300;
 		const cardHeight = 400;
 

@@ -7,6 +7,7 @@ export interface User {
 	bio: string | null;
 	status: UserStatus;
 	customStatus: string | null;
+	createdAt: string;
 }
 
 export interface FullUser extends User {

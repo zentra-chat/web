@@ -11,6 +11,7 @@
 		CommunitySettingsModal,
 		FilePreviewModal
 	} from '$lib/components/modals';
+	import { ProfileCard } from '$lib/components/user';
 	import { instanceModalOpen } from '$lib/stores/ui';
 	import {
 		currentInstance,
@@ -68,4 +69,5 @@
 <SettingsModal />
 <CommunitySettingsModal />
 <FilePreviewModal />
+<ProfileCard />
 <ToastContainer />

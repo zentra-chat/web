@@ -13,6 +13,9 @@ export const discoverCommunitiesModalOpen = writable(false);
 export const createChannelModalOpen = writable(false);
 export const settingsModalOpen = writable(false);
 export const communitySettingsModalOpen = writable(false);
+export const profileCardOpen = writable(false);
+export const profileCardUser = writable<User | null>(null);
+export const profileCardPosition = writable({ x: 0, y: 0 });
 export const filePreviewOpen = writable(false);
 export const filePreviewData = writable<any | null>(null);
 
@@ -74,6 +77,30 @@ export function closeModal(): void {
 	settingsModalOpen.set(false);
 	communitySettingsModalOpen.set(false);
 	instanceModalOpen.set(false);
+}
+
+export function openProfileCard(user: User, event?: MouseEvent): void {
+	profileCardUser.set(user);
+	if (event) {
+		// Calculate position, ensuring it's not off-screen
+		let x = event.clientX;
+		let y = event.clientY;
+
+		// Basic adjustment - in a real app would use a more robust positioning logic (floating-ui)
+		const cardWidth = 300;
+		const cardHeight = 400;
+
+		if (x + cardWidth > window.innerWidth) x = window.innerWidth - cardWidth - 20;
+		if (y + cardHeight > window.innerHeight) y = window.innerHeight - cardHeight - 20;
+
+		profileCardPosition.set({ x, y });
+	}
+	profileCardOpen.set(true);
+}
+
+export function closeProfileCard(): void {
+	profileCardOpen.set(false);
+	profileCardUser.set(null);
 }
 
 // Toast functions

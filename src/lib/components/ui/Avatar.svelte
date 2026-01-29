@@ -36,7 +36,7 @@
 		invisible: 'bg-text-muted'
 	};
 
-	const avatarUrl = $derived(user?.avatarUrl || src);
+	const avatarUrl = $derived(user?.avatarUrl || user?.avatar || src);
 	const displayName = $derived(user?.displayName || user?.username || alt);
 	const initials = $derived(
 		displayName

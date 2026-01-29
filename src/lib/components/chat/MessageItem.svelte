@@ -4,7 +4,15 @@
 	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from '$lib/components/icons';
 	import type { Message, User } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
-	import { editingMessageId, replyingToMessage, setEditingMessage, setReplyingTo, filePreviewOpen, filePreviewData } from '$lib/stores/ui';
+	import { 
+		editingMessageId, 
+		replyingToMessage, 
+		setEditingMessage, 
+		setReplyingTo, 
+		filePreviewOpen, 
+		filePreviewData,
+		openProfileCard
+	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import EmojiPicker from './EmojiPicker.svelte';
 
@@ -152,7 +160,12 @@
 		<!-- Avatar or timestamp -->
 		<div class="w-10 shrink-0">
 			{#if showHeader}
-				<Avatar user={message.author} size="md" />
+				<button 
+					class="block transition-transform active:scale-95" 
+					onclick={(e) => message.author && openProfileCard(message.author, e)}
+				>
+					<Avatar user={message.author} size="md" />
+				</button>
 			{:else if isHovered}
 				<span class="text-[10px] text-text-muted">
 					{format(new Date(message.createdAt), 'h:mm a')}
@@ -164,9 +177,12 @@
 		<div class="flex-1 min-w-0">
 			{#if showHeader}
 				<div class="flex items-baseline gap-2 mb-1">
-					<span class="font-medium text-text-primary hover:underline cursor-pointer">
+					<button 
+						class="font-medium text-text-primary hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
+						onclick={(e) => message.author && openProfileCard(message.author, e)}
+					>
 						{message.author?.displayName || message.author?.username || 'Unknown'}
-					</span>
+					</button>
 					<span class="text-xs text-text-muted">
 						{formatTimestamp(new Date(message.createdAt))}
 					</span>

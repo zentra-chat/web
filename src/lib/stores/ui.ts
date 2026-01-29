@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import type { ModalState, ToastMessage, UserStatus, Message } from '$lib/types';
+import type { ModalState, ToastMessage, UserStatus, Message, User } from '$lib/types';
 
 // Sidebar states
 export const isCommunitySidebarCollapsed = writable(false);
@@ -52,6 +52,9 @@ export const theme = writable<'dark' | 'light'>('dark');
 
 // Compact mode
 export const compactMode = writable(false);
+
+// Auto-hide instances bar
+export const autoHideInstances = writable(false);
 
 // Sound enabled
 export const soundEnabled = writable(true);

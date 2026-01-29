@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
 	import { Image, X, Trash } from '$lib/components/icons';
-	import { settingsModalOpen, closeSettingsModal, addToast } from '$lib/stores/ui';
+	import { settingsModalOpen, closeSettingsModal, addToast, autoHideInstances } from '$lib/stores/ui';
 	import { currentUser, updateCurrentUser, logout } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 
@@ -415,6 +415,24 @@
 								<div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
 							</div>
 							<span class="text-text-muted">Coming soon</span>
+						</label>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Auto-hide Instances</h3>
+						<p class="text-sm text-text-muted mb-4">Automatically hide the instances bar on the left</p>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<div class="relative">
+								<input 
+									type="checkbox" 
+									class="sr-only peer" 
+									checked={$autoHideInstances} 
+									onchange={(e) => autoHideInstances.set(e.currentTarget.checked)}
+								/>
+								<div class="w-10 h-6 bg-surface-hover peer-checked:bg-primary rounded-full transition-colors"></div>
+								<div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+							</div>
+							<span class="text-text-primary">Enable</span>
 						</label>
 					</div>
 				</div>

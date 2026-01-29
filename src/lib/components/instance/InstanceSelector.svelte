@@ -1,14 +1,13 @@
 <script lang="ts">
-
-
-
 	import {
 		activeInstance,
 		instances,
 		setActiveInstance
 	} from '$lib/stores/instance';
 	import { websocket } from '$lib/api';
+	import { autoHideInstances } from '$lib/stores/ui';
 
+	let isHovered = $state(false);
 
 	// Handle instance switching
 	function handleInstanceClick(instanceId: string) {
@@ -20,8 +19,23 @@
 		}
 	}
 </script>
+
+{#if $autoHideInstances}
+	<!-- Trigger zone for auto-hide -->
+	<div 
+		role="presentation"
+		class="fixed left-0 top-0 bottom-0 w-2 z-40" 
+		onmouseenter={() => isHovered = true}
+	></div>
+{/if}
+
 <div
-    class="hidden md:flex flex-col w-18 bg-background-secondary border-r border-border py-3 items-center gap-2 z-30"
+	role="complementary"
+	onmouseenter={() => isHovered = true}
+	onmouseleave={() => isHovered = false}
+    class="hidden md:flex flex-col w-18 bg-background-secondary border-r border-border py-3 items-center gap-2 z-30 transition-all duration-300 ease-in-out
+	{$autoHideInstances ? 'fixed left-0 top-0 bottom-0' : 'relative'}
+	{$autoHideInstances && !isHovered ? '-translate-x-full opacity-0 shadow-none' : 'translate-x-0 opacity-100' + ($autoHideInstances ? ' shadow-xl' : '')}"
 >
     {#each $instances as instance (instance.id)}
         {@const isActive = instance.id === $activeInstance?.id}

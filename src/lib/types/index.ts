@@ -27,6 +27,7 @@ export interface UserSettings {
 	notificationsEnabled: boolean;
 	soundEnabled: boolean;
 	compactMode: boolean;
+	autoHideInstances: boolean;
 	settings: Record<string, unknown>;
 }
 

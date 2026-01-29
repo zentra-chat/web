@@ -17,6 +17,7 @@
 	let isSubmitting = $state(false);
 	let isGeneratingInvite = $state(false);
 	let isLoadingInvites = $state(false);
+	let hasAttemptedInviteLoad = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let showCreateInviteForm = $state(false);
 	let newInviteMaxUses = $state<number | null>(null);
@@ -37,8 +38,15 @@
 
 	// Load invites when switching to invites tab
 	$effect(() => {
-		if (activeTab === 'invites' && $activeCommunity && invites.length === 0) {
+		if (activeTab === 'invites' && $activeCommunity && !hasAttemptedInviteLoad && !isLoadingInvites) {
 			loadInvites();
+		}
+	});
+
+	// Reset attempt flag when switching tabs away from invites
+	$effect(() => {
+		if (activeTab !== 'invites') {
+			hasAttemptedInviteLoad = false;
 		}
 	});
 
@@ -56,6 +64,7 @@
 			});
 		} finally {
 			isLoadingInvites = false;
+			hasAttemptedInviteLoad = true;
 		}
 	}
 

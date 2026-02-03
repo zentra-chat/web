@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui';
 	import { Github, ArrowRight, MessageSquare, Lock, Users, Globe, Server } from '$lib/components/icons';
 	import { isLoggedIn, instances } from '$lib/stores/instance';
@@ -20,6 +21,17 @@
 	const particleCount = typeof window !== 'undefined' && window.innerWidth < 768 ? 80 : 200;
 
 	onMount(() => {
+		// For Tauri desktop app, skip homepage and go directly to app or login
+		// @ts-ignore - Tauri global exists in desktop environment
+		if (typeof window !== 'undefined' && window.__TAURI__) {
+			if ($isLoggedIn) {
+				goto('/app', { replaceState: true });
+			} else {
+				goto('/login', { replaceState: true });
+			}
+			return;
+		}
+
 		if (!canvas) return;
 		ctx = canvas.getContext('2d');
 		if (!ctx) return;

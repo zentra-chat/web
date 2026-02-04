@@ -18,8 +18,8 @@
 	let mouse = { x: 0, y: 0, radius: 100 };
 	let animationId: number;
 
-	const maxDistance = 140;
-	const particleCount = typeof window !== 'undefined' && window.innerWidth < 768 ? 80 : 200;
+	const maxDistance = 150;
+	const particleCount = typeof window !== 'undefined' && window.innerWidth < 768 ? 80 : 250;
 
 	onMount(() => {
 		// For Tauri desktop app, skip homepage and go directly to app or login

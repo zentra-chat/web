@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui';
 	import { Github, ArrowRight, MessageSquare, Lock, Users, Globe, Server } from '$lib/components/icons';
 	import { isLoggedIn, instances } from '$lib/stores/instance';
+	import { isDesktop, logTauriGlobals } from '$lib/utils/platform';
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null;
@@ -22,14 +23,16 @@
 
 	onMount(() => {
 		// For Tauri desktop app, skip homepage and go directly to app or login
-		// @ts-ignore - Tauri global exists in desktop environment
-		if (typeof window !== 'undefined' && window.__TAURI__) {
+		if (isDesktop()) {
 			if ($isLoggedIn) {
 				goto('/app', { replaceState: true });
 			} else {
 				goto('/login', { replaceState: true });
 			}
 			return;
+		} else {
+			// Helpful debug output when running in an environment that does not have Tauri injected
+			logTauriGlobals();
 		}
 
 		if (!canvas) return;

@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { activeInstance, activeAuth } from '$lib/stores/instance';
+import { activeInstance, activeAuth, updateCurrentUser, currentUserId } from '$lib/stores/instance';
 import {
 	addMessage,
 	updateMessage,
@@ -8,6 +8,7 @@ import {
 	updateChannel,
 	removeChannel,
 	updateCommunity,
+	updateMemberUser,
 	addMessageReaction,
 	removeMessageReaction
 } from '$lib/stores/community';
@@ -142,6 +143,9 @@ class WebSocketManager {
 			case 'COMMUNITY_UPDATE':
 				this.handleCommunityUpdate(event.data as Community);
 				break;
+			case 'USER_UPDATE':
+				this.handleUserUpdate(event.data as User);
+				break;
 			case 'REACTION_ADD':
 				this.handleReactionAdd(
 					event.data as { channelId: string; messageId: string; userId: string; emoji: string }
@@ -193,6 +197,15 @@ class WebSocketManager {
 
 	private handleCommunityUpdate(community: Community): void {
 		updateCommunity(community.id, community);
+	}
+
+	private handleUserUpdate(user: User): void {
+		// Update current user if it's us
+		if (user.id === get(currentUserId)) {
+			updateCurrentUser(user);
+		}
+		// Update user in all member lists and messages
+		updateMemberUser(user.id, user);
 	}
 
 	private handleReactionAdd(data: {

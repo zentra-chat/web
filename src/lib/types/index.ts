@@ -224,6 +224,7 @@ export type WebSocketEventType =
 	| 'CHANNEL_UPDATE'
 	| 'CHANNEL_DELETE'
 	| 'COMMUNITY_UPDATE'
+	| 'USER_UPDATE'
 	| 'MEMBER_JOIN'
 	| 'MEMBER_LEAVE'
 	| 'REACTION_ADD'

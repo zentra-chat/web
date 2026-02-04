@@ -3,8 +3,9 @@
 	import { Image, X, Trash } from '$lib/components/icons';
 	import { settingsModalOpen, closeSettingsModal, addToast, autoHideInstances } from '$lib/stores/ui';
 	import { currentUser, updateCurrentUser, logout } from '$lib/stores/instance';
-	import { api } from '$lib/api';
-
+	import { api } from '$lib/api';	
+	import { updateMemberUser } from '$lib/stores/community';
+	
 	let displayName = $state('');
 	let username = $state('');
 	let bio = $state('');

@@ -179,6 +179,11 @@ export function setUserPresence(userId: string, status: UserStatus, customStatus
 		...current,
 		[userId]: { status, customStatus }
 	}));
+
+	// Also update in community members list
+	import('./community').then((m) => {
+		m.updateMemberUser(userId, { status, customStatus });
+	});
 }
 
 export function setOnlineUsers(communityId: string, userIds: string[]): void {

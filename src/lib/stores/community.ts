@@ -193,6 +193,42 @@ export function setMembers(communityId: string, members: CommunityMember[]): voi
 	}));
 }
 
+export function updateMemberUser(userId: string, updates: Partial<User>): void {
+	// Update members cache
+	membersCache.update((cache) => {
+		const newCache = { ...cache };
+		for (const communityId in newCache) {
+			newCache[communityId] = newCache[communityId].map((member) => {
+				if (member.userId === userId) {
+					return {
+						...member,
+						user: member.user ? { ...member.user, ...updates } : member.user
+					};
+				}
+				return member;
+			});
+		}
+		return newCache;
+	});
+
+	// Update messages cache (user info in messages)
+	messagesCache.update((cache) => {
+		const newCache = { ...cache };
+		for (const channelId in newCache) {
+			newCache[channelId] = newCache[channelId].map((msg) => {
+				if (msg.authorId === userId && msg.author) {
+					return {
+						...msg,
+						author: { ...msg.author, ...updates }
+					};
+				}
+				return msg;
+			});
+		}
+		return newCache;
+	});
+}
+
 export function setMessages(channelId: string, messages: Message[]): void {
 	messagesCache.update((cache) => ({
 		...cache,

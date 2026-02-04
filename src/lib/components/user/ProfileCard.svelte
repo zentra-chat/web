@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import { Button } from '$lib/components/ui';
+	import { Button, Avatar } from '$lib/components/ui';
 	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from '$lib/components/icons';
 	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
@@ -37,13 +37,7 @@
 			<!-- Header/Banner -->
 			<div class="h-20 bg-primary/20 relative overflow-visible">
 				<div class="absolute -bottom-10 left-4 profile-avatar-wrapper border-4 border-bg-secondary rounded-full bg-bg-secondary overflow-hidden flex items-center justify-center">
-					{#if user.avatarUrl}
-						<img src={user.avatarUrl} alt={user.displayName || user.username} class="w-16 h-16 object-cover block" />
-					{:else}
-						<div class="w-16 h-16 flex items-center justify-center font-medium text-primary bg-linear-to-br from-primary/20 to-secondary/20">
-							{(user.displayName || user.username).split(' ').map((n) => n[0]).join('').slice(0,2).toUpperCase()}
-						</div>
-					{/if}
+					<Avatar {user} size="xl" />
 				</div>
 			</div>
 

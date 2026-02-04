@@ -30,7 +30,7 @@
 		transition:fade={{ duration: 150 }}
 	>
 		<div
-			class="pointer-events-auto w-[300px] bg-bg-secondary rounded-xl shadow-2xl border border-border overflow-visible bg-background"
+			class="pointer-events-auto w-75 bg-bg-secondary rounded-xl shadow-2xl border border-border overflow-visible bg-background"
 			use:clickOutside={closeProfileCard}
 			transition:scale={{ duration: 150, start: 0.95 }}
 		>
@@ -38,9 +38,9 @@
 			<div class="h-20 bg-primary/20 relative overflow-visible">
 				<div class="absolute -bottom-10 left-4 profile-avatar-wrapper border-4 border-bg-secondary rounded-full bg-bg-secondary overflow-hidden flex items-center justify-center">
 					{#if user.avatarUrl}
-						<img src={user.avatarUrl} alt={user.displayName || user.username} class="w-[64px] h-[64px] object-cover block" />
+						<img src={user.avatarUrl} alt={user.displayName || user.username} class="w-16 h-16 object-cover block" />
 					{:else}
-						<div class="w-[64px] h-[64px] flex items-center justify-center font-medium text-primary bg-linear-to-br from-primary/20 to-secondary/20">
+						<div class="w-16 h-16 flex items-center justify-center font-medium text-primary bg-linear-to-br from-primary/20 to-secondary/20">
 							{(user.displayName || user.username).split(' ').map((n) => n[0]).join('').slice(0,2).toUpperCase()}
 						</div>
 					{/if}
@@ -48,7 +48,7 @@
 			</div>
 
 			<!-- Actions -->
-			<div class="flex justify-end p-2 min-h-[40px]">
+			<div class="flex justify-end p-2 min-h-10">
 				{#if isOwnProfile}
 					<button
 						class="p-1.5 hover:bg-bg-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"

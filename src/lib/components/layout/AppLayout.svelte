@@ -13,7 +13,7 @@
 	import ChannelSidebar from './ChannelSidebar.svelte';
 	import MemberSidebar from './MemberSidebar.svelte';
 	import { activeCommunityId, activeChannelId } from '$lib/stores/community';
-	import { showMemberSidebar, isMobileMenuOpen, closeMobileMenu } from '$lib/stores/ui';
+	import { showMemberSidebar, isMobileMenuOpen, closeMobileMenu, applyUserSettings } from '$lib/stores/ui';
 	import InstanceSelector from '../instance/InstanceSelector.svelte';
 
 	let { children }: { children: Snippet } = $props();
@@ -28,6 +28,10 @@
 		api.getCurrentUser()
 			.then((user) => updateCurrentUser(user))
 			.catch((err) => console.error('Failed to refresh user:', err));
+
+		api.getUserSettings()
+			.then((settings) => applyUserSettings(settings))
+			.catch((err) => console.error('Failed to load user settings:', err));
 
 		// Connect to WebSocket
 		websocket.connect();

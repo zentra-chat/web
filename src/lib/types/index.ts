@@ -22,13 +22,14 @@ export interface FullUser extends User {
 
 export type UserStatus = 'online' | 'away' | 'busy' | 'invisible' | 'offline';
 
+export type InstanceSelectorMode = 'disabled' | 'auto' | 'show';
+
 export interface UserSettings {
 	theme: string;
 	notificationsEnabled: boolean;
 	soundEnabled: boolean;
 	compactMode: boolean;
-	autoHideInstances: boolean;
-	settings: Record<string, unknown>;
+	settings: Record<string, unknown> & { instanceSelectorMode?: InstanceSelectorMode };
 }
 
 // Authentication types

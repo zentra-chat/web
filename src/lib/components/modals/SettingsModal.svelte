@@ -1,10 +1,18 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
 	import { Image, X, Trash } from '$lib/components/icons';
-	import { settingsModalOpen, closeSettingsModal, addToast, autoHideInstances } from '$lib/stores/ui';
+	import {
+		settingsModalOpen,
+		closeSettingsModal,
+		addToast,
+		instanceSelectorMode,
+		userSettings,
+		applyUserSettings
+	} from '$lib/stores/ui';
 	import { currentUser, updateCurrentUser, logout } from '$lib/stores/instance';
 	import { api } from '$lib/api';	
 	import { updateMemberUser } from '$lib/stores/community';
+	import type { InstanceSelectorMode } from '$lib/types';
 	
 	let displayName = $state('');
 	let username = $state('');
@@ -15,6 +23,7 @@
 	let activeTab = $state<'profile' | 'account' | 'appearance' | 'legal'>('profile');
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
+	let isSavingAppearance = $state(false);
 
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
@@ -97,6 +106,30 @@
 	function handleClose() {
 		closeSettingsModal();
 		resetForm();
+	}
+
+	async function saveAppearanceSettings(mode: InstanceSelectorMode) {
+		if (isSavingAppearance) return;
+		isSavingAppearance = true;
+		try {
+			const existingSettings = ($userSettings?.settings ?? {}) as Record<string, unknown>;
+			const updated = await api.updateUserSettings({
+				settings: { ...existingSettings, instanceSelectorMode: mode }
+			});
+			applyUserSettings(updated);
+			addToast({ type: 'success', message: 'Appearance updated' });
+		} catch (err) {
+			console.error('Failed to update appearance settings:', err);
+			addToast({ type: 'error', message: 'Failed to update appearance settings' });
+		} finally {
+			isSavingAppearance = false;
+		}
+	}
+
+	function handleInstanceSelectorModeChange(mode: InstanceSelectorMode) {
+		if (mode === $instanceSelectorMode) return;
+		instanceSelectorMode.set(mode);
+		saveAppearanceSettings(mode);
 	}
 
 	function resetForm() {
@@ -426,21 +459,40 @@
 					</div>
 
 					<div>
-						<h3 class="text-lg font-semibold text-text-primary mb-2">Auto-hide Instances</h3>
-						<p class="text-sm text-text-muted mb-4">Automatically hide the instances bar on the left</p>
-						<label class="flex items-center gap-3 cursor-pointer">
-							<div class="relative">
-								<input 
-									type="checkbox" 
-									class="sr-only peer" 
-									checked={$autoHideInstances} 
-									onchange={(e) => autoHideInstances.set(e.currentTarget.checked)}
-								/>
-								<div class="w-10 h-6 bg-surface-hover peer-checked:bg-primary rounded-full transition-colors"></div>
-								<div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
-							</div>
-							<span class="text-text-primary">Enable</span>
-						</label>
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Instance Selector</h3>
+						<p class="text-sm text-text-muted mb-4">Control when the instance selector is visible</p>
+						<div class="flex flex-wrap gap-2">
+							<button
+								onclick={() => handleInstanceSelectorModeChange('disabled')}
+								class="px-4 py-2 rounded-lg text-sm border transition-colors { $instanceSelectorMode === 'disabled'
+									? 'bg-primary text-background border-primary'
+									: 'bg-surface border-border text-text-muted hover:text-text-primary hover:bg-surface-hover' }"
+								aria-pressed={$instanceSelectorMode === 'disabled'}
+								disabled={isSavingAppearance}
+							>
+								Disabled (default)
+							</button>
+							<button
+								onclick={() => handleInstanceSelectorModeChange('auto')}
+								class="px-4 py-2 rounded-lg text-sm border transition-colors { $instanceSelectorMode === 'auto'
+									? 'bg-primary text-background border-primary'
+									: 'bg-surface border-border text-text-muted hover:text-text-primary hover:bg-surface-hover' }"
+								aria-pressed={$instanceSelectorMode === 'auto'}
+								disabled={isSavingAppearance}
+							>
+								Auto Hide
+							</button>
+							<button
+								onclick={() => handleInstanceSelectorModeChange('show')}
+								class="px-4 py-2 rounded-lg text-sm border transition-colors { $instanceSelectorMode === 'show'
+									? 'bg-primary text-background border-primary'
+									: 'bg-surface border-border text-text-muted hover:text-text-primary hover:bg-surface-hover' }"
+								aria-pressed={$instanceSelectorMode === 'show'}
+								disabled={isSavingAppearance}
+							>
+								Show
+							</button>
+						</div>
 					</div>
 				</div>
 			{:else if activeTab === 'legal'}

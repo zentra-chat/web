@@ -1,5 +1,13 @@
 import { writable, derived } from 'svelte/store';
-import type { ModalState, ToastMessage, UserStatus, Message, User } from '$lib/types';
+import type {
+	ModalState,
+	ToastMessage,
+	UserStatus,
+	Message,
+	User,
+	UserSettings,
+	InstanceSelectorMode
+} from '$lib/types';
 
 // Sidebar states
 export const isCommunitySidebarCollapsed = writable(false);
@@ -53,11 +61,31 @@ export const theme = writable<'dark' | 'light'>('dark');
 // Compact mode
 export const compactMode = writable(false);
 
-// Auto-hide instances bar
-export const autoHideInstances = writable(false);
+// Instance selector visibility
+export const instanceSelectorMode = writable<InstanceSelectorMode>('disabled');
 
 // Sound enabled
 export const soundEnabled = writable(true);
+
+// User settings cache
+export const userSettings = writable<UserSettings | null>(null);
+
+function normalizeInstanceSelectorMode(value: unknown): InstanceSelectorMode {
+	if (value === 'auto' || value === 'show' || value === 'disabled') {
+		return value;
+	}
+	return 'disabled';
+}
+
+export function applyUserSettings(settings: UserSettings): void {
+	userSettings.set(settings);
+	if (settings.theme === 'light' || settings.theme === 'dark') {
+		theme.set(settings.theme);
+	}
+	compactMode.set(settings.compactMode);
+	soundEnabled.set(settings.soundEnabled);
+	instanceSelectorMode.set(normalizeInstanceSelectorMode(settings.settings?.instanceSelectorMode));
+}
 
 // Modal functions
 export function openModal(type: string, data?: unknown): void {

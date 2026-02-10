@@ -112,7 +112,7 @@
 					content: trimmedContent
 				};
 
-				if (!dmConversationId && $replyingToMessage) {
+				if ($replyingToMessage) {
 					messageData.replyToId = $replyingToMessage.id;
 				}
 
@@ -124,6 +124,7 @@
 					const msg = await api.sendDmMessage(dmConversationId, messageData);
 					addDmMessage(dmConversationId, msg);
 					updateDmConversationFromMessage(dmConversationId, msg);
+					setReplyingTo(null);
 				} else if (channelId) {
 					const msg = await api.sendMessage(channelId, messageData);
 					addMessage(channelId, msg);
@@ -257,7 +258,7 @@
 	{/if}
 
 	<!-- Reply/Edit indicator -->
-	{#if !isDm && $replyingToMessage}
+	{#if $replyingToMessage}
 		<div class="flex items-center gap-2 px-4 py-2 bg-surface rounded-t-lg border border-b-0 border-border">
 			<span class="text-xs text-text-muted">Replying to</span>
 			<span class="text-xs font-medium text-primary">

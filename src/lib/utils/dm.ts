@@ -5,7 +5,14 @@ type RawDmMessage = {
 	conversationId: string;
 	senderId: string;
 	content: string;
+	replyTo?: {
+		id: string;
+		content: string;
+		senderId: string;
+		sender?: User;
+	};
 	isEdited: boolean;
+	reactions?: Message['reactions'];
 	createdAt: string;
 	updatedAt: string;
 	sender?: User;
@@ -21,9 +28,24 @@ export function mapDmMessage(message: RawDmMessage): Message {
 		replyToId: null,
 		isEdited: message.isEdited,
 		isPinned: false,
-		reactions: [],
+		reactions: message.reactions || [],
 		author: message.sender || ({} as User),
 		attachments: message.attachments || [],
+		replyTo: message.replyTo
+			? {
+				id: message.replyTo.id,
+				authorId: message.replyTo.senderId,
+				content: message.replyTo.content,
+				author: message.replyTo.sender || ({} as User),
+				replyToId: null,
+				isEdited: false,
+				isPinned: false,
+				reactions: [],
+				attachments: [],
+				createdAt: message.createdAt,
+				updatedAt: message.updatedAt
+			}
+			: undefined,
 		createdAt: message.createdAt,
 		updatedAt: message.updatedAt
 	};

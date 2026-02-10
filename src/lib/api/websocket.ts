@@ -18,7 +18,9 @@ import {
 	removeDmMessage,
 	updateDmConversationFromMessage,
 	clearDmUnread,
-	activeDmConversationId
+	activeDmConversationId,
+	addDmMessageReaction,
+	removeDmMessageReaction
 } from '$lib/stores/dm';
 import { setTyping, setUserPresence, showToast } from '$lib/stores/ui';
 import type {
@@ -144,6 +146,16 @@ class WebSocketManager {
 			case 'DM_MESSAGE_DELETE':
 				this.handleDmMessageDelete(event.data as { conversationId: string; messageId: string });
 				break;
+			case 'DM_REACTION_ADD':
+				this.handleDmReactionAdd(
+					event.data as { conversationId: string; messageId: string; userId: string; emoji: string }
+				);
+				break;
+			case 'DM_REACTION_REMOVE':
+				this.handleDmReactionRemove(
+					event.data as { conversationId: string; messageId: string; userId: string; emoji: string }
+				);
+				break;
 			case 'TYPING_START':
 				this.handleTypingStart(event.data as TypingEvent);
 				break;
@@ -211,6 +223,14 @@ class WebSocketManager {
 
 	private handleDmMessageDelete(data: { conversationId: string; messageId: string }): void {
 		removeDmMessage(data.conversationId, data.messageId);
+	}
+
+	private handleDmReactionAdd(data: { conversationId: string; messageId: string; userId: string; emoji: string }): void {
+		addDmMessageReaction(data.conversationId, data.messageId, data.userId, data.emoji);
+	}
+
+	private handleDmReactionRemove(data: { conversationId: string; messageId: string; userId: string; emoji: string }): void {
+		removeDmMessageReaction(data.conversationId, data.messageId, data.userId, data.emoji);
 	}
 
 	private handleTypingStart(data: TypingEvent): void {

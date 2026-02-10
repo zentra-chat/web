@@ -556,7 +556,7 @@ class ApiClient {
 
 	async sendDmMessage(
 		conversationId: string,
-		data: { content: string; attachments?: string[] }
+		data: { content: string; attachments?: string[]; replyToId?: string }
 	): Promise<Message> {
 		const result = await this.request<ApiResponse<any>>(
 			`/dms/conversations/${conversationId}/messages`,
@@ -578,6 +578,19 @@ class ApiClient {
 
 	async deleteDmMessage(messageId: string): Promise<void> {
 		await this.request(`/dms/messages/${messageId}`, { method: 'DELETE' });
+	}
+
+	async addDmReaction(messageId: string, emoji: string): Promise<void> {
+		await this.request(`/dms/messages/${messageId}/reactions`, {
+			method: 'POST',
+			body: JSON.stringify({ emoji })
+		});
+	}
+
+	async removeDmReaction(messageId: string, emoji: string): Promise<void> {
+		await this.request(`/dms/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
+			method: 'DELETE'
+		});
 	}
 
 	// Media endpoints

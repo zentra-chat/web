@@ -19,6 +19,7 @@
 		previousMessage?: Message;
 		onDelete?: (messageId: string) => void;
 		onDeleteRequest?: (messageId: string) => Promise<void>;
+		onReactionToggle?: (messageId: string, emoji: string, reacted: boolean) => Promise<void>;
 		enableReactions?: boolean;
 		enableReply?: boolean;
 	}
@@ -28,6 +29,7 @@
 		previousMessage,
 		onDelete,
 		onDeleteRequest,
+		onReactionToggle,
 		enableReactions = true,
 		enableReply = true
 	}: Props = $props();
@@ -38,6 +40,7 @@
 	let showReactionsPicker = $state(false);
 
 	let isOwnMessage = $derived(message.authorId === $currentUserId);
+	let hasContent = $derived(!!message.content && message.content.trim().length > 0);
 
 	// Check if we should show the header (avatar + name)
 	let showHeader = $derived.by(() => {
@@ -109,6 +112,10 @@
 	async function handleToggleReaction(emoji: string, reacted: boolean) {
 		if (!enableReactions) return;
 		try {
+			if (onReactionToggle) {
+				await onReactionToggle(message.id, emoji, reacted);
+				return;
+			}
 			if (reacted) {
 				await api.removeReaction(message.id, emoji);
 			} else {
@@ -206,16 +213,18 @@
 			{/if}
 
 			<!-- Message content -->
-			<div class="text-text-secondary wrap-break-word whitespace-pre-wrap">
-				{message.content}
-				{#if message.isEdited}
-					<span class="text-xs text-text-muted ml-1">(edited)</span>
-				{/if}
-			</div>
+			{#if hasContent}
+				<div class="text-text-secondary wrap-break-word whitespace-pre-wrap">
+					{message.content}
+					{#if message.isEdited}
+						<span class="text-xs text-text-muted ml-1">(edited)</span>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- Attachments -->
 			{#if message.attachments && message.attachments.length > 0}
-				<div class="mt-2 flex flex-wrap gap-2">
+				<div class="{hasContent ? 'mt-2' : ''} flex flex-wrap gap-2">
 					{#each message.attachments as attachment}
 						{#if (attachment.contentType || attachment.mimeType)?.startsWith('image/')}
 							<a

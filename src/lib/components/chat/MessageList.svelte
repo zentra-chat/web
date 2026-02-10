@@ -188,6 +188,15 @@
 		await api.deleteMessage(messageId);
 	}
 
+	async function handleReactionToggle(messageId: string, emoji: string, reacted: boolean) {
+		if (!dmConversationId) return;
+		if (reacted) {
+			await api.removeDmReaction(messageId, emoji);
+			return;
+		}
+		await api.addDmReaction(messageId, emoji);
+	}
+
 	function getChannelIcon(type: Channel['type']) {
 		switch (type) {
 			case 'announcement':
@@ -330,8 +339,9 @@
 					previousMessage={index > 0 ? channelMessages[index - 1] : undefined}
 					onDelete={handleMessageDelete}
 					onDeleteRequest={isDm ? handleDeleteRequest : undefined}
-					enableReactions={!isDm}
-					enableReply={!isDm}
+					onReactionToggle={isDm ? handleReactionToggle : undefined}
+					enableReactions={true}
+					enableReply={true}
 				/>
 			{/each}
 

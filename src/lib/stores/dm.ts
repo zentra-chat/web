@@ -95,6 +95,82 @@ export function removeDmMessage(conversationId: string, messageId: string): void
 	}));
 }
 
+export function addDmMessageReaction(
+	conversationId: string,
+	messageId: string,
+	userId: string,
+	emoji: string
+): void {
+	dmMessagesCache.update((cache) => {
+		const convoMessages = cache[conversationId];
+		if (!convoMessages) return cache;
+
+		return {
+			...cache,
+			[conversationId]: convoMessages.map((m) => {
+				if (m.id !== messageId) return m;
+
+				const reactions = [...(m.reactions || [])];
+				const existingIndex = reactions.findIndex((r) => r.emoji === emoji);
+
+				if (existingIndex !== -1) {
+					const r = reactions[existingIndex];
+					if (!r.reacted) {
+						reactions[existingIndex] = {
+							...r,
+							count: r.count + 1,
+							reacted: true
+						};
+					}
+				} else {
+					reactions.push({
+						emoji,
+						count: 1,
+						reacted: true
+					});
+				}
+
+				return { ...m, reactions };
+			})
+		};
+	});
+}
+
+export function removeDmMessageReaction(
+	conversationId: string,
+	messageId: string,
+	userId: string,
+	emoji: string
+): void {
+	dmMessagesCache.update((cache) => {
+		const convoMessages = cache[conversationId];
+		if (!convoMessages) return cache;
+
+		return {
+			...cache,
+			[conversationId]: convoMessages.map((m) => {
+				if (m.id !== messageId) return m;
+
+				const reactions = (m.reactions || [])
+					.map((r) => {
+						if (r.emoji !== emoji) return r;
+						if (r.reacted) {
+							return {
+								...r,
+								count: Math.max(0, r.count - 1),
+								reacted: false
+							};
+						}
+						return r;
+					})
+					.filter((r) => r.count > 0);
+
+				return { ...m, reactions };
+			})
+		};
+	});
+}
+
 export function updateDmConversationFromMessage(conversationId: string, message: Message): void {
 	const instance = get(activeInstance);
 	if (!instance) return;

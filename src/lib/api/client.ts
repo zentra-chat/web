@@ -18,9 +18,9 @@ import type {
 	Message,
 	SendMessageRequest,
 	Attachment,
-	DMConversation,
-	User
+	DMConversation
 } from '$lib/types';
+import { mapDmMessage } from '$lib/utils/dm';
 
 class ApiClient {
 	private getBaseUrl(): string {
@@ -74,32 +74,6 @@ class ApiClient {
 		}
 
 		return response.json();
-	}
-
-	private mapDmMessage(message: {
-		id: string;
-		conversationId: string;
-		senderId: string;
-		content: string;
-		isEdited: boolean;
-		createdAt: string;
-		updatedAt: string;
-		sender?: User;
-	}): Message {
-		return {
-			id: message.id,
-			channelId: message.conversationId,
-			authorId: message.senderId,
-			content: message.content,
-			replyToId: null,
-			isEdited: message.isEdited,
-			isPinned: false,
-			reactions: [],
-			author: message.sender || ({} as User),
-			attachments: [],
-			createdAt: message.createdAt,
-			updatedAt: message.updatedAt
-		};
 	}
 
 	private async request<T>(
@@ -536,7 +510,7 @@ class ApiClient {
 		const result = await this.request<ApiResponse<any[]>>('/dms/conversations');
 		return (result.data || []).map((conversation) => ({
 			...conversation,
-			lastMessage: conversation.lastMessage ? this.mapDmMessage(conversation.lastMessage) : undefined
+			lastMessage: conversation.lastMessage ? mapDmMessage(conversation.lastMessage) : undefined
 		}));
 	}
 
@@ -545,7 +519,7 @@ class ApiClient {
 		const conversation = result.data;
 		return {
 			...conversation,
-			lastMessage: conversation.lastMessage ? this.mapDmMessage(conversation.lastMessage) : undefined
+			lastMessage: conversation.lastMessage ? mapDmMessage(conversation.lastMessage) : undefined
 		};
 	}
 
@@ -557,7 +531,7 @@ class ApiClient {
 		const conversation = result.data;
 		return {
 			...conversation,
-			lastMessage: conversation.lastMessage ? this.mapDmMessage(conversation.lastMessage) : undefined
+			lastMessage: conversation.lastMessage ? mapDmMessage(conversation.lastMessage) : undefined
 		};
 	}
 
@@ -577,18 +551,21 @@ class ApiClient {
 		const result = await this.request<ApiResponse<any[]>>(
 			`/dms/conversations/${conversationId}/messages?${params}`
 		);
-		return (result.data || []).map((msg) => this.mapDmMessage(msg));
+		return (result.data || []).map((msg) => mapDmMessage(msg));
 	}
 
-	async sendDmMessage(conversationId: string, content: string): Promise<Message> {
+	async sendDmMessage(
+		conversationId: string,
+		data: { content: string; attachments?: string[] }
+	): Promise<Message> {
 		const result = await this.request<ApiResponse<any>>(
 			`/dms/conversations/${conversationId}/messages`,
 			{
 				method: 'POST',
-				body: JSON.stringify({ content })
+				body: JSON.stringify(data)
 			}
 		);
-		return this.mapDmMessage(result.data);
+		return mapDmMessage(result.data);
 	}
 
 	async editDmMessage(messageId: string, content: string): Promise<Message> {
@@ -596,7 +573,7 @@ class ApiClient {
 			method: 'PATCH',
 			body: JSON.stringify({ content })
 		});
-		return this.mapDmMessage(result.data);
+		return mapDmMessage(result.data);
 	}
 
 	async deleteDmMessage(messageId: string): Promise<void> {
@@ -610,6 +587,19 @@ class ApiClient {
 		formData.append('channelId', channelId);
 
 		const result = await this.request<ApiResponse<Attachment>>('/media/attachments', {
+			method: 'POST',
+			body: formData
+		});
+
+		return result.data;
+	}
+
+	async uploadDmAttachment(file: File, conversationId: string): Promise<Attachment> {
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('conversationId', conversationId);
+
+		const result = await this.request<ApiResponse<Attachment>>('/media/attachments/dm', {
 			method: 'POST',
 			body: formData
 		});

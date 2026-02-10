@@ -31,6 +31,7 @@ import type {
 	PresenceEvent,
 	User
 } from '$lib/types';
+import { mapDmMessage } from '$lib/utils/dm';
 
 type EventHandler = (data: unknown) => void;
 
@@ -193,34 +194,8 @@ class WebSocketManager {
 		removeMessage(data.channelId, data.messageId);
 	}
 
-	private mapDmMessage(message: {
-		id: string;
-		conversationId: string;
-		senderId: string;
-		content: string;
-		isEdited: boolean;
-		createdAt: string;
-		updatedAt: string;
-		sender?: User;
-	}): Message {
-		return {
-			id: message.id,
-			channelId: message.conversationId,
-			authorId: message.senderId,
-			content: message.content,
-			replyToId: null,
-			isEdited: message.isEdited,
-			isPinned: false,
-			reactions: [],
-			author: message.sender || ({} as User),
-			attachments: [],
-			createdAt: message.createdAt,
-			updatedAt: message.updatedAt
-		};
-	}
-
 	private handleDmMessageCreate(message: any): void {
-		const mapped = this.mapDmMessage(message);
+		const mapped = mapDmMessage(message);
 		addDmMessage(mapped.channelId, mapped);
 		updateDmConversationFromMessage(mapped.channelId, mapped);
 		if (get(activeDmConversationId) === mapped.channelId) {
@@ -229,7 +204,7 @@ class WebSocketManager {
 	}
 
 	private handleDmMessageUpdate(message: any): void {
-		const mapped = this.mapDmMessage(message);
+		const mapped = mapDmMessage(message);
 		updateDmMessage(mapped.channelId, mapped.id, mapped);
 		updateDmConversationFromMessage(mapped.channelId, mapped);
 	}

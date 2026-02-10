@@ -5,8 +5,9 @@
 	import {
 		isLoggedIn,
 		activeInstance,
+		updateCurrentUser
 	} from '$lib/stores/instance';
-	import { websocket } from '$lib/api';
+	import { api, websocket } from '$lib/api';
 	import { ToastContainer } from '$lib/components/ui';
 	import CommunitySidebar from './CommunitySidebar.svelte';
 	import ChannelSidebar from './ChannelSidebar.svelte';
@@ -23,6 +24,10 @@
 			goto('/login');
 			return;
 		}
+
+		api.getCurrentUser()
+			.then((user) => updateCurrentUser(user))
+			.catch((err) => console.error('Failed to refresh user:', err));
 
 		// Connect to WebSocket
 		websocket.connect();

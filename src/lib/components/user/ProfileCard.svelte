@@ -3,7 +3,7 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { Button, Avatar } from '$lib/components/ui';
 	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from '$lib/components/icons';
-	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal } from '$lib/stores/ui';
+	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal, addToast } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
 	import { selectCommunity } from '$lib/stores/community';
 	import { setActiveDmConversationId, upsertDmConversation } from '$lib/stores/dm';
@@ -13,9 +13,12 @@
 	let user = $derived($profileCardUser);
 	let position = $derived($profileCardPosition);
 	let isOwnProfile = $derived(user?.id === $currentUserId);
+	let isStartingDm = $state(false);
 
 	async function handleMessage() {
 		if (!user) return;
+		if (isStartingDm) return;
+		isStartingDm = true;
 		try {
 			const conversation = await api.createDmConversation(user.id);
 			upsertDmConversation(conversation);
@@ -23,6 +26,12 @@
 			setActiveDmConversationId(conversation.id);
 		} catch (err) {
 			console.error('Failed to start DM:', err);
+			addToast({
+				type: 'error',
+				message: 'Failed to start DM'
+			});
+		} finally {
+			isStartingDm = false;
 		}
 		closeProfileCard();
 	}
@@ -94,7 +103,12 @@
 
 				<div class="space-y-3 pt-2 border-t border-border">
 					{#if !isOwnProfile}
-						<Button variant="primary" class="w-full gap-2" onclick={handleMessage}>
+						<Button
+							variant="primary"
+							class="w-full gap-2"
+							onclick={handleMessage}
+							disabled={isStartingDm}
+						>
 							<MessageSquare size={16} />
 							Message
 						</Button>

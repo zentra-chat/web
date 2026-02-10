@@ -92,6 +92,16 @@
 	function handleSelectConversation(conversationId: string) {
 		setActiveDmConversationId(conversationId);
 	}
+
+	function getLastMessagePreview(conversation: DMConversation): string {
+		const last = conversation.lastMessage;
+		if (!last) return 'No messages yet';
+		if (last.content) return last.content;
+		if (last.attachments && last.attachments.length > 0) {
+			return last.attachments.length === 1 ? 'Attachment' : 'Attachments';
+		}
+		return 'No messages yet';
+	}
 </script>
 
 <div class="flex-1 flex min-h-0">
@@ -165,7 +175,7 @@
 								{otherUser?.displayName || otherUser?.username || 'Unknown'}
 							</p>
 							<p class="text-xs text-text-muted truncate">
-								{conversation.lastMessage?.content || 'No messages yet'}
+								{getLastMessagePreview(conversation)}
 							</p>
 						</div>
 						{#if conversation.unreadCount > 0}

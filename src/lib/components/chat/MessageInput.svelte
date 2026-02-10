@@ -54,12 +54,6 @@
 		}
 	});
 
-	$effect(() => {
-		if (isDm && attachments.length > 0) {
-			attachments = [];
-		}
-	});
-
 	async function handleSubmit() {
 		const trimmedContent = content.trim();
 		if (!trimmedContent && attachments.length === 0) return;
@@ -70,11 +64,13 @@
 		try {
 			// Upload attachments first
 			let uploadedAttachments: Attachment[] = [];
-			if (!dmConversationId && attachments.length > 0) {
+			if (attachments.length > 0) {
 				isUploading = true;
 				for (const file of attachments) {
 					try {
-						const att = await api.uploadAttachment(file, channelId as string);
+						const att = dmConversationId
+							? await api.uploadDmAttachment(file, dmConversationId)
+							: await api.uploadAttachment(file, channelId as string);
 						uploadedAttachments.push(att);
 					} catch (err) {
 						console.error('Failed to upload attachment:', err);
@@ -85,6 +81,14 @@
 					}
 				}
 				isUploading = false;
+			}
+
+			if (!trimmedContent && uploadedAttachments.length === 0) {
+				addToast({
+					type: 'error',
+					message: 'Attachment upload failed'
+				});
+				return;
 			}
 
 			if ($editingMessageId && editingMessage) {
@@ -112,12 +116,12 @@
 					messageData.replyToId = $replyingToMessage.id;
 				}
 
-				if (!dmConversationId && uploadedAttachments.length > 0) {
+				if (uploadedAttachments.length > 0) {
 					messageData.attachments = uploadedAttachments.map(a => a.id);
 				}
 
 				if (dmConversationId) {
-					const msg = await api.sendDmMessage(dmConversationId, messageData.content);
+					const msg = await api.sendDmMessage(dmConversationId, messageData);
 					addDmMessage(dmConversationId, msg);
 					updateDmConversationFromMessage(dmConversationId, msg);
 				} else if (channelId) {
@@ -137,6 +141,7 @@
 			});
 		} finally {
 			isSending = false;
+			isUploading = false;
 		}
 	}
 
@@ -169,7 +174,6 @@
 	}
 
 	function handleFileSelect(e: Event) {
-		if (dmConversationId) return;
 		const input = e.target as HTMLInputElement;
 		if (input.files) {
 			const newFiles = Array.from(input.files);
@@ -186,7 +190,6 @@
 	}
 
 	function openFilePicker() {
-		if (dmConversationId) return;
 		fileInputRef?.click();
 	}
 
@@ -285,7 +288,7 @@
 	{/if}
 
 	<!-- Attachments preview -->
-	{#if !isDm && attachments.length > 0}
+	{#if attachments.length > 0}
 		<div class="flex flex-wrap gap-2 px-4 py-2 bg-surface {$replyingToMessage || $editingMessageId ? '' : 'rounded-t-lg'} border border-b-0 border-border">
 			{#each attachments as file, index}
 				<div class="relative group">
@@ -316,26 +319,24 @@
 	{/if}
 
 	<!-- Input area -->
-	<div class="relative flex items-end gap-2 bg-surface {$replyingToMessage || $editingMessageId || (!isDm && attachments.length > 0) ? 'rounded-b-lg border-t-0' : 'rounded-lg'} border border-border">
-		{#if !isDm}
-			<input
-				bind:this={fileInputRef}
-				type="file"
-				multiple
-				accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
-				onchange={handleFileSelect}
-				class="hidden"
-			/>
+	<div class="relative flex items-end gap-2 bg-surface {$replyingToMessage || $editingMessageId || attachments.length > 0 ? 'rounded-b-lg border-t-0' : 'rounded-lg'} border border-border">
+		<input
+			bind:this={fileInputRef}
+			type="file"
+			multiple
+			accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+			onchange={handleFileSelect}
+			class="hidden"
+		/>
 
-			<button
-				onclick={openFilePicker}
-				class="p-3 text-text-muted hover:text-text-primary transition-colors shrink-0"
-				aria-label="Add attachment"
-				disabled={isSending}
-			>
-				<Plus size={20} />
-			</button>
-		{/if}
+		<button
+			onclick={openFilePicker}
+			class="p-3 text-text-muted hover:text-text-primary transition-colors shrink-0"
+			aria-label="Add attachment"
+			disabled={isSending}
+		>
+			<Plus size={20} />
+		</button>
 
 		<textarea
 			bind:this={textareaRef}
@@ -364,7 +365,7 @@
 			</div>
 			<button
 				onclick={handleSubmit}
-				disabled={isSending || (!content.trim() && (!isDm && attachments.length === 0))}
+				disabled={isSending || (!content.trim() && attachments.length === 0)}
 				class="p-3 text-primary hover:text-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
 				aria-label={$editingMessageId ? 'Save edit' : 'Send message'}
 			>

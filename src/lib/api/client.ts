@@ -135,7 +135,7 @@ class ApiClient {
 				accessToken: result.data.accessToken,
 				refreshToken: result.data.refreshToken,
 				expiresAt: result.data.expiresAt,
-				user: result.data.user
+				user: result.data.user ?? auth.user
 			});
 
 			return true;

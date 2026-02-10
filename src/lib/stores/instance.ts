@@ -181,12 +181,13 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 	if (!activeId) return;
 
 	instanceAuth.update((current) => {
-		if (!current[activeId] || !current[activeId].user) return current;
+		if (!current[activeId]) return current;
+		const baseUser = current[activeId].user ?? ({} as FullUser);
 		return {
 			...current,
 			[activeId]: {
 				...current[activeId],
-				user: { ...current[activeId].user, ...updates } as FullUser
+				user: { ...baseUser, ...updates } as FullUser
 			}
 		};
 	});

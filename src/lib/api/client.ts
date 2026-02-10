@@ -302,13 +302,13 @@ class ApiClient {
 		return result.data;
 	}
 
-	async createCommunity(data: { name: string; description?: string; isPrivate?: boolean }): Promise<Community> {
+	async createCommunity(data: { name: string; description?: string; isPublic: boolean }): Promise<Community> {
 		const result = await this.request<ApiResponse<Community>>('/communities', {
 			method: 'POST',
 			body: JSON.stringify({
 				name: data.name,
 				description: data.description,
-				isPublic: !data.isPrivate,
+				isPublic: data.isPublic,
 				isOpen: true // Default to true
 			})
 		});

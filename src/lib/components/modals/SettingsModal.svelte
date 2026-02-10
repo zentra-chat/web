@@ -35,7 +35,7 @@
 				username = $currentUser.username || '';
 				bio = $currentUser.bio || '';
 				customStatus = $currentUser.customStatus || '';
-				avatarPreview = $currentUser.avatar || $currentUser.avatarUrl || null;
+				avatarPreview = $currentUser.avatarUrl || null;
 			}
 
 			// Fetch latest user data to ensure we have everything (bio, customStatus, etc)
@@ -46,7 +46,7 @@
 					username = user.username || '';
 					bio = user.bio || '';
 					customStatus = user.customStatus || '';
-					avatarPreview = user.avatar || user.avatarUrl || null;
+					avatarPreview = user.avatarUrl || null;
 				})
 				.catch((err) => {
 					console.error('Failed to fetch latest user data:', err);
@@ -74,12 +74,12 @@
 	}
 
 	async function handleToggle2FA() {
-		if ($currentUser?.mfaEnabled) {
+		if ($currentUser?.twoFactorEnabled) {
 			const code = prompt('Enter 2FA code to disable:');
 			if (!code) return;
 			try {
 				await api.disable2FA(code);
-				updateCurrentUser({ mfaEnabled: false, totpEnabled: false });
+				updateCurrentUser({ twoFactorEnabled: false });
 				addToast({ type: 'success', message: '2FA disabled' });
 			} catch (err) {
 				addToast({ type: 'error', message: 'Failed to disable 2FA' });
@@ -94,7 +94,7 @@
 				if (!code) return;
 
 				await api.verify2FA(code);
-				updateCurrentUser({ mfaEnabled: true, totpEnabled: true });
+				updateCurrentUser({ twoFactorEnabled: true });
 				addToast({ type: 'success', message: '2FA enabled successfully!' });
 			} catch (err) {
 				console.error('Failed to enable 2FA:', err);
@@ -138,7 +138,7 @@
 		bio = $currentUser?.bio || '';
 		customStatus = $currentUser?.customStatus || '';
 		avatar = null;
-		avatarPreview = $currentUser?.avatar || $currentUser?.avatarUrl || null;
+		avatarPreview = $currentUser?.avatarUrl || null;
 		errors = {};
 	}
 
@@ -215,15 +215,15 @@
 			if (avatar) {
 				try {
 					const avatarUrl = await api.updateAvatar(avatar);
-					user.avatar = avatarUrl;
+					user.avatarUrl = avatarUrl;
 				} catch (err) {
 					console.error('Failed to upload avatar:', err);
 				}
-			} else if (avatarPreview === null && $currentUser?.avatar) {
+			} else if (avatarPreview === null && $currentUser?.avatarUrl) {
 				// Avatar was removed
 				try {
 					await api.removeAvatar();
-					user.avatar = null;
+					user.avatarUrl = null;
 				} catch (err) {
 					console.error('Failed to remove avatar:', err);
 				}
@@ -415,7 +415,7 @@
 						<h3 class="text-lg font-semibold text-text-primary mb-2">Two-Factor Authentication</h3>
 						<p class="text-sm text-text-muted mb-2">Add an extra layer of security to your account</p>
 						<Button variant="secondary" onclick={handleToggle2FA}>
-							{$currentUser?.mfaEnabled || $currentUser?.totpEnabled ? 'Manage 2FA' : 'Enable 2FA'}
+							{$currentUser?.twoFactorEnabled ? 'Manage 2FA' : 'Enable 2FA'}
 						</Button>
 					</div>
 

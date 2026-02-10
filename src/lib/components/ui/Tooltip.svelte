@@ -65,6 +65,7 @@
 <div
 	bind:this={wrapper}
 	class="group relative inline-flex"
+	role="presentation"
 	onmouseenter={handleShow}
 	onmouseleave={handleHide}
 	onfocusin={handleShow}
@@ -72,7 +73,7 @@
 >
 	{@render children()}
 	<div
-		class="fixed px-2 py-1 text-sm font-medium text-text-primary bg-surface border border-border rounded shadow-lg transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[9999] {isVisible ? 'opacity-100' : 'opacity-0'}"
+		class="fixed px-2 py-1 text-sm font-medium text-text-primary bg-surface border border-border rounded shadow-lg transition-opacity duration-200 pointer-events-none whitespace-nowrap z-9999 {isVisible ? 'opacity-100' : 'opacity-0'}"
 		style={tooltipStyle}
 		aria-hidden={!isVisible}
 		role="tooltip"

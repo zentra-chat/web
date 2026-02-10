@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Community, Channel, ChannelCategory, CommunityMember, Message } from '$lib/types';
-import { activeInstance, currentUserId } from './instance';
+import type { Community, Channel, ChannelCategory, CommunityMember, Message, User } from '$lib/types';
+import { activeInstance } from './instance';
 
 // Currently selected community
 export const activeCommunityId = writable<string | null>(null);
@@ -130,15 +130,18 @@ export function removeCommunity(communityId: string): void {
 
 	// Clear related caches
 	channelsCache.update((cache) => {
-		const { [communityId]: _, ...rest } = cache;
+		const { [communityId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 	categoriesCache.update((cache) => {
-		const { [communityId]: _, ...rest } = cache;
+		const { [communityId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 	membersCache.update((cache) => {
-		const { [communityId]: _, ...rest } = cache;
+		const { [communityId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 }
@@ -174,7 +177,8 @@ export function removeChannel(communityId: string, channelId: string): void {
 
 	// Clear messages cache
 	messagesCache.update((cache) => {
-		const { [channelId]: _, ...rest } = cache;
+		const { [channelId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 }

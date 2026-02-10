@@ -13,9 +13,7 @@ export interface User {
 export interface FullUser extends User {
 	email: string;
 	emailVerified: boolean;
-	totpEnabled: boolean;
-	mfaEnabled?: boolean; // Alias for totpEnabled
-	avatar?: string | null; // Alias for avatarUrl
+	twoFactorEnabled: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -56,10 +54,8 @@ export interface Community {
 	description: string | null;
 	iconUrl: string | null;
 	bannerUrl: string | null;
-	icon?: string | null; // Alias for iconUrl
 	ownerId: string;
 	isPublic: boolean;
-	isPrivate?: boolean; // Inverse of isPublic
 	isOpen: boolean;
 	memberCount: number;
 	createdAt: string;
@@ -93,7 +89,6 @@ export interface Channel {
 	categoryId: string | null;
 	name: string;
 	topic: string | null;
-	description?: string | null; // Alias for topic
 	type: ChannelType;
 	position: number;
 	isNsfw: boolean;
@@ -138,8 +133,7 @@ export interface Reaction {
 export interface Attachment {
 	id: string;
 	filename: string;
-	contentType: string;
-	mimeType?: string; // Alias for contentType
+	contentType: string | null;
 	size: number;
 	url: string;
 	thumbnailUrl?: string;

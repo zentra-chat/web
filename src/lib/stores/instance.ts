@@ -107,7 +107,8 @@ export function addInstance(instance: Instance): void {
 export function removeInstance(instanceId: string): void {
 	instances.update((list) => list.filter((i) => i.id !== instanceId));
 	instanceAuth.update((auth) => {
-		const { [instanceId]: _, ...rest } = auth;
+		const { [instanceId]: removed, ...rest } = auth;
+		void removed;
 		return rest;
 	});
 
@@ -137,7 +138,8 @@ export function setInstanceAuth(instanceId: string, auth: InstanceAuth): void {
 
 export function clearInstanceAuth(instanceId: string): void {
 	instanceAuth.update((current) => {
-		const { [instanceId]: _, ...rest } = current;
+		const { [instanceId]: removed, ...rest } = current;
+		void removed;
 		return rest;
 	});
 }

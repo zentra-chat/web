@@ -31,8 +31,8 @@
 		if ($communitySettingsModalOpen && $activeCommunity) {
 			name = $activeCommunity.name;
 			description = $activeCommunity.description || '';
-			iconPreview = $activeCommunity.iconUrl || $activeCommunity.icon || null;
-			isPrivate = $activeCommunity.isPrivate || false;
+			iconPreview = $activeCommunity.iconUrl || null;
+			isPrivate = !$activeCommunity.isPublic;
 		}
 	});
 
@@ -75,7 +75,7 @@
 
 	function resetForm() {
 		icon = null;
-		iconPreview = $activeCommunity?.iconUrl || $activeCommunity?.icon || null;
+		iconPreview = $activeCommunity?.iconUrl || null;
 		errors = {};
 		activeTab = 'overview';
 		invites = [];
@@ -147,15 +147,13 @@
 				try {
 					const iconUrl = await api.updateCommunityIcon($activeCommunity.id, icon);
 					updatedCommunity.iconUrl = iconUrl;
-					updatedCommunity.icon = iconUrl;
 				} catch (err) {
 					console.error('Failed to upload icon:', err);
 				}
-			} else if (iconPreview === null && ($activeCommunity.iconUrl || $activeCommunity.icon)) {
+			} else if (iconPreview === null && $activeCommunity.iconUrl) {
 				try {
 					await api.removeCommunityIcon($activeCommunity.id);
 					updatedCommunity.iconUrl = null;
-					updatedCommunity.icon = null;
 				} catch (err) {
 					console.error('Failed to remove icon:', err);
 				}

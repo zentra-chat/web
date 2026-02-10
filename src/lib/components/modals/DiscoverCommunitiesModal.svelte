@@ -116,14 +116,14 @@
 				{#each communities as community (community.id)}
 					<div class="flex items-center gap-4 p-4 bg-surface rounded-lg hover:bg-surface-hover transition-colors">
 						<Avatar
-							src={community.icon || community.iconUrl}
+								src={community.iconUrl}
 							alt={community.name}
 							size="lg"
 						/>
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2">
 								<h3 class="font-semibold text-text-primary truncate">{community.name}</h3>
-								{#if community.isPrivate}
+									{#if !community.isPublic}
 									<Lock size={14} class="text-text-muted shrink-0" />
 								{:else}
 									<Globe size={14} class="text-text-muted shrink-0" />
@@ -139,11 +139,11 @@
 						</div>
 						<Button
 							size="sm"
-							variant={community.isPrivate ? 'secondary' : 'primary'}
+								variant={!community.isPublic ? 'secondary' : 'primary'}
 							onclick={() => handleJoin(community)}
 							loading={isJoining === community.id}
 						>
-							{#if community.isPrivate}
+								{#if !community.isPublic}
 								Request Join
 							{:else}
 								Join

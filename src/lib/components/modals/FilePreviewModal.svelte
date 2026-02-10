@@ -15,7 +15,7 @@
 
 	$effect(() => {
 		if (isOpen && data && attachment) {
-			const mime = attachment.mimeType || attachment.contentType;
+			const mime = attachment.contentType;
 			const isText = mime?.startsWith('text/') || 
 						 mime === 'application/json' || 
 						 mime === 'application/javascript' ||
@@ -75,7 +75,7 @@
 					<div>
 						<h2 class="font-bold text-text-primary">{attachment.filename}</h2>
 						<p class="text-xs text-text-muted">
-							{(attachment.mimeType || attachment.contentType || 'unknown')} • 
+							{(attachment.contentType || 'unknown')} • 
 							{attachment.size < 1024 
 								? attachment.size + ' B' 
 								: attachment.size < 1024 * 1024 

@@ -226,9 +226,9 @@
 		<div class="h-12 px-4 flex items-center gap-2 border-b border-border shrink-0">
 			<Icon size={20} class="text-text-muted" />
 			<h2 class="font-semibold text-text-primary">{$activeChannel.name}</h2>
-			{#if $activeChannel.description}
+			{#if $activeChannel.topic}
 				<span class="text-text-muted mx-2">|</span>
-				<p class="text-sm text-text-muted truncate">{$activeChannel.description}</p>
+				<p class="text-sm text-text-muted truncate">{$activeChannel.topic}</p>
 			{/if}
 
 			<div class="ml-auto flex items-center gap-2">
@@ -287,7 +287,7 @@
 						Welcome to #{$activeChannel.name}!
 					</h3>
 					<p class="text-text-muted max-w-md">
-						{$activeChannel.description || 'This is the start of this channel. Send a message to get the conversation going!'}
+						{$activeChannel.topic || 'This is the start of this channel. Send a message to get the conversation going!'}
 					</p>
 				{/if}
 			</div>

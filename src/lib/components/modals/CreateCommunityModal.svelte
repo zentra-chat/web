@@ -97,7 +97,6 @@
 				try {
 					const iconUrl = await api.updateCommunityIcon(community.id, icon);
 					community.iconUrl = iconUrl;
-					community.icon = iconUrl;
 				} catch (err) {
 					console.error('Failed to upload icon:', err);
 					// Community was created, just icon failed

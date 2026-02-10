@@ -169,9 +169,9 @@
 
 					<!-- Community info -->
 					<div class="flex flex-col items-center gap-4">
-						{#if inviteInfo.community.iconUrl || inviteInfo.community.icon}
+						{#if inviteInfo.community.iconUrl}
 							<img
-								src={inviteInfo.community.iconUrl || inviteInfo.community.icon}
+								src={inviteInfo.community.iconUrl}
 								alt={inviteInfo.community.name}
 								class="w-20 h-20 rounded-2xl object-cover shadow-lg"
 							/>

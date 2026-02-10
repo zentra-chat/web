@@ -128,7 +128,7 @@
 
 	function handleFileClick(event: MouseEvent, attachment: any) {
 		const previewableTypes = ['text/', 'application/json', 'application/javascript', 'application/x-typescript'];
-		const contentType = attachment.contentType || attachment.mimeType || '';
+		const contentType = attachment.contentType || '';
 		const isPreviewable = previewableTypes.some(type => contentType.startsWith(type));
 
 		if (isPreviewable) {
@@ -136,11 +136,6 @@
 			filePreviewData.set(attachment);
 			filePreviewOpen.set(true);
 		}
-	}
-
-	function getFileIcon(mimeType: string) {
-		if (mimeType.startsWith('image/')) return Image;
-		return File;
 	}
 
 	function formatFileSize(bytes: number): string {
@@ -226,7 +221,7 @@
 			{#if message.attachments && message.attachments.length > 0}
 				<div class="{hasContent ? 'mt-2' : ''} flex flex-wrap gap-2">
 					{#each message.attachments as attachment}
-						{#if (attachment.contentType || attachment.mimeType)?.startsWith('image/')}
+						{#if attachment.contentType?.startsWith('image/')}
 							<a
 								href={attachment.url}
 								target="_blank"

@@ -12,6 +12,14 @@ import {
 	addMessageReaction,
 	removeMessageReaction
 } from '$lib/stores/community';
+import {
+	addDmMessage,
+	updateDmMessage,
+	removeDmMessage,
+	updateDmConversationFromMessage,
+	clearDmUnread,
+	activeDmConversationId
+} from '$lib/stores/dm';
 import { setTyping, setUserPresence, showToast } from '$lib/stores/ui';
 import type {
 	WebSocketEvent,
@@ -20,7 +28,8 @@ import type {
 	Channel,
 	Community,
 	TypingEvent,
-	PresenceEvent
+	PresenceEvent,
+	User
 } from '$lib/types';
 
 type EventHandler = (data: unknown) => void;
@@ -125,6 +134,15 @@ class WebSocketManager {
 			case 'MESSAGE_DELETE':
 				this.handleMessageDelete(event.data as { channelId: string; messageId: string });
 				break;
+			case 'DM_MESSAGE_CREATE':
+				this.handleDmMessageCreate(event.data as any);
+				break;
+			case 'DM_MESSAGE_UPDATE':
+				this.handleDmMessageUpdate(event.data as any);
+				break;
+			case 'DM_MESSAGE_DELETE':
+				this.handleDmMessageDelete(event.data as { conversationId: string; messageId: string });
+				break;
 			case 'TYPING_START':
 				this.handleTypingStart(event.data as TypingEvent);
 				break;
@@ -173,6 +191,51 @@ class WebSocketManager {
 
 	private handleMessageDelete(data: { channelId: string; messageId: string }): void {
 		removeMessage(data.channelId, data.messageId);
+	}
+
+	private mapDmMessage(message: {
+		id: string;
+		conversationId: string;
+		senderId: string;
+		content: string;
+		isEdited: boolean;
+		createdAt: string;
+		updatedAt: string;
+		sender?: User;
+	}): Message {
+		return {
+			id: message.id,
+			channelId: message.conversationId,
+			authorId: message.senderId,
+			content: message.content,
+			replyToId: null,
+			isEdited: message.isEdited,
+			isPinned: false,
+			reactions: [],
+			author: message.sender || ({} as User),
+			attachments: [],
+			createdAt: message.createdAt,
+			updatedAt: message.updatedAt
+		};
+	}
+
+	private handleDmMessageCreate(message: any): void {
+		const mapped = this.mapDmMessage(message);
+		addDmMessage(mapped.channelId, mapped);
+		updateDmConversationFromMessage(mapped.channelId, mapped);
+		if (get(activeDmConversationId) === mapped.channelId) {
+			clearDmUnread(mapped.channelId);
+		}
+	}
+
+	private handleDmMessageUpdate(message: any): void {
+		const mapped = this.mapDmMessage(message);
+		updateDmMessage(mapped.channelId, mapped.id, mapped);
+		updateDmConversationFromMessage(mapped.channelId, mapped);
+	}
+
+	private handleDmMessageDelete(data: { conversationId: string; messageId: string }): void {
+		removeDmMessage(data.conversationId, data.messageId);
 	}
 
 	private handleTypingStart(data: TypingEvent): void {

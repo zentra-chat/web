@@ -218,6 +218,9 @@ export type WebSocketEventType =
 	| 'MESSAGE_CREATE'
 	| 'MESSAGE_UPDATE'
 	| 'MESSAGE_DELETE'
+	| 'DM_MESSAGE_CREATE'
+	| 'DM_MESSAGE_UPDATE'
+	| 'DM_MESSAGE_DELETE'
 	| 'TYPING_START'
 	| 'PRESENCE_UPDATE'
 	| 'CHANNEL_CREATE'
@@ -267,7 +270,8 @@ export interface ToastMessage {
 }
 
 // Direct Message types
-export interface DirectMessage {
+
+export interface DMConversation {
 	id: string;
 	participants: User[];
 	lastMessage?: Message;

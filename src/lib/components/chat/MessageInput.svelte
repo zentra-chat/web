@@ -1,18 +1,25 @@
 <script lang="ts">
-	import { Textarea, Avatar, Spinner } from '$lib/components/ui';
-	import { Send, Plus, X, Smile, Image, Paperclip, Gift } from '$lib/components/icons';
+	import { Spinner } from '$lib/components/ui';
+	import { Send, Plus, X, Smile, Paperclip } from '$lib/components/icons';
 	import { replyingToMessage, editingMessageId, typingUsers, setReplyingTo, setEditingMessage, addToast } from '$lib/stores/ui';
 	import { addMessage, updateMessage, messages } from '$lib/stores/community';
-	import { currentUser, currentUserId } from '$lib/stores/instance';
+	import {
+		addDmMessage,
+		updateDmMessage,
+		dmMessagesCache,
+		updateDmConversationFromMessage
+	} from '$lib/stores/dm';
+	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
-	import type { Message, Attachment } from '$lib/types';
+	import type { Attachment } from '$lib/types';
 	import EmojiPicker from './EmojiPicker.svelte';
 
 	interface Props {
-		channelId: string;
+		channelId?: string;
+		dmConversationId?: string;
 	}
 
-	let { channelId }: Props = $props();
+	let { channelId, dmConversationId }: Props = $props();
 
 	let content = $state('');
 	let attachments = $state<File[]>([]);
@@ -23,14 +30,19 @@
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
 
-	let typingInChannel = $derived(() => {
-		const users = $typingUsers[channelId] || [];
-		return users.filter(e => e.userId != $currentUserId);
+	let isDm = $derived(!!dmConversationId);
+	let typingInChannel = $derived.by(() => {
+		const activeId = dmConversationId || channelId;
+		if (!activeId) return [];
+		const users = $typingUsers[activeId] || [];
+		return users.filter((entry) => entry.userId != $currentUserId);
 	});
 
 	let editingMessage = $derived.by(() => {
 		if (!$editingMessageId) return null;
-		const channelMsgs = $messages[channelId] || [];
+		const channelMsgs = dmConversationId
+			? $dmMessagesCache[dmConversationId] || []
+			: $messages[channelId as string] || [];
 		return channelMsgs.find(m => m.id === $editingMessageId) || null;
 	});
 
@@ -39,6 +51,12 @@
 		if (editingMessage) {
 			content = editingMessage.content || '';
 			textareaRef?.focus();
+		}
+	});
+
+	$effect(() => {
+		if (isDm && attachments.length > 0) {
+			attachments = [];
 		}
 	});
 
@@ -52,11 +70,11 @@
 		try {
 			// Upload attachments first
 			let uploadedAttachments: Attachment[] = [];
-			if (attachments.length > 0) {
+			if (!dmConversationId && attachments.length > 0) {
 				isUploading = true;
 				for (const file of attachments) {
 					try {
-						const att = await api.uploadAttachment(file, channelId);
+						const att = await api.uploadAttachment(file, channelId as string);
 						uploadedAttachments.push(att);
 					} catch (err) {
 						console.error('Failed to upload attachment:', err);
@@ -71,8 +89,14 @@
 
 			if ($editingMessageId && editingMessage) {
 				// Edit existing message
-				const msg = await api.editMessage(editingMessage.id, trimmedContent);
-				updateMessage(channelId, editingMessage.id, msg);
+				if (dmConversationId) {
+					const msg = await api.editDmMessage(editingMessage.id, trimmedContent);
+					updateDmMessage(dmConversationId, editingMessage.id, msg);
+					updateDmConversationFromMessage(dmConversationId, msg);
+				} else if (channelId) {
+					const msg = await api.editMessage(editingMessage.id, trimmedContent);
+					updateMessage(channelId, editingMessage.id, msg);
+				}
 				setEditingMessage(null);
 			} else {
 				// Send new message
@@ -84,17 +108,23 @@
 					content: trimmedContent
 				};
 
-				if ($replyingToMessage) {
+				if (!dmConversationId && $replyingToMessage) {
 					messageData.replyToId = $replyingToMessage.id;
 				}
 
-				if (uploadedAttachments.length > 0) {
+				if (!dmConversationId && uploadedAttachments.length > 0) {
 					messageData.attachments = uploadedAttachments.map(a => a.id);
 				}
 
-				const msg = await api.sendMessage(channelId, messageData);
-				addMessage(channelId, msg);
-				setReplyingTo(null);
+				if (dmConversationId) {
+					const msg = await api.sendDmMessage(dmConversationId, messageData.content);
+					addDmMessage(dmConversationId, msg);
+					updateDmConversationFromMessage(dmConversationId, msg);
+				} else if (channelId) {
+					const msg = await api.sendMessage(channelId, messageData);
+					addMessage(channelId, msg);
+					setReplyingTo(null);
+				}
 			}
 
 			content = '';
@@ -126,7 +156,10 @@
 		}
 
 		// Send typing indicator
-		websocket.sendTyping(channelId);
+		const activeId = dmConversationId || channelId;
+		if (activeId) {
+			websocket.sendTyping(activeId);
+		}
 	}
 
 	function handleEmojiSelect(emoji: string) {
@@ -136,6 +169,7 @@
 	}
 
 	function handleFileSelect(e: Event) {
+		if (dmConversationId) return;
 		const input = e.target as HTMLInputElement;
 		if (input.files) {
 			const newFiles = Array.from(input.files);
@@ -152,6 +186,7 @@
 	}
 
 	function openFilePicker() {
+		if (dmConversationId) return;
 		fileInputRef?.click();
 	}
 
@@ -219,7 +254,7 @@
 	{/if}
 
 	<!-- Reply/Edit indicator -->
-	{#if $replyingToMessage}
+	{#if !isDm && $replyingToMessage}
 		<div class="flex items-center gap-2 px-4 py-2 bg-surface rounded-t-lg border border-b-0 border-border">
 			<span class="text-xs text-text-muted">Replying to</span>
 			<span class="text-xs font-medium text-primary">
@@ -250,7 +285,7 @@
 	{/if}
 
 	<!-- Attachments preview -->
-	{#if attachments.length > 0}
+	{#if !isDm && attachments.length > 0}
 		<div class="flex flex-wrap gap-2 px-4 py-2 bg-surface {$replyingToMessage || $editingMessageId ? '' : 'rounded-t-lg'} border border-b-0 border-border">
 			{#each attachments as file, index}
 				<div class="relative group">
@@ -281,24 +316,26 @@
 	{/if}
 
 	<!-- Input area -->
-	<div class="relative flex items-end gap-2 bg-surface {$replyingToMessage || $editingMessageId || attachments.length > 0 ? 'rounded-b-lg border-t-0' : 'rounded-lg'} border border-border">
-		<input
-			bind:this={fileInputRef}
-			type="file"
-			multiple
-			accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
-			onchange={handleFileSelect}
-			class="hidden"
-		/>
+	<div class="relative flex items-end gap-2 bg-surface {$replyingToMessage || $editingMessageId || (!isDm && attachments.length > 0) ? 'rounded-b-lg border-t-0' : 'rounded-lg'} border border-border">
+		{#if !isDm}
+			<input
+				bind:this={fileInputRef}
+				type="file"
+				multiple
+				accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+				onchange={handleFileSelect}
+				class="hidden"
+			/>
 
-		<button
-			onclick={openFilePicker}
-			class="p-3 text-text-muted hover:text-text-primary transition-colors shrink-0"
-			aria-label="Add attachment"
-			disabled={isSending}
-		>
-			<Plus size={20} />
-		</button>
+			<button
+				onclick={openFilePicker}
+				class="p-3 text-text-muted hover:text-text-primary transition-colors shrink-0"
+				aria-label="Add attachment"
+				disabled={isSending}
+			>
+				<Plus size={20} />
+			</button>
+		{/if}
 
 		<textarea
 			bind:this={textareaRef}
@@ -325,10 +362,9 @@
 					<Smile size={20} />
 				</button>
 			</div>
-
 			<button
 				onclick={handleSubmit}
-				disabled={isSending || (!content.trim() && attachments.length === 0)}
+				disabled={isSending || (!content.trim() && (!isDm && attachments.length === 0))}
 				class="p-3 text-primary hover:text-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
 				aria-label={$editingMessageId ? 'Save edit' : 'Send message'}
 			>

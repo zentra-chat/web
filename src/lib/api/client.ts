@@ -17,7 +17,9 @@ import type {
 	CommunityMember,
 	Message,
 	SendMessageRequest,
-	Attachment
+	Attachment,
+	DMConversation,
+	User
 } from '$lib/types';
 
 class ApiClient {
@@ -72,6 +74,32 @@ class ApiClient {
 		}
 
 		return response.json();
+	}
+
+	private mapDmMessage(message: {
+		id: string;
+		conversationId: string;
+		senderId: string;
+		content: string;
+		isEdited: boolean;
+		createdAt: string;
+		updatedAt: string;
+		sender?: User;
+	}): Message {
+		return {
+			id: message.id,
+			channelId: message.conversationId,
+			authorId: message.senderId,
+			content: message.content,
+			replyToId: null,
+			isEdited: message.isEdited,
+			isPinned: false,
+			reactions: [],
+			author: message.sender || ({} as User),
+			attachments: [],
+			createdAt: message.createdAt,
+			updatedAt: message.updatedAt
+		};
 	}
 
 	private async request<T>(
@@ -501,6 +529,78 @@ class ApiClient {
 		await this.request(`/messages/channels/${channelId}/messages/typing`, {
 			method: 'POST'
 		});
+	}
+
+	// DM endpoints
+	async getDmConversations(): Promise<DMConversation[]> {
+		const result = await this.request<ApiResponse<any[]>>('/dms/conversations');
+		return (result.data || []).map((conversation) => ({
+			...conversation,
+			lastMessage: conversation.lastMessage ? this.mapDmMessage(conversation.lastMessage) : undefined
+		}));
+	}
+
+	async getDmConversation(conversationId: string): Promise<DMConversation> {
+		const result = await this.request<ApiResponse<any>>(`/dms/conversations/${conversationId}`);
+		const conversation = result.data;
+		return {
+			...conversation,
+			lastMessage: conversation.lastMessage ? this.mapDmMessage(conversation.lastMessage) : undefined
+		};
+	}
+
+	async createDmConversation(userId: string): Promise<DMConversation> {
+		const result = await this.request<ApiResponse<any>>('/dms/conversations', {
+			method: 'POST',
+			body: JSON.stringify({ userId })
+		});
+		const conversation = result.data;
+		return {
+			...conversation,
+			lastMessage: conversation.lastMessage ? this.mapDmMessage(conversation.lastMessage) : undefined
+		};
+	}
+
+	async markDmRead(conversationId: string): Promise<void> {
+		await this.request(`/dms/conversations/${conversationId}/read`, { method: 'POST' });
+	}
+
+	async getDmMessages(
+		conversationId: string,
+		options?: { limit?: number; before?: string; after?: string }
+	): Promise<Message[]> {
+		const params = new URLSearchParams();
+		if (options?.limit) params.set('limit', String(options.limit));
+		if (options?.before) params.set('before', options.before);
+		if (options?.after) params.set('after', options.after);
+
+		const result = await this.request<ApiResponse<any[]>>(
+			`/dms/conversations/${conversationId}/messages?${params}`
+		);
+		return (result.data || []).map((msg) => this.mapDmMessage(msg));
+	}
+
+	async sendDmMessage(conversationId: string, content: string): Promise<Message> {
+		const result = await this.request<ApiResponse<any>>(
+			`/dms/conversations/${conversationId}/messages`,
+			{
+				method: 'POST',
+				body: JSON.stringify({ content })
+			}
+		);
+		return this.mapDmMessage(result.data);
+	}
+
+	async editDmMessage(messageId: string, content: string): Promise<Message> {
+		const result = await this.request<ApiResponse<any>>(`/dms/messages/${messageId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ content })
+		});
+		return this.mapDmMessage(result.data);
+	}
+
+	async deleteDmMessage(messageId: string): Promise<void> {
+		await this.request(`/dms/messages/${messageId}`, { method: 'DELETE' });
 	}
 
 	// Media endpoints

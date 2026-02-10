@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { AppLayout } from '$lib/components/layout';
 	import { MessageList, MessageInput } from '$lib/components/chat';
+	import DMHome from '$lib/components/dm/DMHome.svelte';
 	import { Spinner } from '$lib/components/ui';
 	import { Hash } from '$lib/components/icons';
 	import {
@@ -69,15 +70,7 @@
 			<Spinner size="lg" />
 		</div>
 	{:else if !$activeCommunity}
-		<div class="flex-1 flex flex-col items-center justify-center text-center p-8">
-			<div class="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-4">
-				<Hash size={40} class="text-text-muted" />
-			</div>
-			<h2 class="text-xl font-semibold text-text-primary mb-2">No community selected</h2>
-			<p class="text-text-muted max-w-md">
-				Select a community from the sidebar or create a new one to get started.
-			</p>
-		</div>
+		<DMHome />
 	{:else if !$activeChannel}
 		<div class="flex-1 flex flex-col items-center justify-center text-center p-8">
 			<div class="w-20 h-20 rounded-full bg-surface flex items-center justify-center mb-4">

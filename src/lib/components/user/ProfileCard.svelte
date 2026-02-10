@@ -5,15 +5,25 @@
 	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from '$lib/components/icons';
 	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
+	import { selectCommunity } from '$lib/stores/community';
+	import { setActiveDmConversationId, upsertDmConversation } from '$lib/stores/dm';
+	import { api } from '$lib/api';
 	import { format } from 'date-fns';
 
 	let user = $derived($profileCardUser);
 	let position = $derived($profileCardPosition);
 	let isOwnProfile = $derived(user?.id === $currentUserId);
 
-	function handleMessage() {
-		// DM: Once DM's have been implmented, this needs to be updated
-		alert('Direct messages not yet implemented');
+	async function handleMessage() {
+		if (!user) return;
+		try {
+			const conversation = await api.createDmConversation(user.id);
+			upsertDmConversation(conversation);
+			selectCommunity(null);
+			setActiveDmConversationId(conversation.id);
+		} catch (err) {
+			console.error('Failed to start DM:', err);
+		}
 		closeProfileCard();
 	}
 

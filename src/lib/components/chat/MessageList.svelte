@@ -1,18 +1,27 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import { Spinner } from '$lib/components/ui';
 	import { Hash, Megaphone, Lock, Users } from '$lib/components/icons';
 	import MessageItem from './MessageItem.svelte';
-	import { activeChannel, messages, setMessages, addMessage, removeMessage } from '$lib/stores/community';
+	import { activeChannel, messages, setMessages, removeMessage } from '$lib/stores/community';
 	import { showMemberSidebar, toggleMemberSidebar } from '$lib/stores/ui';
+	import {
+		activeDmConversation,
+		dmMessagesCache,
+		setDmMessages,
+		removeDmMessage,
+		clearDmUnread
+	} from '$lib/stores/dm';
+	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
 	import type { Message, Channel } from '$lib/types';
 
 	interface Props {
-		channelId: string;
+		channelId?: string;
+		dmConversationId?: string;
 	}
 
-	let { channelId }: Props = $props();
+	let { channelId, dmConversationId }: Props = $props();
 
 	let containerRef: HTMLDivElement | null = $state(null);
 	let isLoading = $state(false);
@@ -21,18 +30,26 @@
 	let error = $state<string | null>(null);
 	let isFirstLoad = $state(true);
 
-	let channelMessages = $derived($messages[channelId] || []);
+	let isDm = $derived(!!dmConversationId);
+	let channelMessages = $derived(
+		dmConversationId
+			? $dmMessagesCache[dmConversationId] || []
+			: channelId
+				? $messages[channelId] || []
+				: []
+	);
 
 	$effect(() => {
-		if (channelId) {
+		const streamId = dmConversationId || channelId;
+		if (streamId) {
 			isFirstLoad = true;
 			loadMessages();
 
 			// Subscribe to channel events
-			websocket.subscribe(channelId);
+			websocket.subscribe(streamId);
 
 			return () => {
-				websocket.unsubscribe(channelId);
+				websocket.unsubscribe(streamId);
 			};
 		}
 	});
@@ -67,16 +84,24 @@
 	});
 
 	async function loadMessages() {
-		if (!channelId) return;
+		const streamId = dmConversationId || channelId;
+		if (!streamId) return;
 
 		isLoading = true;
 		error = null;
 
 		try {
-			const msgs = await api.getMessages(channelId);
-			// API returns DESC, we want ASC for display
+			const msgs = dmConversationId
+				? await api.getDmMessages(dmConversationId)
+				: await api.getMessages(channelId as string);
 			const reversedMsgs = msgs ? [...msgs].reverse() : [];
-			setMessages(channelId, reversedMsgs);
+			if (dmConversationId) {
+				setDmMessages(dmConversationId, reversedMsgs);
+				clearDmUnread(dmConversationId);
+				await api.markDmRead(dmConversationId);
+			} else if (channelId) {
+				setMessages(channelId, reversedMsgs);
+			}
 			hasMore = reversedMsgs.length >= 50;
 
 			// Scroll to bottom after initial load
@@ -94,21 +119,31 @@
 
 	async function loadMoreMessages() {
 		if (!hasMore || isLoadingMore || channelMessages.length === 0) return;
+		const streamId = dmConversationId || channelId;
+		if (!streamId) return;
 
 		isLoadingMore = true;
 		const oldestMessage = channelMessages[0];
 		const prevScrollHeight = containerRef?.scrollHeight || 0;
 
 		try {
-			const msgs = await api.getMessages(channelId, {
-				before: oldestMessage.id,
-				limit: 50
-			});
+			const msgs = dmConversationId
+				? await api.getDmMessages(dmConversationId, {
+					before: oldestMessage.id,
+					limit: 50
+				})
+				: await api.getMessages(channelId as string, {
+					before: oldestMessage.id,
+					limit: 50
+				});
 
 			if (msgs && msgs.length > 0) {
-				// msgs are DESC from API, we want to maintain ASC in our store
 				const reversedMsgs = [...msgs].reverse();
-				setMessages(channelId, [...reversedMsgs, ...channelMessages]);
+				if (dmConversationId) {
+					setDmMessages(dmConversationId, [...reversedMsgs, ...channelMessages]);
+				} else if (channelId) {
+					setMessages(channelId, [...reversedMsgs, ...channelMessages]);
+				}
 				hasMore = msgs.length >= 50;
 
 				// Maintain scroll position
@@ -136,7 +171,21 @@
 	}
 
 	function handleMessageDelete(messageId: string) {
-		removeMessage(channelId, messageId);
+		if (dmConversationId) {
+			removeDmMessage(dmConversationId, messageId);
+			return;
+		}
+		if (channelId) {
+			removeMessage(channelId, messageId);
+		}
+	}
+
+	async function handleDeleteRequest(messageId: string) {
+		if (dmConversationId) {
+			await api.deleteDmMessage(messageId);
+			return;
+		}
+		await api.deleteMessage(messageId);
 	}
 
 	function getChannelIcon(type: Channel['type']) {
@@ -149,11 +198,21 @@
 				return Hash;
 		}
 	}
+
+	function getDmHeaderName(): string {
+		if (!$activeDmConversation) return 'Direct Messages';
+		const otherUser = $activeDmConversation.participants.find((p) => p.id !== $currentUserId);
+		return otherUser?.displayName || otherUser?.username || 'Direct Messages';
+	}
 </script>
 
 <div class="flex-1 flex flex-col min-h-0">
 	<!-- Channel header -->
-	{#if $activeChannel}
+	{#if isDm}
+		<div class="h-12 px-4 flex items-center gap-2 border-b border-border shrink-0">
+			<h2 class="font-semibold text-text-primary">{getDmHeaderName()}</h2>
+		</div>
+	{:else if $activeChannel}
 		{@const Icon = getChannelIcon($activeChannel.type)}
 		<div class="h-12 px-4 flex items-center gap-2 border-b border-border shrink-0">
 			<Icon size={20} class="text-text-muted" />
@@ -199,7 +258,18 @@
 			</div>
 		{:else if channelMessages.length === 0}
 			<div class="flex flex-col items-center justify-center h-full text-center px-4">
-				{#if $activeChannel}
+				{#if isDm}
+					{@const otherName = getDmHeaderName()}
+					<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
+						<Users size={32} class="text-text-muted" />
+					</div>
+					<h3 class="text-xl font-semibold text-text-primary mb-2">
+						Start a conversation with {otherName}
+					</h3>
+					<p class="text-text-muted max-w-md">
+						Send a message to get things going.
+					</p>
+				{:else if $activeChannel}
 					{@const Icon = getChannelIcon($activeChannel.type)}
 					<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
 						<Icon size={32} class="text-text-muted" />
@@ -227,7 +297,18 @@
 				</button>
 			{:else}
 				<div class="flex flex-col items-center py-8 px-4 text-center">
-					{#if $activeChannel}
+					{#if isDm}
+						{@const otherName = getDmHeaderName()}
+						<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
+							<Users size={32} class="text-text-muted" />
+						</div>
+						<h3 class="text-xl font-semibold text-text-primary mb-2">
+							Start a conversation with {otherName}
+						</h3>
+						<p class="text-text-muted max-w-md mb-4">
+							This is the beginning of your DM.
+						</p>
+					{:else if $activeChannel}
 						{@const Icon = getChannelIcon($activeChannel.type)}
 						<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
 							<Icon size={32} class="text-text-muted" />
@@ -248,6 +329,9 @@
 					{message}
 					previousMessage={index > 0 ? channelMessages[index - 1] : undefined}
 					onDelete={handleMessageDelete}
+					onDeleteRequest={isDm ? handleDeleteRequest : undefined}
+					enableReactions={!isDm}
+					enableReply={!isDm}
 				/>
 			{/each}
 

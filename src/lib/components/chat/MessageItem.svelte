@@ -1,15 +1,13 @@
 <script lang="ts">
-	import { formatDistanceToNow, format, isToday, isYesterday, isSameDay } from 'date-fns';
+	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner } from '$lib/components/ui';
 	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from '$lib/components/icons';
-	import type { Message, User } from '$lib/types';
+	import type { Message } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
-	import { 
-		editingMessageId, 
-		replyingToMessage, 
-		setEditingMessage, 
-		setReplyingTo, 
-		filePreviewOpen, 
+	import {
+		setEditingMessage,
+		setReplyingTo,
+		filePreviewOpen,
 		filePreviewData,
 		openProfileCard
 	} from '$lib/stores/ui';
@@ -20,9 +18,19 @@
 		message: Message;
 		previousMessage?: Message;
 		onDelete?: (messageId: string) => void;
+		onDeleteRequest?: (messageId: string) => Promise<void>;
+		enableReactions?: boolean;
+		enableReply?: boolean;
 	}
 
-	let { message, previousMessage, onDelete }: Props = $props();
+	let {
+		message,
+		previousMessage,
+		onDelete,
+		onDeleteRequest,
+		enableReactions = true,
+		enableReply = true
+	}: Props = $props();
 
 	let isHovered = $state(false);
 	let isDeleting = $state(false);
@@ -30,7 +38,6 @@
 	let showReactionsPicker = $state(false);
 
 	let isOwnMessage = $derived(message.authorId === $currentUserId);
-	let isEditing = $derived($editingMessageId === message.id);
 
 	// Check if we should show the header (avatar + name)
 	let showHeader = $derived.by(() => {
@@ -70,7 +77,11 @@
 
 		isDeleting = true;
 		try {
-			await api.deleteMessage(message.id);
+			if (onDeleteRequest) {
+				await onDeleteRequest(message.id);
+			} else {
+				await api.deleteMessage(message.id);
+			}
 			onDelete?.(message.id);
 		} catch (err) {
 			console.error('Failed to delete message:', err);
@@ -84,6 +95,7 @@
 	}
 
 	function handleReply() {
+		if (!enableReply) return;
 		setReplyingTo(message);
 	}
 
@@ -95,6 +107,7 @@
 	}
 
 	async function handleToggleReaction(emoji: string, reacted: boolean) {
+		if (!enableReactions) return;
 		try {
 			if (reacted) {
 				await api.removeReaction(message.id, emoji);
@@ -237,7 +250,7 @@
 			{/if}
 
 			<!-- Reactions -->
-			{#if message.reactions && message.reactions.length > 0}
+			{#if enableReactions && message.reactions && message.reactions.length > 0}
 				<div class="mt-2 flex flex-wrap gap-1">
 					{#each message.reactions as reaction}
 						<button
@@ -283,20 +296,24 @@
 					/>
 				</div>
 			{/if}
-			<button
-				onclick={() => (showActionBarPicker = !showActionBarPicker)}
-				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
-				aria-label="Add Reaction"
-			>
-				<Smile size={16} />
-			</button>
-			<button
-				onclick={handleReply}
-				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
-				aria-label="Reply"
-			>
-				<Reply size={16} />
-			</button>
+			{#if enableReactions}
+				<button
+					onclick={() => (showActionBarPicker = !showActionBarPicker)}
+					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+					aria-label="Add Reaction"
+				>
+					<Smile size={16} />
+				</button>
+			{/if}
+			{#if enableReply}
+				<button
+					onclick={handleReply}
+					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+					aria-label="Reply"
+				>
+					<Reply size={16} />
+				</button>
+			{/if}
 			{#if isOwnMessage}
 				<button
 					onclick={handleEdit}

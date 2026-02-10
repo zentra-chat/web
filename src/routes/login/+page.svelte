@@ -192,6 +192,13 @@
 			{/if}
 		</div>
 
+		<p class="text-center mt-4 text-xs text-text-muted">
+			By continuing, you agree to the
+			<a href="/terms" class="text-primary hover:underline">Terms of Service</a>
+			and
+			<a href="/privacy" class="text-primary hover:underline">Privacy Policy</a>.
+		</p>
+
 		<p class="text-center mt-6 text-sm text-text-muted">
 			<a href="/" class="hover:text-text-secondary">Back to home</a>
 		</p>

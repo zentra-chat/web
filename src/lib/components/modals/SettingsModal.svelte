@@ -12,7 +12,7 @@
 	let customStatus = $state('');
 	let avatar = $state<File | null>(null);
 	let avatarPreview = $state<string | null>(null);
-	let activeTab = $state<'profile' | 'account' | 'appearance'>('profile');
+	let activeTab = $state<'profile' | 'account' | 'appearance' | 'legal'>('profile');
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 
@@ -260,6 +260,12 @@
 			>
 				Appearance
 			</button>
+			<button
+				onclick={() => activeTab = 'legal'}
+				class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'legal' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+			>
+				Legal
+			</button>
 		</div>
 
 		<!-- Content -->
@@ -435,6 +441,27 @@
 							</div>
 							<span class="text-text-primary">Enable</span>
 						</label>
+					</div>
+				</div>
+			{:else if activeTab === 'legal'}
+				<div class="space-y-6">
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Policies</h3>
+						<p class="text-sm text-text-muted mb-4">
+							Review the Terms of Service and Privacy Policy for how the Service works and
+							how data is handled.
+						</p>
+						<div class="flex flex-col gap-2">
+							<a href="/terms" class="text-primary hover:underline">Terms of Service</a>
+							<a href="/privacy" class="text-primary hover:underline">Privacy Policy</a>
+						</div>
+					</div>
+
+					<div class="pt-6 border-t border-border">
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Contact</h3>
+						<p class="text-sm text-text-muted">
+							For legal or privacy requests, contact contact@abstractmelon.net.
+						</p>
 					</div>
 				</div>
 			{/if}

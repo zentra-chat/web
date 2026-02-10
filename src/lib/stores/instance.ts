@@ -1,10 +1,22 @@
 import { writable, derived, get } from 'svelte/store';
+import { PUBLIC_DEFAULT_INSTANCE_URL, PUBLIC_DEFAULT_INSTANCE_NAME } from '$env/static/public';
 import type { Instance, InstanceAuth, FullUser } from '$lib/types';
 
 // Storage keys
 const INSTANCES_KEY = 'zentra_instances';
 const AUTH_KEY = 'zentra_auth';
 const ACTIVE_INSTANCE_KEY = 'zentra_active_instance';
+
+// Default instance from environment
+const DEFAULT_INSTANCE: Instance | null = PUBLIC_DEFAULT_INSTANCE_URL
+	? {
+			id: 'default',
+			url: PUBLIC_DEFAULT_INSTANCE_URL,
+			name: PUBLIC_DEFAULT_INSTANCE_NAME || 'Default Instance',
+			isOnline: true,
+			lastChecked: new Date().toISOString()
+		}
+	: null;
 
 // Helper to safely access localStorage
 function getFromStorage<T>(key: string, defaultValue: T): T {
@@ -38,10 +50,16 @@ function persistentWritable<T>(key: string, defaultValue: T) {
 }
 
 // Instances store - list of all added backend instances
-export const instances = persistentWritable<Instance[]>(INSTANCES_KEY, []);
+export const instances = persistentWritable<Instance[]>(
+	INSTANCES_KEY,
+	DEFAULT_INSTANCE ? [DEFAULT_INSTANCE] : []
+);
 
 // Active instance ID
-export const activeInstanceId = persistentWritable<string | null>(ACTIVE_INSTANCE_KEY, null);
+export const activeInstanceId = persistentWritable<string | null>(
+	ACTIVE_INSTANCE_KEY,
+	DEFAULT_INSTANCE?.id || null
+);
 
 // Auth data per instance
 export const instanceAuth = persistentWritable<Record<string, InstanceAuth>>(AUTH_KEY, {});

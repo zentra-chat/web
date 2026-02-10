@@ -199,11 +199,11 @@
 	<meta name="description" content="Open-source, encrypted, community-hostable chat platform" />
 </svelte:head>
 
-<div class="min-h-screen bg-background relative overflow-hidden">
+<div class="min-h-screen bg-background relative overflow-hidden flex flex-col">
 	<canvas bind:this={canvas} class="absolute inset-0 z-0"></canvas>
 
 	<!-- Navigation -->
-	<nav class="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+	<nav class="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
 		<h1 class="text-2xl font-bold text-gradient">Zentra</h1>
 		<div class="flex items-center gap-4">
 			<a
@@ -235,7 +235,7 @@
 	</nav>
 
 	<!-- Hero -->
-	<main class="relative z-10 flex flex-col items-center justify-center text-center px-6 py-48">
+	<main class="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 py-48">
 		<h2 class="text-5xl md:text-7xl font-bold text-gradient glow-text mb-4">Zentra</h2>
 		<p class="text-xl md:text-2xl text-text-secondary mb-8 max-w-2xl">
 			Open-source, encrypted, community-hostable chat platform.
@@ -291,4 +291,14 @@
 			{/each}
 		</div> -->
 	</main>
+
+	<footer class="relative z-10 border-t border-border/60 mt-auto">
+		<div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-text-muted">
+			<p>© 2026 Zentra / Abstractmelon</p>
+			<div class="flex items-center gap-4">
+				<a href="/privacy" class="hover:text-text-secondary">Privacy Policy</a>
+				<a href="/terms" class="hover:text-text-secondary">Terms of Service</a>
+			</div>
+		</div>
+	</footer>
 </div>

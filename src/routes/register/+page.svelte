@@ -12,6 +12,7 @@
 	let email = $state('');
 	let password = $state('');
 	let confirmPassword = $state('');
+	let acceptTerms = $state(false);
 	let isLoading = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let showInstanceModal = $state(false);
@@ -65,6 +66,10 @@
 
 		if (password !== confirmPassword) {
 			errors.confirmPassword = 'Passwords do not match';
+		}
+
+		if (!acceptTerms) {
+			errors.acceptTerms = 'You must accept the Terms and Privacy Policy';
 		}
 
 		return Object.keys(errors).length === 0;
@@ -193,6 +198,24 @@
 					error={errors.confirmPassword}
 					required
 				/>
+
+				<label class="flex items-start gap-3 text-sm text-text-secondary cursor-pointer select-none group">
+					<input
+						type="checkbox"
+						bind:checked={acceptTerms}
+						required
+						class="mt-1 h-4 w-4 rounded border-border bg-background accent-primary cursor-pointer transition-colors"
+					/>
+					<span class="group-hover:text-text-primary transition-colors">
+						By creating an account, you agree to the
+						<a href="/terms" class="text-primary hover:underline" onclick={(e) => e.stopPropagation()}>Terms of Service</a>
+						and
+						<a href="/privacy" class="text-primary hover:underline" onclick={(e) => e.stopPropagation()}>Privacy Policy</a>.
+					</span>
+				</label>
+				{#if errors.acceptTerms}
+					<p class="text-xs text-error">{errors.acceptTerms}</p>
+				{/if}
 
 				<Button type="submit" class="w-full" loading={isLoading}>Create Account</Button>
 			</form>

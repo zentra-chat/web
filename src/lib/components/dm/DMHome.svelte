@@ -55,7 +55,8 @@
 			try {
 				const result = await api.searchUsers(searchQuery.trim(), 1, 10);
 				if (!cancelled) {
-					searchResults = result.data || [];
+					const list = result.data || [];
+					searchResults = list.filter((user) => user.id !== $currentUserId);
 				}
 			} catch (err) {
 				if (!cancelled) {
@@ -78,6 +79,7 @@
 	}
 
 	async function startConversation(userId: string) {
+		if (userId === $currentUserId) return;
 		try {
 			const conversation = await api.createDmConversation(userId);
 			upsertDmConversation(conversation);

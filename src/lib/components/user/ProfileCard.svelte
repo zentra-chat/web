@@ -17,6 +17,10 @@
 
 	async function handleMessage() {
 		if (!user) return;
+		if (user.id === $currentUserId) {
+			handleEditProfile();
+			return;
+		}
 		if (isStartingDm) return;
 		isStartingDm = true;
 		try {

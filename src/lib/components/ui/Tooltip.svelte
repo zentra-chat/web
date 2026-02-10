@@ -8,19 +8,73 @@
 	}
 
 	let { text, position = 'top', children }: Props = $props();
+	let wrapper: HTMLDivElement | null = $state(null);
+	let isVisible = $state(false);
+	let tooltipStyle = $state('');
 
-	const positionClasses = {
-		top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
-		bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
-		left: 'right-full top-1/2 -translate-y-1/2 mr-2',
-		right: 'left-full top-1/2 -translate-y-1/2 ml-2'
-	};
+	function updatePosition() {
+		if (!wrapper) return;
+		const rect = wrapper.getBoundingClientRect();
+		const gap = 8;
+		let left = 0;
+		let top = 0;
+		let transform = '';
+
+		switch (position) {
+			case 'left':
+				left = rect.left - gap;
+				top = rect.top + rect.height / 2;
+				transform = 'translate(-100%, -50%)';
+				break;
+			case 'right':
+				left = rect.right + gap;
+				top = rect.top + rect.height / 2;
+				transform = 'translate(0, -50%)';
+				break;
+			case 'bottom':
+				left = rect.left + rect.width / 2;
+				top = rect.bottom + gap;
+				transform = 'translate(-50%, 0)';
+				break;
+			case 'top':
+			default:
+				left = rect.left + rect.width / 2;
+				top = rect.top - gap;
+				transform = 'translate(-50%, -100%)';
+		}
+
+		tooltipStyle = `left: ${left}px; top: ${top}px; transform: ${transform};`;
+	}
+
+	function handleShow() {
+		updatePosition();
+		isVisible = true;
+	}
+
+	function handleHide() {
+		isVisible = false;
+	}
+
+	function handleWindowChange() {
+		if (isVisible) updatePosition();
+	}
 </script>
 
-<div class="group relative inline-flex">
+<svelte:window on:scroll={handleWindowChange} on:resize={handleWindowChange} />
+
+<div
+	bind:this={wrapper}
+	class="group relative inline-flex"
+	onmouseenter={handleShow}
+	onmouseleave={handleHide}
+	onfocusin={handleShow}
+	onfocusout={handleHide}
+>
 	{@render children()}
 	<div
-		class="absolute {positionClasses[position]} px-2 py-1 text-xs font-medium text-text-primary bg-surface border border-border rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-100"
+		class="fixed px-2 py-1 text-sm font-medium text-text-primary bg-surface border border-border rounded shadow-lg transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[9999] {isVisible ? 'opacity-100' : 'opacity-0'}"
+		style={tooltipStyle}
+		aria-hidden={!isVisible}
 		role="tooltip"
 	>
 		{text}

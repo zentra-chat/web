@@ -55,17 +55,8 @@ export const onlineUsers = writable<Record<string, string[]>>({});
 // User presence cache
 export const userPresence = writable<Record<string, { status: UserStatus; customStatus?: string }>>({});
 
-// Theme
-export const theme = writable<'dark' | 'light'>('dark');
-
-// Compact mode
-export const compactMode = writable(false);
-
 // Instance selector visibility
 export const instanceSelectorMode = writable<InstanceSelectorMode>('disabled');
-
-// Sound enabled
-export const soundEnabled = writable(true);
 
 // User settings cache
 export const userSettings = writable<UserSettings | null>(null);
@@ -79,11 +70,6 @@ function normalizeInstanceSelectorMode(value: unknown): InstanceSelectorMode {
 
 export function applyUserSettings(settings: UserSettings): void {
 	userSettings.set(settings);
-	if (settings.theme === 'light' || settings.theme === 'dark') {
-		theme.set(settings.theme);
-	}
-	compactMode.set(settings.compactMode);
-	soundEnabled.set(settings.soundEnabled);
 	instanceSelectorMode.set(normalizeInstanceSelectorMode(settings.settings?.instanceSelectorMode));
 }
 

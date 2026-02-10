@@ -25,10 +25,6 @@ export type UserStatus = 'online' | 'away' | 'busy' | 'invisible' | 'offline';
 export type InstanceSelectorMode = 'disabled' | 'auto' | 'show';
 
 export interface UserSettings {
-	theme: string;
-	notificationsEnabled: boolean;
-	soundEnabled: boolean;
-	compactMode: boolean;
 	settings: Record<string, unknown> & { instanceSelectorMode?: InstanceSelectorMode };
 }
 

@@ -13,6 +13,7 @@
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import EmojiPicker from './EmojiPicker.svelte';
+	import { renderMarkdown } from '$lib/utils/markdown';
 
 	interface Props {
 		message: Message;
@@ -218,12 +219,12 @@
 
 			<!-- Message content -->
 			{#if hasContent}
-				<div class="text-text-secondary wrap-break-word whitespace-pre-wrap">
-					{message.content}
-					{#if message.isEdited}
-						<span class="text-xs text-text-muted ml-1">(edited)</span>
-					{/if}
+				<div class="message-content text-text-secondary">
+					{@html renderMarkdown(message.content || '')}
 				</div>
+				{#if message.isEdited}
+					<div class="text-xs text-text-muted mt-1">(edited)</div>
+				{/if}
 			{/if}
 
 			<!-- Link previews -->

@@ -143,6 +143,15 @@
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
+
+	function getPreviewSite(url: string, siteName?: string | null): string {
+		if (siteName && siteName.trim().length > 0) return siteName;
+		try {
+			return new URL(url).hostname;
+		} catch {
+			return url;
+		}
+	}
 </script>
 
 {#if showDateDivider}
@@ -214,6 +223,48 @@
 					{#if message.isEdited}
 						<span class="text-xs text-text-muted ml-1">(edited)</span>
 					{/if}
+				</div>
+			{/if}
+
+			<!-- Link previews -->
+			{#if message.linkPreviews && message.linkPreviews.length > 0}
+				<div class="mt-2 flex flex-col gap-2">
+					{#each message.linkPreviews as preview}
+						<a
+							href={preview.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="group/link-preview block max-w-xl rounded-lg border border-border bg-surface/60 hover:border-primary transition-colors"
+						>
+							<div class="flex gap-3 p-3">
+								{#if preview.imageUrl}
+									<img
+										src={preview.imageUrl}
+										alt={preview.title || getPreviewSite(preview.url, preview.siteName)}
+										class="h-20 w-28 rounded-md object-cover border border-border"
+									/>
+								{/if}
+								<div class="min-w-0">
+									<div class="flex items-center gap-2 text-xs text-text-muted">
+										{#if preview.faviconUrl}
+											<img src={preview.faviconUrl} alt="" class="h-4 w-4 rounded-sm" />
+										{/if}
+										<span class="truncate">{getPreviewSite(preview.url, preview.siteName)}</span>
+									</div>
+									{#if preview.title}
+										<div class="mt-1 text-sm font-semibold text-text-primary truncate">
+											{preview.title}
+										</div>
+									{/if}
+									{#if preview.description}
+										<p class="mt-1 text-xs text-text-muted">
+											{preview.description}
+										</p>
+									{/if}
+								</div>
+							</div>
+						</a>
+					{/each}
 				</div>
 			{/if}
 

@@ -1,4 +1,4 @@
-import type { Attachment, Message, User } from '$lib/types';
+import type { Attachment, LinkPreview, Message, User } from '$lib/types';
 
 type RawDmMessage = {
 	id: string;
@@ -13,6 +13,7 @@ type RawDmMessage = {
 	};
 	isEdited: boolean;
 	reactions?: Message['reactions'];
+	linkPreviews?: LinkPreview[];
 	createdAt: string;
 	updatedAt: string;
 	sender?: User;
@@ -31,6 +32,7 @@ export function mapDmMessage(message: RawDmMessage): Message {
 		reactions: message.reactions || [],
 		author: message.sender || ({} as User),
 		attachments: message.attachments || [],
+		linkPreviews: message.linkPreviews || [],
 		replyTo: message.replyTo
 			? {
 				id: message.replyTo.id,
@@ -42,6 +44,7 @@ export function mapDmMessage(message: RawDmMessage): Message {
 				isPinned: false,
 				reactions: [],
 				attachments: [],
+				linkPreviews: [],
 				createdAt: message.createdAt,
 				updatedAt: message.updatedAt
 			}

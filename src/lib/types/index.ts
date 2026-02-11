@@ -119,6 +119,7 @@ export interface Message {
 	reactions: Reaction[];
 	author: User;
 	attachments: Attachment[];
+	linkPreviews?: LinkPreview[];
 	replyTo?: Message;
 	createdAt: string;
 	updatedAt: string;
@@ -139,6 +140,15 @@ export interface Attachment {
 	thumbnailUrl?: string;
 	width?: number;
 	height?: number;
+}
+
+export interface LinkPreview {
+	url: string;
+	title?: string;
+	description?: string;
+	siteName?: string;
+	imageUrl?: string;
+	faviconUrl?: string;
 }
 
 export interface SendMessageRequest {

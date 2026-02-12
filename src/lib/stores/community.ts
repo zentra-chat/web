@@ -22,19 +22,8 @@ export const Permission = {
 } as const;
 
 export function getMemberPermissions(member: CommunityMember | null): number {
-	let perms = 0;
-	if (member?.roles?.length) {
-		perms = member.roles.reduce((acc, role) => acc | (role.permissions || 0), 0);
-	}
-
-	if (member?.role === 'owner' || member?.role === 'admin') {
-		perms |= Permission.Administrator;
-	}
-	if (member?.role === 'moderator') {
-		perms |= Permission.ManageMessages;
-	}
-
-	return perms;
+	if (!member?.roles?.length) return 0;
+	return member.roles.reduce((acc, role) => acc | (role.permissions || 0), 0);
 }
 
 export function memberHasPermission(member: CommunityMember | null, permission: number): boolean {

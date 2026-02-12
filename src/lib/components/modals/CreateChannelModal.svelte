@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
 	import { Hash, Megaphone, Image, Lock } from '$lib/components/icons';
-	import { createChannelModalOpen, closeCreateChannelModal, addToast, modalState } from '$lib/stores/ui';
+	import { createChannelModalOpen, closeCreateChannelModal, addToast, createChannelModalData } from '$lib/stores/ui';
 	import { activeCommunity, activeCommunityMembers, addChannel, memberHasPermission, Permission } from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
@@ -13,7 +13,7 @@
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 
-	let categoryId = $derived($modalState.type === 'createChannel' ? ($modalState.data as any)?.categoryId : null);
+	let categoryId = $derived($createChannelModalData.categoryId);
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let canManageChannels = $derived(memberHasPermission(myMember, Permission.ManageChannels));
 

@@ -1,6 +1,5 @@
 import { writable, derived } from 'svelte/store';
 import type {
-	ModalState,
 	ToastMessage,
 	UserStatus,
 	Message,
@@ -25,14 +24,9 @@ export const profileCardOpen = writable(false);
 export const profileCardUser = writable<User | null>(null);
 export const profileCardPosition = writable({ x: 0, y: 0 });
 export const filePreviewOpen = writable(false);
-export const filePreviewData = writable<any | null>(null);
+export const filePreviewData = writable<unknown | null>(null);
 
-// Modal state (legacy)
-export const modalState = writable<ModalState>({
-	isOpen: false,
-	type: null,
-	data: undefined
-});
+export const createChannelModalData = writable<{ categoryId: string | null }>({ categoryId: null });
 
 // Toast notifications
 export const toasts = writable<ToastMessage[]>([]);
@@ -75,19 +69,25 @@ export function applyUserSettings(settings: UserSettings): void {
 
 // Modal functions
 export function openModal(type: string, data?: unknown): void {
-	modalState.set({ isOpen: true, type, data });
-
 	// Map to specific stores for consistency
 	if (type === 'createCommunity') createCommunityModalOpen.set(true);
 	if (type === 'discoverCommunities') discoverCommunitiesModalOpen.set(true);
-	if (type === 'createChannel') createChannelModalOpen.set(true);
+	if (type === 'createChannel') {
+		const maybeCategoryId =
+			data && typeof data === 'object' && 'categoryId' in data
+				? (data as { categoryId?: unknown }).categoryId
+				: null;
+		createChannelModalData.set({
+			categoryId: typeof maybeCategoryId === 'string' ? maybeCategoryId : null
+		});
+		createChannelModalOpen.set(true);
+	}
 	if (type === 'settings' || type === 'profile') settingsModalOpen.set(true);
 	if (type === 'communitySettings') communitySettingsModalOpen.set(true);
 	if (type === 'instance') instanceModalOpen.set(true);
 }
 
 export function closeModal(): void {
-	modalState.set({ isOpen: false, type: null, data: undefined });
 	createCommunityModalOpen.set(false);
 	discoverCommunitiesModalOpen.set(false);
 	createChannelModalOpen.set(false);

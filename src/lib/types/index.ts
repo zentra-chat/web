@@ -67,7 +67,6 @@ export interface CommunityMember {
 	communityId: string;
 	nickname: string | null;
 	joinedAt: string;
-	role?: 'owner' | 'admin' | 'moderator' | 'member';
 	roles: Role[];
 	user?: User;
 }
@@ -257,13 +256,6 @@ export interface PresenceEvent {
 	userId: string;
 	status: UserStatus;
 	customStatus?: string;
-}
-
-// UI State types
-export interface ModalState {
-	isOpen: boolean;
-	type: string | null;
-	data?: unknown;
 }
 
 export interface ToastMessage {

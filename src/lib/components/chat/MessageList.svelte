@@ -342,6 +342,7 @@
 					onReactionToggle={isDm ? handleReactionToggle : undefined}
 					enableReactions={true}
 					enableReply={true}
+					isDm={isDm}
 				/>
 			{/each}
 

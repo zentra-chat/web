@@ -2,7 +2,8 @@
 	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
 	import { Hash, Megaphone, Image, Lock } from '$lib/components/icons';
 	import { createChannelModalOpen, closeCreateChannelModal, addToast, modalState } from '$lib/stores/ui';
-	import { activeCommunity, addChannel } from '$lib/stores/community';
+	import { activeCommunity, activeCommunityMembers, addChannel, memberHasPermission, Permission } from '$lib/stores/community';
+	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 	import type { Channel } from '$lib/types';
 
@@ -13,6 +14,8 @@
 	let errors = $state<Record<string, string>>({});
 
 	let categoryId = $derived($modalState.type === 'createChannel' ? ($modalState.data as any)?.categoryId : null);
+	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
+	let canManageChannels = $derived(memberHasPermission(myMember, Permission.ManageChannels));
 
 	function handleClose() {
 		closeCreateChannelModal();
@@ -49,6 +52,10 @@
 
 	async function handleSubmit() {
 		if (!validate() || isSubmitting || !$activeCommunity) return;
+		if (!canManageChannels) {
+			errors = { submit: 'Insufficient permissions' };
+			return;
+		}
 
 		isSubmitting = true;
 

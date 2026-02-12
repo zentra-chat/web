@@ -67,6 +67,7 @@ export interface CommunityMember {
 	communityId: string;
 	nickname: string | null;
 	joinedAt: string;
+	role?: 'owner' | 'admin' | 'moderator' | 'member';
 	roles: Role[];
 	user?: User;
 }

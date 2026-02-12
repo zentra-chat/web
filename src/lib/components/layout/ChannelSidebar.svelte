@@ -12,20 +12,32 @@
 	import { Tooltip, Button } from '$lib/components/ui';
 	import {
 		activeCommunity,
+		activeCommunityMembers,
 		activeCommunityChannels,
 		activeCommunityCategories,
 		activeChannelId,
 		selectChannel,
 		setChannels,
 		setCategories,
+		memberHasPermission,
+		Permission,
 		unreadCounts
 	} from '$lib/stores/community';
-	import { openModal, isMobileMenuOpen } from '$lib/stores/ui';
+	import { openModal, isMobileMenuOpen, addToast } from '$lib/stores/ui';
+	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 	import type { Channel, ChannelCategory } from '$lib/types';
 
 	let collapsedCategories = $state<Set<string>>(new Set());
 	let isLoading = $state(false);
+	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
+	let canManageChannels = $derived(memberHasPermission(myMember, Permission.ManageChannels));
+	let canOpenCommunitySettings = $derived(
+		memberHasPermission(myMember, Permission.ManageCommunity) ||
+			memberHasPermission(myMember, Permission.ManageRoles) ||
+			memberHasPermission(myMember, Permission.CreateInvites) ||
+			memberHasPermission(myMember, Permission.ManageChannels)
+	);
 
 	const channelIcons: Record<string, any> = {
 		text: Hash,
@@ -94,6 +106,22 @@
 	function handleChannelClick(channel: Channel) {
 		selectChannel(channel.id);
 	}
+
+	function handleOpenCommunitySettings() {
+		if (!canOpenCommunitySettings) {
+			addToast({ type: 'error', message: 'Insufficient permissions' });
+			return;
+		}
+		openModal('communitySettings', { community: $activeCommunity });
+	}
+
+	function handleCreateChannel(categoryId: string | null) {
+		if (!canManageChannels) {
+			addToast({ type: 'error', message: 'Insufficient permissions' });
+			return;
+		}
+		openModal('createChannel', { categoryId });
+	}
 </script>
 
 <aside
@@ -104,7 +132,7 @@
 	{#if $activeCommunity}
 		<button
 			class="h-12 px-4 flex items-center justify-between border-b border-border hover:bg-surface-active transition-colors"
-			onclick={() => openModal('communitySettings', { community: $activeCommunity })}
+			onclick={handleOpenCommunitySettings}
 		>
 			<h2 class="font-semibold text-text-primary truncate">{$activeCommunity.name}</h2>
 			<ChevronDown size={16} class="text-text-muted shrink-0" />
@@ -122,29 +150,33 @@
 		{:else if $activeCommunityChannels.length === 0 && $activeCommunityCategories.length === 0}
 			<div class="px-4 py-8 text-center">
 				<p class="text-sm text-text-muted mb-4">No channels yet.</p>
-				<Button
-					variant="primary"
-					size="sm"
-					class="w-full"
-					onclick={() => openModal('createChannel', { categoryId: null })}
-				>
-					<Plus size={16} class="mr-2" />
-					Create Channel
-				</Button>
+				{#if canManageChannels}
+					<Button
+						variant="primary"
+						size="sm"
+						class="w-full"
+						onclick={() => handleCreateChannel(null)}
+					>
+						<Plus size={16} class="mr-2" />
+						Create Channel
+					</Button>
+				{/if}
 			</div>
 		{:else}
 			<!-- Uncategorized channels header -->
 			<div class="px-2 mb-2">
 				<div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase tracking-wider group">
 					<span>Text Channels</span>
-					<Tooltip text="Create Channel" position="top">
-						<button
-							onclick={() => openModal('createChannel', { categoryId: null })}
-							class="p-1 opacity-60 group-hover:opacity-100 hover:text-text-primary transition-opacity"
-						>
-							<Plus size={14} />
-						</button>
-					</Tooltip>
+					{#if canManageChannels}
+						<Tooltip text="Create Channel" position="top">
+							<button
+								onclick={() => handleCreateChannel(null)}
+								class="p-1 opacity-60 group-hover:opacity-100 hover:text-text-primary transition-opacity"
+							>
+								<Plus size={14} />
+							</button>
+						</Tooltip>
+					{/if}
 				</div>
 				{#if channelsByCategory['uncategorized']}
 					{#each channelsByCategory['uncategorized'] as channel (channel.id)}
@@ -185,17 +217,19 @@
 							<ChevronDown size={12} />
 						{/if}
 						<span class="truncate">{category.name}</span>
-						<Tooltip text="Create Channel" position="top">
-							<button
-								onclick={(e) => {
-									e.stopPropagation();
-									openModal('createChannel', { categoryId: category.id });
-								}}
-								class="ml-auto p-1 opacity-60 group-hover:opacity-100 hover:text-text-primary transition-opacity"
-							>
-								<Plus size={14} />
-							</button>
-						</Tooltip>
+						{#if canManageChannels}
+							<Tooltip text="Create Channel" position="top">
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										handleCreateChannel(category.id);
+									}}
+									class="ml-auto p-1 opacity-60 group-hover:opacity-100 hover:text-text-primary transition-opacity"
+								>
+									<Plus size={14} />
+								</button>
+							</Tooltip>
+						{/if}
 					</button>
 
 					{#if !isCollapsed}

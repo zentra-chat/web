@@ -2,6 +2,47 @@ import { writable, derived, get } from 'svelte/store';
 import type { Community, Channel, ChannelCategory, CommunityMember, Message, User, Role } from '$lib/types';
 import { activeInstance } from './instance';
 
+export const Permission = {
+	ViewChannels: 1 << 0,
+	SendMessages: 1 << 1,
+	ManageMessages: 1 << 2,
+	ManageChannels: 1 << 3,
+	ManageCommunity: 1 << 4,
+	ManageRoles: 1 << 5,
+	KickMembers: 1 << 6,
+	BanMembers: 1 << 7,
+	CreateInvites: 1 << 8,
+	AttachFiles: 1 << 9,
+	AddReactions: 1 << 10,
+	MentionEveryone: 1 << 11,
+	PinMessages: 1 << 12,
+	ManageWebhooks: 1 << 13,
+	ViewAuditLog: 1 << 14,
+	Administrator: 1 << 15
+} as const;
+
+export function getMemberPermissions(member: CommunityMember | null): number {
+	let perms = 0;
+	if (member?.roles?.length) {
+		perms = member.roles.reduce((acc, role) => acc | (role.permissions || 0), 0);
+	}
+
+	if (member?.role === 'owner' || member?.role === 'admin') {
+		perms |= Permission.Administrator;
+	}
+	if (member?.role === 'moderator') {
+		perms |= Permission.ManageMessages;
+	}
+
+	return perms;
+}
+
+export function memberHasPermission(member: CommunityMember | null, permission: number): boolean {
+	const perms = getMemberPermissions(member);
+	if ((perms & Permission.Administrator) !== 0) return true;
+	return (perms & permission) === permission;
+}
+
 // Currently selected community
 export const activeCommunityId = writable<string | null>(null);
 

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
-	import { Avatar, Spinner } from '$lib/components/ui';
+	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
 	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from '$lib/components/icons';
 	import type { Message } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
-	import { activeCommunityMembers, getMemberNameColor } from '$lib/stores/community';
+	import { activeCommunityMembers, getMemberNameColor, memberHasPermission, Permission } from '$lib/stores/community';
 	import {
 		setEditingMessage,
 		setReplyingTo,
@@ -24,6 +24,7 @@
 		onReactionToggle?: (messageId: string, emoji: string, reacted: boolean) => Promise<void>;
 		enableReactions?: boolean;
 		enableReply?: boolean;
+		isDm?: boolean;
 	}
 
 	let {
@@ -33,16 +34,21 @@
 		onDeleteRequest,
 		onReactionToggle,
 		enableReactions = true,
-		enableReply = true
+		enableReply = true,
+		isDm = false
 	}: Props = $props();
 
 	let isHovered = $state(false);
 	let isDeleting = $state(false);
 	let showActionBarPicker = $state(false);
 	let showReactionsPicker = $state(false);
+	let showDeleteConfirm = $state(false);
 
 	let isOwnMessage = $derived(message.authorId === $currentUserId);
 	let hasContent = $derived(!!message.content && message.content.trim().length > 0);
+	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
+	let canModerateMessages = $derived(!isDm && memberHasPermission(myMember, Permission.ManageMessages));
+	let canDeleteMessage = $derived(isOwnMessage || canModerateMessages);
 	let authorMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === message.authorId) || null);
 	let authorColor = $derived(getMemberNameColor(authorMember));
 	let replyColor = $derived.by(() => {
@@ -84,9 +90,7 @@
 		return format(date, 'MMMM d, yyyy');
 	}
 
-	async function handleDelete() {
-		if (!confirm('Are you sure you want to delete this message?')) return;
-
+	async function performDelete() {
 		isDeleting = true;
 		try {
 			if (onDeleteRequest) {
@@ -100,6 +104,16 @@
 		} finally {
 			isDeleting = false;
 		}
+	}
+
+	function requestDelete(event?: MouseEvent) {
+		if (isDeleting) return;
+		if (event?.shiftKey) {
+			showDeleteConfirm = false;
+			void performDelete();
+			return;
+		}
+		showDeleteConfirm = true;
 	}
 
 	function handleEdit() {
@@ -389,10 +403,13 @@
 				>
 					<Edit size={16} />
 				</button>
+			{/if}
+			{#if canDeleteMessage}
 				<button
-					onclick={handleDelete}
+					onclick={(e) => requestDelete(e)}
 					class="p-2 text-text-muted hover:text-error hover:bg-surface-hover transition-colors"
 					aria-label="Delete"
+					title="Hold Shift to delete without confirmation"
 				>
 					<Trash size={16} />
 				</button>
@@ -406,3 +423,29 @@
 		</div>
 	{/if}
 </div>
+
+<Modal
+	isOpen={showDeleteConfirm}
+	onclose={() => (showDeleteConfirm = false)}
+	title="Delete Message"
+	size="sm"
+>
+	<div class="space-y-4">
+		<p class="text-sm text-text-secondary">Delete this message? This can’t be undone.</p>
+		<div class="flex justify-end gap-2">
+			<Button variant="ghost" onclick={() => (showDeleteConfirm = false)} disabled={isDeleting}>
+				Cancel
+			</Button>
+			<Button
+				variant="danger"
+				onclick={() => {
+					showDeleteConfirm = false;
+					void performDelete();
+				}}
+				disabled={isDeleting}
+			>
+				Delete
+			</Button>
+		</div>
+	</div>
+</Modal>

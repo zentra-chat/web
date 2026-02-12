@@ -128,10 +128,6 @@ body {
 	color: var(--color-text-muted);
 }
 
-.message-content p {
-	margin: 0.25rem 0;
-}
-
 .message-content ul,
 .message-content ol {
 	margin: 0.5rem 0 0.5rem 1.25rem;

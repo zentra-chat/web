@@ -5,7 +5,18 @@ import type { Instance, InstanceAuth, FullUser } from '$lib/types';
 // Storage keys
 const INSTANCES_KEY = 'zentra_instances';
 const AUTH_KEY = 'zentra_auth';
+const SAVED_ACCOUNTS_KEY = 'zentra_saved_accounts';
 const ACTIVE_INSTANCE_KEY = 'zentra_active_instance';
+
+export interface SavedAccountSession {
+	userId: string;
+	username: string;
+	displayName: string;
+	avatarUrl: string | null;
+	email: string;
+	auth: InstanceAuth;
+	lastUsedAt: string;
+}
 
 // Default instance from environment
 const DEFAULT_INSTANCE: Instance | null = PUBLIC_DEFAULT_INSTANCE_URL
@@ -64,6 +75,12 @@ export const activeInstanceId = persistentWritable<string | null>(
 // Auth data per instance
 export const instanceAuth = persistentWritable<Record<string, InstanceAuth>>(AUTH_KEY, {});
 
+// Saved account sessions per instance (for quick account switch)
+export const savedAccounts = persistentWritable<Record<string, SavedAccountSession[]>>(
+	SAVED_ACCOUNTS_KEY,
+	{}
+);
+
 // Derived store for active instance
 export const activeInstance = derived(
 	[instances, activeInstanceId],
@@ -86,6 +103,21 @@ export const activeAuth = derived(
 export const currentUser = derived(activeAuth, ($activeAuth) => {
 	return $activeAuth?.user || null;
 });
+
+export const activeInstanceSavedAccounts = derived(
+	[savedAccounts, activeInstanceId, activeAuth],
+	([$savedAccounts, $activeInstanceId, $activeAuth]) => {
+		if (!$activeInstanceId) return [];
+		const accounts = $savedAccounts[$activeInstanceId] || [];
+		const activeUserId = $activeAuth?.user?.id || null;
+
+		return [...accounts].sort((a, b) => {
+			if (a.userId === activeUserId) return -1;
+			if (b.userId === activeUserId) return 1;
+			return new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime();
+		});
+	}
+);
 
 // Derived store to check if logged in to active instance
 export const isLoggedIn = derived(activeAuth, ($activeAuth) => {
@@ -134,6 +166,31 @@ export function setInstanceAuth(instanceId: string, auth: InstanceAuth): void {
 		...current,
 		[instanceId]: auth
 	}));
+
+	const user = auth.user;
+	const now = new Date().toISOString();
+	savedAccounts.update((current) => {
+		const instanceAccounts = current[instanceId] || [];
+		const nextSession: SavedAccountSession = {
+			userId: user.id,
+			username: user.username,
+			displayName: user.displayName || user.username,
+			avatarUrl: user.avatarUrl || null,
+			email: user.email || '',
+			auth,
+			lastUsedAt: now
+		};
+
+		const nextInstanceAccounts = [
+			nextSession,
+			...instanceAccounts.filter((account) => account.userId !== user.id)
+		];
+
+		return {
+			...current,
+			[instanceId]: nextInstanceAccounts
+		};
+	});
 }
 
 export function clearInstanceAuth(instanceId: string): void {
@@ -142,6 +199,41 @@ export function clearInstanceAuth(instanceId: string): void {
 		void removed;
 		return rest;
 	});
+}
+
+export function removeSavedAccount(instanceId: string, userId: string): void {
+	savedAccounts.update((current) => {
+		const instanceAccounts = current[instanceId] || [];
+		const nextInstanceAccounts = instanceAccounts.filter((account) => account.userId !== userId);
+
+		if (nextInstanceAccounts.length === 0) {
+			const { [instanceId]: removed, ...rest } = current;
+			void removed;
+			return rest;
+		}
+
+		return {
+			...current,
+			[instanceId]: nextInstanceAccounts
+		};
+	});
+}
+
+export function switchActiveAccount(userId: string): boolean {
+	const instanceId = get(activeInstanceId);
+	if (!instanceId) return false;
+
+	const instanceAccounts = get(savedAccounts)[instanceId] || [];
+	const selected = instanceAccounts.find((account) => account.userId === userId);
+	if (!selected) return false;
+
+	if (new Date(selected.auth.expiresAt) <= new Date()) {
+		removeSavedAccount(instanceId, userId);
+		return false;
+	}
+
+	setInstanceAuth(instanceId, selected.auth);
+	return true;
 }
 
 export function updateInstanceUser(instanceId: string, user: FullUser): void {
@@ -196,9 +288,15 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 }
 
 // Logout from current instance
-export function logout(): void {
+export function logout(options?: { removeSavedAccount?: boolean }): void {
 	const activeId = get(activeInstanceId);
 	if (activeId) {
+		if (options?.removeSavedAccount) {
+			const auth = get(activeAuth);
+			if (auth?.user?.id) {
+				removeSavedAccount(activeId, auth.user.id);
+			}
+		}
 		clearInstanceAuth(activeId);
 	}
 }

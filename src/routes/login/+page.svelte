@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { Button, Input } from '$lib/components/ui';
 	import { Mail, Lock, ArrowLeft, Server } from 'lucide-svelte';
 	import { api } from '$lib/api';
@@ -16,13 +17,14 @@
 	let error = $state('');
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
+	let isAddAccountMode = $derived($page.url.searchParams.get('addAccount') === '1');
 
 	onMount(() => {
 		// Check for pending invite
 		pendingInvite = sessionStorage.getItem('pendingInvite');
 
 		// Check if already logged in
-		if ($isLoggedIn && $activeInstance) {
+		if ($isLoggedIn && $activeInstance && !isAddAccountMode) {
 			handleRedirectAfterLogin();
 		}
 		// If no instance selected, show modal
@@ -101,8 +103,16 @@
 			<a href="/" class="inline-block">
 				<h1 class="text-4xl font-bold text-gradient glow-text">Zentra</h1>
 			</a>
-			<p class="text-text-secondary mt-2">Welcome back</p>
+			<p class="text-text-secondary mt-2">{isAddAccountMode ? 'Add another account' : 'Welcome back'}</p>
 		</div>
+
+		{#if isAddAccountMode}
+			<div class="mb-4 p-3 bg-surface border border-border rounded-lg">
+				<p class="text-sm text-text-secondary text-center">
+					Sign in with another account on this instance to enable quick switching.
+				</p>
+			</div>
+		{/if}
 
 		{#if pendingInvite}
 			<div class="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">

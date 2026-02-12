@@ -1,5 +1,11 @@
 import { get } from 'svelte/store';
-import { activeInstance, activeAuth, setInstanceAuth, clearInstanceAuth } from '$lib/stores/instance';
+import {
+	activeInstance,
+	activeAuth,
+	setInstanceAuth,
+	clearInstanceAuth,
+	logout as logoutFromStore
+} from '$lib/stores/instance';
 import type {
 	ApiResponse,
 	PaginatedResponse,
@@ -175,10 +181,7 @@ class ApiClient {
 		try {
 			await this.request('/auth/logout', { method: 'POST' });
 		} finally {
-			const instance = get(activeInstance);
-			if (instance) {
-				clearInstanceAuth(instance.id);
-			}
+			logoutFromStore({ removeSavedAccount: true });
 		}
 	}
 

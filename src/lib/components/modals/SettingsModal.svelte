@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
-	import { Image, X, Trash } from 'lucide-svelte';
+	import { Image, X, Trash, LogOut } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
 	import {
 		settingsModalOpen,
 		closeSettingsModal,
@@ -9,7 +10,15 @@
 		userSettings,
 		applyUserSettings
 	} from '$lib/stores/ui';
-	import { currentUser, updateCurrentUser, logout } from '$lib/stores/instance';
+	import {
+		activeInstance,
+		currentUser,
+		updateCurrentUser,
+		logout,
+		activeInstanceSavedAccounts,
+		switchActiveAccount,
+		removeSavedAccount
+	} from '$lib/stores/instance';
 	import { api } from '$lib/api';	
 	import { updateMemberUser } from '$lib/stores/community';
 	import type { InstanceSelectorMode } from '$lib/types';
@@ -24,6 +33,8 @@
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let isSavingAppearance = $state(false);
+	let isLoggingOut = $state(false);
+	let switchingAccountId = $state<string | null>(null);
 
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
@@ -256,11 +267,13 @@
 
 		try {
 			await api.deleteAccount();
-			logout();
+			logout({ removeSavedAccount: true });
 			addToast({
 				type: 'success',
 				message: 'Account deleted'
 			});
+			closeSettingsModal();
+			goto('/login');
 		} catch (err) {
 			console.error('Failed to delete account:', err);
 			addToast({
@@ -268,6 +281,48 @@
 				message: 'Failed to delete account'
 			});
 		}
+	}
+
+	async function handleLogout() {
+		if (isLoggingOut) return;
+		isLoggingOut = true;
+
+		try {
+			await api.logout();
+			addToast({ type: 'success', message: 'Logged out' });
+		} catch (err) {
+			console.error('Failed to log out cleanly:', err);
+			addToast({ type: 'warning', message: 'Logged out locally' });
+		} finally {
+			closeSettingsModal();
+			isLoggingOut = false;
+			goto('/login');
+		}
+	}
+
+	function handleSwitchAccount(userId: string) {
+		if (switchingAccountId) return;
+		if ($currentUser?.id === userId) return;
+
+		switchingAccountId = userId;
+		try {
+			const switched = switchActiveAccount(userId);
+			if (!switched) {
+				addToast({ type: 'error', message: 'Saved session expired. Please sign in again.' });
+				return;
+			}
+
+			closeSettingsModal();
+			window.location.assign('/app');
+		} finally {
+			switchingAccountId = null;
+		}
+	}
+
+	function handleRemoveSavedAccount(userId: string) {
+		if (!$activeInstance) return;
+		removeSavedAccount($activeInstance.id, userId);
+		addToast({ type: 'info', message: 'Saved account removed' });
 	}
 </script>
 
@@ -402,6 +457,15 @@
 			{:else if activeTab === 'account'}
 				<div class="space-y-6">
 					<div>
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Session</h3>
+						<p class="text-sm text-text-muted mb-3">Sign out from the current account on this device.</p>
+						<Button variant="secondary" onclick={handleLogout} disabled={isLoggingOut}>
+							<LogOut size={16} />
+							{isLoggingOut ? 'Logging out...' : 'Log Out'}
+						</Button>
+					</div>
+
+					<div>
 						<h3 class="text-lg font-semibold text-text-primary mb-2">Email</h3>
 						<p class="text-text-muted">{$currentUser?.email || 'Not set'}</p>
 					</div>
@@ -417,6 +481,49 @@
 						<Button variant="secondary" onclick={handleToggle2FA}>
 							{$currentUser?.twoFactorEnabled ? 'Manage 2FA' : 'Enable 2FA'}
 						</Button>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Quick Account Switch</h3>
+						<p class="text-sm text-text-muted mb-3">Switch instantly between saved accounts on this instance.</p>
+
+						{#if $activeInstanceSavedAccounts.length > 0}
+							<div class="space-y-2">
+								{#each $activeInstanceSavedAccounts as account (account.userId)}
+									<div class="flex items-center justify-between p-2 rounded-lg border border-border bg-surface">
+										<div class="flex items-center gap-3 min-w-0">
+											<Avatar src={account.avatarUrl} alt={account.displayName} size="sm" />
+											<div class="min-w-0">
+												<p class="text-sm text-text-primary truncate">{account.displayName}</p>
+												<p class="text-xs text-text-muted truncate">@{account.username}</p>
+											</div>
+										</div>
+										<div class="flex items-center gap-2">
+											{#if account.userId === $currentUser?.id}
+												<span class="text-xs px-2 py-1 rounded bg-primary/20 text-primary">Current</span>
+											{:else}
+												<button
+													onclick={() => handleSwitchAccount(account.userId)}
+													class="text-xs px-2 py-1 rounded bg-surface-hover text-text-primary hover:bg-surface-active"
+													disabled={switchingAccountId !== null}
+												>
+													{switchingAccountId === account.userId ? 'Switching...' : 'Switch'}
+												</button>
+											{/if}
+											<button
+												onclick={() => handleRemoveSavedAccount(account.userId)}
+												class="text-xs px-2 py-1 rounded text-text-muted hover:text-text-primary hover:bg-surface-hover"
+												disabled={switchingAccountId !== null}
+											>
+												Remove
+											</button>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="text-sm text-text-muted">No saved accounts for this instance yet.</p>
+						{/if}
 					</div>
 
 					<div class="pt-6 border-t border-border">

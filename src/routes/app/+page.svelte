@@ -4,7 +4,7 @@
 	import { MessageList, MessageInput } from '$lib/components/chat';
 	import DMHome from '$lib/components/dm/DMHome.svelte';
 	import { Spinner } from '$lib/components/ui';
-	import { Hash } from '$lib/components/icons';
+	import { Hash } from 'lucide-svelte';
 	import {
 		activeCommunity,
 		activeChannel,

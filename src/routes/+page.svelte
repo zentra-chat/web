@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui';
-	import { Github, ArrowRight, MessageSquare, Lock, Users, Globe, Server } from '$lib/components/icons';
+	import { Github, ArrowRight, MessageSquare, Lock, Users, Globe, Server } from 'lucide-svelte';
 	import { isLoggedIn, instances } from '$lib/stores/instance';
 	import { isDesktop, logTauriGlobals } from '$lib/utils/platform';
 

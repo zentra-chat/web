@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Modal, Input, Button, Spinner, Avatar } from '$lib/components/ui';
-	import { Search, Users, Lock, Globe } from '$lib/components/icons';
+	import { Search, Users, Lock, Globe } from 'lucide-svelte';
 	import { discoverCommunitiesModalOpen, closeDiscoverCommunitiesModal, addToast } from '$lib/stores/ui';
 	import { addCommunity } from '$lib/stores/community';
 	import { api } from '$lib/api';

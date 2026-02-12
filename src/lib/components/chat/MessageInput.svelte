@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Spinner } from '$lib/components/ui';
-	import { Send, Plus, X, Smile, Paperclip } from '$lib/components/icons';
+	import { Send, Plus, X, Smile, Paperclip } from 'lucide-svelte';
 	import { replyingToMessage, editingMessageId, typingUsers, setReplyingTo, setEditingMessage, addToast } from '$lib/stores/ui';
 	import { addMessage, updateMessage, messages } from '$lib/stores/community';
 	import {

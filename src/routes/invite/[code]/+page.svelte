@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { Button, Spinner, Avatar } from '$lib/components/ui';
-	import { Users, AlertCircle, CheckCircle, LogIn } from '$lib/components/icons';
+	import { Users, AlertCircle, CheckCircle, LogIn } from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { isAuthenticated, activeInstance, loadInstances } from '$lib/stores/instance';
 	import { addCommunity } from '$lib/stores/community';

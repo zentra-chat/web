@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { X } from '$lib/components/icons';
+	import { X } from 'lucide-svelte';
 
 	interface Props {
 		isOpen: boolean;

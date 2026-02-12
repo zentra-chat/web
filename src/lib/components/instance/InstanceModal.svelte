@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Button, Input, Modal } from '$lib/components/ui';
-	import { Server, Globe, Check, X, AlertCircle } from '$lib/components/icons';
+	import { Server, Globe, Check, X, AlertCircle } from 'lucide-svelte';
 	import {
 		instances,
 		addInstance,

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
-	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from '$lib/components/icons';
+	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from 'lucide-svelte';
 	import type { Message } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
 	import { activeCommunityMembers, getMemberNameColor, memberHasPermission, Permission } from '$lib/stores/community';

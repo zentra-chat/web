@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Avatar } from '$lib/components/ui';
-	import { Crown, Search, PanelRight } from '$lib/components/icons';
+	import { Crown, Search, PanelRight } from 'lucide-svelte';
 	import {
 		activeCommunity,
 		activeCommunityMembers,

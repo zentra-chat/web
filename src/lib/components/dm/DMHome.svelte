@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Input, Avatar, Spinner } from '$lib/components/ui';
-	import { MessageSquare, Search } from '$lib/components/icons';
+	import { MessageSquare, Search } from 'lucide-svelte';
 	import { MessageList, MessageInput } from '$lib/components/chat';
 	import { api } from '$lib/api';
 	import { activeInstance, currentUserId } from '$lib/stores/instance';

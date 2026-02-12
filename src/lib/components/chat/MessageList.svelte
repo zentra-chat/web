@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { Spinner } from '$lib/components/ui';
-	import { Hash, Megaphone, Lock, Users } from '$lib/components/icons';
+	import { Hash, Megaphone, Lock, Users } from 'lucide-svelte';
 	import MessageItem from './MessageItem.svelte';
 	import { activeChannel, messages, setMessages, removeMessage } from '$lib/stores/community';
 	import { showMemberSidebar, toggleMemberSidebar } from '$lib/stores/ui';

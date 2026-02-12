@@ -2,7 +2,7 @@
 	import { fade, scale } from 'svelte/transition';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { Button, Avatar } from '$lib/components/ui';
-	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from '$lib/components/icons';
+	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from 'lucide-svelte';
 	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal, addToast } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
 	import { activeCommunityMembers, selectCommunity, getMemberNameColor } from '$lib/stores/community';

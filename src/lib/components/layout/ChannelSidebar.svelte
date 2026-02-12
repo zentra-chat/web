@@ -8,7 +8,7 @@
 		ChevronRight,
 		Plus,
 		Settings
-	} from '$lib/components/icons';
+	} from 'lucide-svelte';
 	import { Tooltip, Button } from '$lib/components/ui';
 	import {
 		activeCommunity,

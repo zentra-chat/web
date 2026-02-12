@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Settings, Users, Home, Search, ChevronDown } from '$lib/components/icons';
+	import { Plus, Settings, Users, Home, Search, ChevronDown } from 'lucide-svelte';
 	import { Avatar, Button, Tooltip } from '$lib/components/ui';
 	import {
 		activeInstance,

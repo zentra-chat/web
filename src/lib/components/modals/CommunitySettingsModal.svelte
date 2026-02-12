@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
-	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown } from '$lib/components/icons';
+	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown } from 'lucide-svelte';
 	import { communitySettingsModalOpen, closeCommunitySettingsModal, addToast } from '$lib/stores/ui';
 	import {
 		activeCommunity,

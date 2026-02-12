@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Modal, Spinner } from '$lib/components/ui';
-	import { X, Download, File } from '$lib/components/icons';
+	import { X, Download, File } from 'lucide-svelte';
 	import { filePreviewOpen, filePreviewData } from '$lib/stores/ui';
 	import type { Attachment } from '$lib/types';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Smile, Search } from '$lib/components/icons';
+	import { Smile, Search } from 'lucide-svelte';
 
 	interface Props {
 		onSelect: (emoji: string) => void;

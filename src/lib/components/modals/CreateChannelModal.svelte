@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
-	import { Hash, Megaphone, Image, Lock } from '$lib/components/icons';
+	import { Hash, Megaphone, Image, Lock } from 'lucide-svelte';
 	import { createChannelModalOpen, closeCreateChannelModal, addToast, createChannelModalData } from '$lib/stores/ui';
 	import { activeCommunity, activeCommunityMembers, addChannel, memberHasPermission, Permission } from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';

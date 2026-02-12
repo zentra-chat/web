@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
-	import { Image, X, Trash } from '$lib/components/icons';
+	import { Image, X, Trash } from 'lucide-svelte';
 	import {
 		settingsModalOpen,
 		closeSettingsModal,

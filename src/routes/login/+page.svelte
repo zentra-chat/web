@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Button, Input } from '$lib/components/ui';
-	import { Mail, Lock, ArrowLeft, Server } from '$lib/components/icons';
+	import { Mail, Lock, ArrowLeft, Server } from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { activeInstance, setInstanceAuth, isLoggedIn, instanceAuth } from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';

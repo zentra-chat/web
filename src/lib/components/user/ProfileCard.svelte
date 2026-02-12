@@ -5,7 +5,7 @@
 	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from '$lib/components/icons';
 	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal, addToast } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
-	import { selectCommunity } from '$lib/stores/community';
+	import { activeCommunityMembers, selectCommunity, getMemberNameColor } from '$lib/stores/community';
 	import { setActiveDmConversationId, upsertDmConversation } from '$lib/stores/dm';
 	import { api } from '$lib/api';
 	import { format } from 'date-fns';
@@ -14,6 +14,11 @@
 	let position = $derived($profileCardPosition);
 	let isOwnProfile = $derived(user?.id === $currentUserId);
 	let isStartingDm = $state(false);
+	let member = $derived.by(() => {
+		if (!user) return null;
+		return $activeCommunityMembers.find((m) => m.userId === user.id) || null;
+	});
+	let nameColor = $derived(getMemberNameColor(member));
 
 	async function handleMessage() {
 		if (!user) return;
@@ -86,11 +91,30 @@
 			<!-- Content -->
 			<div class="px-4 pb-4 mt-2">
 				<div class="mb-4">
-					<h2 class="text-xl font-bold text-text-primary truncate">
+					<h2
+						class="text-xl font-bold text-text-primary truncate"
+						style={nameColor ? `color: ${nameColor}` : undefined}
+					>
 						{user.displayName || user.username}
 					</h2>
 					<p class="text-sm text-text-muted">@{user.username}</p>
 				</div>
+
+				{#if member?.roles?.length}
+					<div class="mb-4">
+						<h3 class="text-xs font-bold uppercase text-text-muted mb-2">Roles</h3>
+						<div class="flex flex-wrap gap-2">
+							{#each member.roles as role (role.id)}
+								<span
+									class="text-xs px-2 py-1 rounded-full border"
+									style={role.color ? `border-color: ${role.color}; color: ${role.color}` : undefined}
+								>
+									{role.name}
+								</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
 
 				{#if user.customStatus}
 					<div class="mb-4 p-2 bg-bg-tertiary rounded-lg text-sm text-text-secondary italic">

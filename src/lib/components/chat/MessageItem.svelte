@@ -4,6 +4,7 @@
 	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from '$lib/components/icons';
 	import type { Message } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
+	import { activeCommunityMembers, getMemberNameColor } from '$lib/stores/community';
 	import {
 		setEditingMessage,
 		setReplyingTo,
@@ -42,6 +43,13 @@
 
 	let isOwnMessage = $derived(message.authorId === $currentUserId);
 	let hasContent = $derived(!!message.content && message.content.trim().length > 0);
+	let authorMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === message.authorId) || null);
+	let authorColor = $derived(getMemberNameColor(authorMember));
+	let replyColor = $derived.by(() => {
+		if (!message.replyTo?.authorId) return null;
+		const replyMember = $activeCommunityMembers.find((m) => m.userId === message.replyTo?.authorId) || null;
+		return getMemberNameColor(replyMember);
+	});
 
 	// Check if we should show the header (avatar + name)
 	let showHeader = $derived.by(() => {
@@ -176,7 +184,9 @@
 		<div class="flex items-center gap-2 ml-12 mb-1 text-xs text-text-muted">
 			<Reply size={12} class="rotate-180" />
 			<Avatar user={message.replyTo.author} size="xs" />
-			<span class="font-medium">{message.replyTo.author?.displayName || message.replyTo.author?.username}</span>
+			<span class="font-medium" style={replyColor ? `color: ${replyColor}` : undefined}>
+				{message.replyTo.author?.displayName || message.replyTo.author?.username}
+			</span>
 			<span class="truncate max-w-md">{message.replyTo.content}</span>
 		</div>
 	{/if}
@@ -204,6 +214,7 @@
 				<div class="flex items-baseline gap-2 mb-1">
 					<button 
 						class="font-medium text-text-primary hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
+						style={authorColor ? `color: ${authorColor}` : undefined}
 						onclick={(e) => message.author && openProfileCard(message.author, e)}
 					>
 						{message.author?.displayName || message.author?.username || 'Unknown'}

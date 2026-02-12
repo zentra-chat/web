@@ -15,6 +15,7 @@ import type {
 	Channel,
 	ChannelCategory,
 	CommunityMember,
+	Role,
 	Message,
 	SendMessageRequest,
 	Attachment,
@@ -389,6 +390,54 @@ class ApiClient {
 			`/communities/${communityId}/members?page=${page}&pageSize=${pageSize}`
 		);
 		return result.data;
+	}
+
+	async getRoles(communityId: string): Promise<Role[]> {
+		const result = await this.request<ApiResponse<Role[]>>(`/communities/${communityId}/roles`);
+		return result.data;
+	}
+
+	async createRole(communityId: string, data: { name: string; color?: string | null; permissions: number }): Promise<Role> {
+		const result = await this.request<ApiResponse<Role>>(`/communities/${communityId}/roles`, {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+		return result.data;
+	}
+
+	async deleteRole(communityId: string, roleId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/roles/${roleId}`, { method: 'DELETE' });
+	}
+
+	async updateRole(
+		communityId: string,
+		roleId: string,
+		data: Partial<{ name: string; color: string | null; permissions: number }>
+	): Promise<Role> {
+		const payload: Record<string, unknown> = {};
+		if (data.name !== undefined) payload.name = data.name;
+		if (data.color !== undefined) payload.color = data.color;
+		if (data.permissions !== undefined) payload.permissions = data.permissions;
+
+		const result = await this.request<ApiResponse<Role>>(`/communities/${communityId}/roles/${roleId}`, {
+			method: 'PATCH',
+			body: JSON.stringify(payload)
+		});
+		return result.data;
+	}
+
+	async getMemberRoles(communityId: string, userId: string): Promise<Role[]> {
+		const result = await this.request<ApiResponse<Role[]>>(
+			`/communities/${communityId}/members/${userId}/roles`
+		);
+		return result.data;
+	}
+
+	async setMemberRoles(communityId: string, userId: string, roleIds: string[]): Promise<void> {
+		await this.request(`/communities/${communityId}/members/${userId}/roles`, {
+			method: 'PUT',
+			body: JSON.stringify({ roleIds })
+		});
 	}
 
 	// Channel endpoints

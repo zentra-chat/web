@@ -5,7 +5,8 @@
 	import {
 		activeCommunity,
 		activeCommunityMembers,
-		setMembers
+		setMembers,
+		getMemberNameColor
 	} from '$lib/stores/community';
 	import { userPresence, toggleMemberSidebar, openProfileCard } from '$lib/stores/ui';
 	import { api } from '$lib/api';
@@ -65,6 +66,11 @@
 	function getMemberStatus(member: CommunityMember): UserStatus {
 		return $userPresence[member.userId]?.status || member.user?.status || 'offline';
 	}
+
+	function getNameStyle(member: CommunityMember): string | undefined {
+		const color = getMemberNameColor(member);
+		return color ? `color: ${color}` : undefined;
+	}
 </script>
 
 <aside class="w-60 bg-surface-hover hidden lg:flex flex-col border-l border-border">
@@ -122,7 +128,7 @@
 								status={getMemberStatus(member)}
 							/>
 							<div class="flex-1 min-w-0 text-left">
-								<p class="text-sm text-text-primary truncate flex items-center gap-1">
+								<p class="text-sm text-text-primary truncate flex items-center gap-1" style={getNameStyle(member)}>
 									{getDisplayName(member)}
 									{#if member.userId === $activeCommunity?.ownerId}
 										<Crown size={12} class="text-warning shrink-0" />
@@ -154,7 +160,7 @@
 								status="offline"
 							/>
 							<div class="flex-1 min-w-0 text-left">
-								<p class="text-sm text-text-primary truncate flex items-center gap-1">
+								<p class="text-sm text-text-primary truncate flex items-center gap-1" style={getNameStyle(member)}>
 									{getDisplayName(member)}
 									{#if member.userId === $activeCommunity?.ownerId}
 										<Crown size={12} class="text-warning shrink-0" />

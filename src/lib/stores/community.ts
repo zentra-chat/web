@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Community, Channel, ChannelCategory, CommunityMember, Message, User } from '$lib/types';
+import type { Community, Channel, ChannelCategory, CommunityMember, Message, User, Role } from '$lib/types';
 import { activeInstance } from './instance';
 
 // Currently selected community
@@ -195,6 +195,25 @@ export function setMembers(communityId: string, members: CommunityMember[]): voi
 		...cache,
 		[communityId]: members
 	}));
+}
+
+export function updateMemberRoles(communityId: string, userId: string, roles: Role[]): void {
+	membersCache.update((cache) => ({
+		...cache,
+		[communityId]: (cache[communityId] || []).map((member) =>
+			member.userId === userId ? { ...member, roles } : member
+		)
+	}));
+}
+
+export function getHighestRole(member: CommunityMember | null): Role | null {
+	if (!member || !member.roles || member.roles.length === 0) return null;
+	return [...member.roles].sort((a, b) => b.position - a.position)[0] || null;
+}
+
+export function getMemberNameColor(member: CommunityMember | null): string | null {
+	const role = getHighestRole(member);
+	return role?.color || null;
 }
 
 export function updateMemberUser(userId: string, updates: Partial<User>): void {

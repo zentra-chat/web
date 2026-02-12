@@ -102,7 +102,7 @@
 	];
 </script>
 
-<Modal isOpen={$createChannelModalOpen} onclose={handleClose} title="Create Channel">
+<Modal isOpen={$createChannelModalOpen} onclose={handleClose} title="Create Channel" size="sm">
 	<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
 		<!-- Channel type selection -->
 		<div>

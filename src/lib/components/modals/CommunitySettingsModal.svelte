@@ -1,11 +1,18 @@
 <script lang="ts">
-	import { Modal, Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
-	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus } from '$lib/components/icons';
+	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
+	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown } from '$lib/components/icons';
 	import { communitySettingsModalOpen, closeCommunitySettingsModal, addToast } from '$lib/stores/ui';
-	import { activeCommunity, updateCommunity, removeCommunity } from '$lib/stores/community';
+	import {
+		activeCommunity,
+		activeCommunityMembers,
+		updateCommunity,
+		removeCommunity,
+		setMembers,
+		updateMemberRoles
+	} from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
-	import type { CommunityInvite } from '$lib/types';
+	import type { CommunityInvite, Role, CommunityMember } from '$lib/types';
 
 	let name = $state('');
 	let description = $state('');
@@ -22,6 +29,26 @@
 	let showCreateInviteForm = $state(false);
 	let newInviteMaxUses = $state<number | null>(null);
 	let newInviteExpiry = $state<string>('never'); // 'never', '30m', '1h', '6h', '12h', '1d', '7d'
+	let roles = $state<Role[]>([]);
+	let isLoadingRoles = $state(false);
+	let hasAttemptedRolesLoad = $state(false);
+	let selectedRoleId = $state<string | null>(null);
+	let roleDraft = $state<{ name: string; color: string; permissions: number }>({
+		name: '',
+		color: '#99a3b0',
+		permissions: 0
+	});
+	let isSavingRole = $state(false);
+	let isCreatingRole = $state(false);
+	let isDeletingRole = $state(false);
+	let newRoleName = $state('');
+	let newRoleColor = $state('#6b7280');
+
+	let isLoadingMembers = $state(false);
+	let hasAttemptedMembersLoad = $state(false);
+	let selectedMemberId = $state<string | null>(null);
+	let selectedMemberRoleIds = $state<string[]>([]);
+	let isUpdatingMemberRoles = $state(false);
 
 	let fileInputRef: HTMLInputElement | null = $state(null);
 	let isOwner = $derived($activeCommunity?.ownerId === $currentUserId);
@@ -43,10 +70,34 @@
 		}
 	});
 
+	$effect(() => {
+		if (activeTab === 'roles' && $activeCommunity && !hasAttemptedRolesLoad && !isLoadingRoles) {
+			loadRoles();
+		}
+	});
+
+	$effect(() => {
+		if (activeTab === 'members' && $activeCommunity && !hasAttemptedMembersLoad && !isLoadingMembers) {
+			loadMembers();
+		}
+	});
+
 	// Reset attempt flag when switching tabs away from invites
 	$effect(() => {
 		if (activeTab !== 'invites') {
 			hasAttemptedInviteLoad = false;
+		}
+	});
+
+	$effect(() => {
+		if (activeTab !== 'roles') {
+			hasAttemptedRolesLoad = false;
+		}
+	});
+
+	$effect(() => {
+		if (activeTab !== 'members') {
+			hasAttemptedMembersLoad = false;
 		}
 	});
 
@@ -68,6 +119,52 @@
 		}
 	}
 
+	async function loadRoles() {
+		if (!$activeCommunity || isLoadingRoles) return;
+
+		isLoadingRoles = true;
+		try {
+			roles = await api.getRoles($activeCommunity.id);
+			if (!selectedRoleId && roles.length > 0) {
+				selectRole(roles[0]);
+			}
+		} catch (err) {
+			console.error('Failed to load roles:', err);
+			addToast({
+				type: 'error',
+				message: 'Failed to load roles'
+			});
+		} finally {
+			isLoadingRoles = false;
+			hasAttemptedRolesLoad = true;
+		}
+	}
+
+	async function loadMembers() {
+		if (!$activeCommunity || isLoadingMembers) return;
+
+		isLoadingMembers = true;
+		try {
+			const members = await api.getCommunityMembers($activeCommunity.id);
+			setMembers($activeCommunity.id, members);
+			if (!selectedMemberId && members.length > 0) {
+				selectMember(members[0]);
+			}
+			if (roles.length === 0 && !isLoadingRoles) {
+				loadRoles();
+			}
+		} catch (err) {
+			console.error('Failed to load members:', err);
+			addToast({
+				type: 'error',
+				message: 'Failed to load members'
+			});
+		} finally {
+			isLoadingMembers = false;
+			hasAttemptedMembersLoad = true;
+		}
+	}
+
 	function handleClose() {
 		closeCommunitySettingsModal();
 		resetForm();
@@ -82,6 +179,138 @@
 		showCreateInviteForm = false;
 		newInviteMaxUses = null;
 		newInviteExpiry = 'never';
+		roles = [];
+		selectedRoleId = null;
+		selectedMemberId = null;
+		selectedMemberRoleIds = [];
+	}
+
+	const permissionOptions = [
+		{ label: 'View Channels', value: 1 << 0 },
+		{ label: 'Send Messages', value: 1 << 1 },
+		{ label: 'Manage Messages', value: 1 << 2 },
+		{ label: 'Manage Channels', value: 1 << 3 },
+		{ label: 'Manage Community', value: 1 << 4 },
+		{ label: 'Manage Roles', value: 1 << 5 },
+		{ label: 'Kick Members', value: 1 << 6 },
+		{ label: 'Ban Members', value: 1 << 7 },
+		{ label: 'Create Invites', value: 1 << 8 },
+		{ label: 'Attach Files', value: 1 << 9 },
+		{ label: 'Add Reactions', value: 1 << 10 },
+		{ label: 'Mention Everyone', value: 1 << 11 },
+		{ label: 'Pin Messages', value: 1 << 12 },
+		{ label: 'Manage Webhooks', value: 1 << 13 },
+		{ label: 'View Audit Log', value: 1 << 14 },
+		{ label: 'Administrator', value: 1 << 15 }
+	];
+
+	function selectRole(role: Role) {
+		selectedRoleId = role.id;
+		roleDraft = {
+			name: role.name,
+			color: role.color || '#6b7280',
+			permissions: role.permissions
+		};
+	}
+
+	function selectMember(member: CommunityMember) {
+		selectedMemberId = member.userId;
+		selectedMemberRoleIds = (member.roles || []).filter((role) => !role.isDefault).map((role) => role.id);
+	}
+
+	function togglePermission(bit: number) {
+		roleDraft = {
+			...roleDraft,
+			permissions: roleDraft.permissions ^ bit
+		};
+	}
+
+	async function saveRole() {
+		if (!$activeCommunity || !selectedRoleId || isSavingRole) return;
+		isSavingRole = true;
+		try {
+			const updated = await api.updateRole($activeCommunity.id, selectedRoleId, {
+				name: roleDraft.name.trim(),
+				color: roleDraft.color || null,
+				permissions: roleDraft.permissions
+			});
+			roles = roles.map((role) => (role.id === updated.id ? updated : role));
+			addToast({ type: 'success', message: 'Role updated' });
+		} catch (err) {
+			console.error('Failed to update role:', err);
+			addToast({ type: 'error', message: 'Failed to update role' });
+		} finally {
+			isSavingRole = false;
+		}
+	}
+
+	async function createRole() {
+		if (!$activeCommunity || !newRoleName.trim() || isCreatingRole) return;
+		isCreatingRole = true;
+		try {
+			const created = await api.createRole($activeCommunity.id, {
+				name: newRoleName.trim(),
+				color: newRoleColor || null,
+				permissions: 0
+			});
+			roles = [created, ...roles];
+			newRoleName = '';
+			newRoleColor = '#6b7280';
+			selectRole(created);
+			addToast({ type: 'success', message: 'Role created' });
+		} catch (err) {
+			console.error('Failed to create role:', err);
+			addToast({ type: 'error', message: 'Failed to create role' });
+		} finally {
+			isCreatingRole = false;
+		}
+	}
+
+	async function deleteRole(role: Role) {
+		if (!$activeCommunity || role.isDefault || isDeletingRole) return;
+		if (!confirm(`Delete role "${role.name}"?`)) return;
+		isDeletingRole = true;
+		try {
+			await api.deleteRole($activeCommunity.id, role.id);
+			roles = roles.filter((r) => r.id !== role.id);
+			if (selectedRoleId === role.id) {
+				selectedRoleId = null;
+				if (roles.length > 0) selectRole(roles[0]);
+			}
+			addToast({ type: 'success', message: 'Role deleted' });
+		} catch (err) {
+			console.error('Failed to delete role:', err);
+			addToast({ type: 'error', message: 'Failed to delete role' });
+		} finally {
+			isDeletingRole = false;
+		}
+	}
+
+	async function saveMemberRoles() {
+		if (!$activeCommunity || !selectedMemberId || isUpdatingMemberRoles) return;
+		isUpdatingMemberRoles = true;
+		try {
+			await api.setMemberRoles($activeCommunity.id, selectedMemberId, selectedMemberRoleIds);
+			const member = $activeCommunityMembers.find((m) => m.userId === selectedMemberId) || null;
+			const roleMap = new Map(roles.map((role) => [role.id, role]));
+			const updatedRoles = selectedMemberRoleIds
+				.map((id) => roleMap.get(id))
+				.filter((role): role is Role => !!role);
+			if (member) {
+				const defaultRole = roles.find((role) => role.isDefault) || null;
+				updateMemberRoles($activeCommunity.id, selectedMemberId, defaultRole ? [defaultRole, ...updatedRoles] : updatedRoles);
+			}
+			addToast({ type: 'success', message: 'Member roles updated' });
+		} catch (err) {
+			console.error('Failed to update member roles:', err);
+			addToast({ type: 'error', message: 'Failed to update member roles' });
+		} finally {
+			isUpdatingMemberRoles = false;
+		}
+	}
+
+	function getMemberLabel(member: CommunityMember): string {
+		return member.nickname || member.user?.displayName || member.user?.username || 'Unknown';
 	}
 
 	function handleIconSelect(e: Event) {
@@ -326,7 +555,7 @@
 	}
 </script>
 
-<Modal isOpen={$communitySettingsModalOpen} onclose={handleClose} title="Community Settings" size="xl">
+<Modal isOpen={$communitySettingsModalOpen} onclose={handleClose} title="Community Settings" size="lg">
 	<div class="flex gap-6">
 		<!-- Tabs -->
 		<div class="w-40 space-y-1">
@@ -336,6 +565,20 @@
 			>
 				<SettingsIcon size={16} class="inline-block mr-2" />
 				Overview
+			</button>
+			<button
+				onclick={() => activeTab = 'members'}
+				class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'members' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+			>
+				<Users size={16} class="inline-block mr-2" />
+				Members
+			</button>
+			<button
+				onclick={() => activeTab = 'roles'}
+				class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'roles' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+			>
+				<Crown size={16} class="inline-block mr-2" />
+				Roles
 			</button>
 			<button
 				onclick={() => activeTab = 'invites'}
@@ -464,6 +707,204 @@
 						</div>
 					{/if}
 				</form>
+			{:else if activeTab === 'members'}
+				<div class="space-y-4">
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary">Members</h3>
+						<p class="text-sm text-text-muted">Assign roles to members in this community</p>
+					</div>
+
+					{#if isLoadingMembers}
+						<div class="flex justify-center py-8">
+							<Spinner size="lg" />
+						</div>
+					{:else}
+						<div class="grid grid-cols-[220px_1fr] gap-4">
+							<div class="bg-surface-hover rounded-lg border border-border overflow-hidden">
+								<div class="px-3 py-2 text-xs uppercase tracking-wide text-text-muted border-b border-border">
+									Members
+								</div>
+								<div class="max-h-96 overflow-y-auto">
+									{#if $activeCommunityMembers.length === 0}
+										<p class="text-sm text-text-muted px-3 py-4">No members found</p>
+									{:else}
+										{#each $activeCommunityMembers as member (member.userId)}
+											<button
+												class="w-full text-left px-3 py-2 text-sm transition-colors {selectedMemberId === member.userId ? 'bg-surface text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+												onclick={() => selectMember(member)}
+											>
+												<span class="truncate">{getMemberLabel(member)}</span>
+											</button>
+										{/each}
+									{/if}
+								</div>
+							</div>
+
+							<div class="bg-surface-hover rounded-lg border border-border p-4">
+								{#if !selectedMemberId}
+									<p class="text-sm text-text-muted">Select a member to edit roles.</p>
+								{:else}
+									<div class="flex items-center justify-between mb-3">
+										<div>
+											<p class="text-sm font-semibold text-text-primary">Roles</p>
+											<p class="text-xs text-text-muted">Changes apply immediately</p>
+										</div>
+										<Button size="sm" onclick={saveMemberRoles} disabled={isUpdatingMemberRoles}>
+											{#if isUpdatingMemberRoles}
+												<Spinner size="sm" />
+												Saving...
+											{:else}
+												Save Roles
+											{/if}
+										</Button>
+									</div>
+									<div class="space-y-2">
+										{#each roles as role (role.id)}
+											{#if !role.isDefault}
+												<label class="flex items-center gap-2 text-sm text-text-primary">
+													<input
+														type="checkbox"
+														value={role.id}
+														checked={selectedMemberRoleIds.includes(role.id)}
+														onchange={(e) => {
+															const checked = (e.target as HTMLInputElement).checked;
+															selectedMemberRoleIds = checked
+																? [...selectedMemberRoleIds, role.id]
+																: selectedMemberRoleIds.filter((id) => id !== role.id);
+														}}
+													/>
+													<span
+														class="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs"
+														style={role.color ? `background: ${role.color}1a; color: ${role.color}` : undefined}
+													>
+														<span
+															class="h-2 w-2 rounded-full"
+															style={role.color ? `background: ${role.color}` : 'background: var(--text-muted)'}
+														></span>
+														{role.name}
+													</span>
+												</label>
+											{/if}
+										{/each}
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/if}
+				</div>
+			{:else if activeTab === 'roles'}
+				<div class="space-y-4">
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary">Roles</h3>
+						<p class="text-sm text-text-muted">Create roles and edit permissions for this community</p>
+					</div>
+
+					<div class="grid grid-cols-[240px_1fr] gap-4">
+						<div class="bg-surface-hover rounded-lg border border-border overflow-hidden">
+							<div class="px-3 py-2 text-xs uppercase tracking-wide text-text-muted border-b border-border">
+								Roles
+							</div>
+							<div class="max-h-96 overflow-y-auto">
+								{#if isLoadingRoles}
+									<div class="flex justify-center py-6">
+										<Spinner size="sm" />
+									</div>
+								{:else if roles.length === 0}
+									<p class="text-sm text-text-muted px-3 py-4">No roles yet</p>
+								{:else}
+									{#each roles as role (role.id)}
+										<button
+											class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors {selectedRoleId === role.id ? 'bg-surface text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+											onclick={() => selectRole(role)}
+										>
+											<span
+												class="h-2.5 w-2.5 rounded-full"
+												style={role.color ? `background: ${role.color}` : 'background: var(--text-muted)'}
+											></span>
+											<span class="truncate">{role.name}</span>
+											{#if role.isDefault}
+												<span class="ml-auto text-[10px] text-text-muted uppercase">Default</span>
+											{/if}
+										</button>
+									{/each}
+								{/if}
+							</div>
+							<div class="border-t border-border p-3">
+								<div class="space-y-2">
+									<Input label="New Role" bind:value={newRoleName} placeholder="Role name" />
+									<div class="flex items-center gap-2">
+										<input type="color" bind:value={newRoleColor} class="h-9 w-10 rounded border border-border bg-transparent" />
+										<Button size="sm" onclick={createRole} disabled={isCreatingRole || !newRoleName.trim()}>
+											{#if isCreatingRole}
+												<Spinner size="sm" />
+												Creating...
+											{:else}
+												Create
+											{/if}
+										</Button>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="bg-surface-hover rounded-lg border border-border p-4">
+							{#if !selectedRoleId}
+								<p class="text-sm text-text-muted">Select a role to edit its settings.</p>
+							{:else}
+								<div class="flex items-center justify-between mb-4">
+									<h4 class="text-sm font-semibold text-text-primary">Role Settings</h4>
+									<div class="flex items-center gap-2">
+										<Button size="sm" onclick={saveRole} disabled={isSavingRole}>
+											{#if isSavingRole}
+												<Spinner size="sm" />
+												Saving...
+											{:else}
+												Save
+											{/if}
+										</Button>
+										<Button
+											variant="ghost"
+											onclick={() => {
+												const role = roles.find((r) => r.id === selectedRoleId);
+												if (role) deleteRole(role);
+											}}
+											disabled={isDeletingRole || !!roles.find((r) => r.id === selectedRoleId)?.isDefault}
+										>
+											Delete
+										</Button>
+									</div>
+								</div>
+
+								<div class="grid grid-cols-2 gap-4">
+									<Input label="Role Name" bind:value={roleDraft.name} />
+									<div>
+										<label for="role-color" class="text-sm text-text-muted">Color</label>
+										<div class="flex items-center gap-2 mt-1">
+											<input id="role-color" type="color" bind:value={roleDraft.color} class="h-9 w-12 rounded border border-border bg-transparent" />
+											<Input bind:value={roleDraft.color} />
+										</div>
+									</div>
+								</div>
+
+								<div class="mt-4">
+									<h5 class="text-sm font-semibold text-text-primary mb-2">Permissions</h5>
+									<div class="grid grid-cols-2 gap-2">
+										{#each permissionOptions as option}
+											<label class="flex items-center gap-2 text-sm text-text-primary">
+												<input
+													type="checkbox"
+													checked={(roleDraft.permissions & option.value) !== 0}
+													onchange={() => togglePermission(option.value)}
+												/>
+												<span>{option.label}</span>
+											</label>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						</div>
+					</div>
+				</div>
 			{:else if activeTab === 'invites'}
 				<div class="space-y-4">
 					<div class="flex items-center justify-between">

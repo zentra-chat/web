@@ -14,10 +14,10 @@
 	let { isOpen, title = '', size = 'md', onclose, children, footer }: Props = $props();
 
 	const sizeClasses = {
-		sm: 'max-w-sm',
-		md: 'max-w-md',
-		lg: 'max-w-lg',
-		xl: 'max-w-xl'
+		sm: 'max-w-lg',
+		md: 'max-w-4xl',
+		lg: 'max-w-5xl',
+		xl: 'max-w-6xl'
 	};
 
 	function handleBackdropClick(e: MouseEvent) {

@@ -170,7 +170,7 @@ export interface Role {
 }
 
 export interface PermissionOverwrite {
-	targetType: 'role' | 'user';
+	targetType: 'role' | 'member';
 	targetId: string;
 	allow: number;
 	deny: number;

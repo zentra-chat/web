@@ -555,7 +555,7 @@
 	}
 </script>
 
-<Modal isOpen={$communitySettingsModalOpen} onclose={handleClose} title="Community Settings" size="lg">
+<Modal isOpen={$communitySettingsModalOpen} onclose={handleClose} title="Community Settings" size="md">
 	<div class="flex gap-6">
 		<!-- Tabs -->
 		<div class="w-40 space-y-1">
@@ -982,7 +982,7 @@
 						<div class="flex justify-center py-8">
 							<Spinner size="lg" />
 						</div>
-					{:else if invites.length === 0}
+					{:else if invites === null || invites.length === 0}
 						<div class="text-center py-8 text-text-muted">
 							<Link size={32} class="mx-auto mb-2 opacity-50" />
 							<p>No invite links yet</p>

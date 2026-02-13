@@ -23,7 +23,7 @@ export type UserStatus = 'online' | 'away' | 'busy' | 'invisible' | 'offline';
 export type InstanceSelectorMode = 'disabled' | 'auto' | 'show';
 
 export interface UserSettings {
-	settings: Record<string, unknown> & { instanceSelectorMode?: InstanceSelectorMode };
+	settings: Record<string, unknown> & { instanceSelectorMode?: InstanceSelectorMode; developerMode?: boolean };
 }
 
 // Authentication types

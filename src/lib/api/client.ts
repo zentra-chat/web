@@ -191,6 +191,11 @@ class ApiClient {
 		return result.data;
 	}
 
+	async getCurrentUserId(): Promise<string> {
+		const result = await this.request<ApiResponse<{ id: string }>>('/users/me/id');
+		return result.data.id;
+	}
+
 	async updateProfile(data: Partial<{ displayName: string; bio: string; customStatus: string }>): Promise<FullUser> {
 		const payload: Partial<{ displayName: string; bio: string; customStatus: string }> = {};
 		if (data.displayName !== undefined) payload.displayName = data.displayName;

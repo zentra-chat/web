@@ -23,12 +23,14 @@
 		Permission,
 		unreadCounts
 	} from '$lib/stores/community';
-	import { openModal, isMobileMenuOpen, addToast } from '$lib/stores/ui';
+	import { openModal, isMobileMenuOpen, addToast, userSettings } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 	import type { Channel, ChannelCategory } from '$lib/types';
 
 	let collapsedCategories = $state<Set<string>>(new Set());
+	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
+	let contextMenu = $state<{ x: number; y: number; channelId: string } | null>(null);
 	let isLoading = $state(false);
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let canManageChannels = $derived(memberHasPermission(myMember, Permission.ManageChannels));
@@ -107,6 +109,25 @@
 		selectChannel(channel.id);
 	}
 
+	function handleChannelContextMenu(event: MouseEvent, channel: Channel) {
+		if (!developerModeEnabled) {
+			return;
+		}
+		event.preventDefault();
+		contextMenu = { x: event.clientX, y: event.clientY, channelId: channel.id };
+	}
+
+	async function handleCopyChannelId(channelId: string) {
+		try {
+			await navigator.clipboard.writeText(channelId);
+			addToast({ type: 'success', message: 'Channel ID copied' });
+		} catch (err) {
+			console.error('Failed to copy channel ID:', err);
+			addToast({ type: 'error', message: 'Failed to copy channel ID' });
+		}
+		contextMenu = null;
+	}
+
 	function handleOpenCommunitySettings() {
 		if (!canOpenCommunitySettings) {
 			addToast({ type: 'error', message: 'Insufficient permissions' });
@@ -122,6 +143,18 @@
 		}
 		openModal('createChannel', { categoryId });
 	}
+
+	$effect(() => {
+		if (!contextMenu) return;
+		const close = (event: MouseEvent) => {
+			if (event.button !== 0) return;
+			contextMenu = null;
+		};
+		window.addEventListener('click', close);
+		return () => {
+			window.removeEventListener('click', close);
+		};
+	});
 </script>
 
 <aside
@@ -184,6 +217,7 @@
 						{@const unreadCount = $unreadCounts[channel.id] || 0}
 						<button
 							onclick={() => handleChannelClick(channel)}
+							oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
 							class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {$activeChannelId ===
 							channel.id
 								? 'bg-surface-active text-text-primary'
@@ -239,6 +273,7 @@
 								{@const unreadCount = $unreadCounts[channel.id] || 0}
 								<button
 									onclick={() => handleChannelClick(channel)}
+									oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
 									class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {$activeChannelId ===
 									channel.id
 										? 'bg-surface-active text-text-primary'
@@ -259,6 +294,20 @@
 			{/each}
 		{/if}
 	</div>
+
+	{#if contextMenu}
+		<div
+			class="fixed z-70 min-w-44 rounded-lg border border-border bg-surface p-1 shadow-xl"
+			style="left: {contextMenu.x}px; top: {contextMenu.y}px"
+		>
+			<button
+				onclick={() => handleCopyChannelId(contextMenu!.channelId)}
+				class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+			>
+				Copy Channel ID
+			</button>
+		</div>
+	{/if}
 
 	<!-- User panel -->
 	<div class="h-14 px-2 bg-background-secondary border-t border-border flex items-center gap-2">

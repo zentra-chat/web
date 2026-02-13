@@ -29,10 +29,11 @@
 	let customStatus = $state('');
 	let avatar = $state<File | null>(null);
 	let avatarPreview = $state<string | null>(null);
-	let activeTab = $state<'profile' | 'account' | 'appearance' | 'legal'>('profile');
+	let activeTab = $state<'profile' | 'account' | 'appearance' | 'developer' | 'legal'>('profile');
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let isSavingAppearance = $state(false);
+	let isSavingDeveloperMode = $state(false);
 	let isLoggingOut = $state(false);
 	let switchingAccountId = $state<string | null>(null);
 
@@ -141,6 +142,42 @@
 		if (mode === $instanceSelectorMode) return;
 		instanceSelectorMode.set(mode);
 		saveAppearanceSettings(mode);
+	}
+
+	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
+
+	async function handleDeveloperModeChange(enabled: boolean) {
+		if (isSavingDeveloperMode || enabled === developerModeEnabled) return;
+		isSavingDeveloperMode = true;
+		try {
+			const existingSettings = ($userSettings?.settings ?? {}) as Record<string, unknown>;
+			const updated = await api.updateUserSettings({
+				settings: { ...existingSettings, developerMode: enabled }
+			});
+			applyUserSettings(updated);
+			addToast({ type: 'success', message: `Developer mode ${enabled ? 'enabled' : 'disabled'}` });
+		} catch (err) {
+			console.error('Failed to update developer mode:', err);
+			addToast({ type: 'error', message: 'Failed to update developer mode' });
+		} finally {
+			isSavingDeveloperMode = false;
+		}
+	}
+
+	async function handleCopyCurrentUserId() {
+		const userId = $currentUser?.id;
+		if (!userId) {
+			addToast({ type: 'warning', message: 'User ID unavailable' });
+			return;
+		}
+
+		try {
+			await navigator.clipboard.writeText(userId);
+			addToast({ type: 'success', message: 'User ID copied' });
+		} catch (err) {
+			console.error('Failed to copy user ID:', err);
+			addToast({ type: 'error', message: 'Failed to copy user ID' });
+		}
 	}
 
 	function resetForm() {
@@ -347,6 +384,12 @@
 				class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'appearance' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
 			>
 				Appearance
+			</button>
+			<button
+				onclick={() => activeTab = 'developer'}
+				class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'developer' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+			>
+				Developer
 			</button>
 			<button
 				onclick={() => activeTab = 'legal'}
@@ -600,6 +643,45 @@
 								Show
 							</button>
 						</div>
+					</div>
+
+				</div>
+			{:else if activeTab === 'developer'}
+				<div class="space-y-6">
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Your User ID</h3>
+						<div class="flex items-center gap-2 p-2 rounded border border-border bg-surface">
+							<p class="flex-1 text-sm text-text-primary truncate">{$currentUser?.id || 'Unavailable'}</p>
+							<Button variant="secondary" size="sm" onclick={handleCopyCurrentUserId}>Copy</Button>
+						</div>
+					</div>
+
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary mb-2">Developer Mode</h3>
+						<p class="text-sm text-text-muted mb-4">Enable right-click and profile menu options for copying IDs.</p>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<div class="relative">
+								<input
+									type="checkbox"
+									class="sr-only peer"
+									checked={developerModeEnabled}
+									onchange={(e) => handleDeveloperModeChange((e.target as HTMLInputElement).checked)}
+									disabled={isSavingDeveloperMode}
+								/>
+								<div class="w-10 h-6 bg-surface-hover rounded-full transition-colors peer-checked:bg-primary"></div>
+								<div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+							</div>
+							<span class="text-text-primary">{developerModeEnabled ? 'Enabled' : 'Disabled'}</span>
+						</label>
+					</div>
+
+					<div class="pt-4 border-t border-border">
+						<p class="text-sm text-text-muted">
+							When enabled, you can:
+							<br />• Right-click a server to copy server ID
+							<br />• Right-click a channel to copy channel ID
+							<br />• Use the profile three-dot menu to copy user ID
+						</p>
 					</div>
 				</div>
 			{:else if activeTab === 'legal'}

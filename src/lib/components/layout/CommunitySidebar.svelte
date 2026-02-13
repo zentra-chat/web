@@ -20,13 +20,16 @@
 		openCreateCommunityModal,
 		openDiscoverCommunitiesModal,
 		openSettingsModal,
-		addToast
+		addToast,
+		userSettings
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import type { Community, User } from '$lib/types';
 	import { goto } from '$app/navigation';
 
 	let communities = $derived($communitiesCache[$activeInstance?.id || ''] || []);
+	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
+	let contextMenu = $state<{ x: number; y: number; serverId: string } | null>(null);
 	let switchingUserId = $state<string | null>(null);
 	let isLoggingOut = $state(false);
 
@@ -49,6 +52,25 @@
 
 	function handleCommunityClick(community: Community) {
 		selectCommunity(community.id);
+	}
+
+	function handleCommunityContextMenu(event: MouseEvent, community: Community) {
+		if (!developerModeEnabled) {
+			return;
+		}
+		event.preventDefault();
+		contextMenu = { x: event.clientX, y: event.clientY, serverId: community.id };
+	}
+
+	async function handleCopyServerId(serverId: string) {
+		try {
+			await navigator.clipboard.writeText(serverId);
+			addToast({ type: 'success', message: 'Server ID copied' });
+		} catch (err) {
+			console.error('Failed to copy server ID:', err);
+			addToast({ type: 'error', message: 'Failed to copy server ID' });
+		}
+		contextMenu = null;
 	}
 
 	function handleHomeClick() {
@@ -109,6 +131,18 @@
 			switchingUserId = null;
 		}
 	}
+
+	$effect(() => {
+		if (!contextMenu) return;
+		const close = (event: MouseEvent) => {
+			if (event.button !== 0) return;
+			contextMenu = null;
+		};
+		window.addEventListener('click', close);
+		return () => {
+			window.removeEventListener('click', close);
+		};
+	});
 </script>
 
 <aside
@@ -152,6 +186,7 @@
 					<Tooltip text={community.name} position="right">
 						<button
 							onclick={() => handleCommunityClick(community)}
+							oncontextmenu={(event) => handleCommunityContextMenu(event, community)}
 							class="w-12 h-12 transition-all duration-200 flex items-center justify-center overflow-hidden
 							{$activeCommunityId === community.id
 								? 'rounded-xl'
@@ -299,6 +334,20 @@
 			</div>
 		</div>
 	</div>
+
+	{#if contextMenu}
+		<div
+			class="fixed z-70 min-w-44 rounded-lg border border-border bg-surface p-1 shadow-xl"
+			style="left: {contextMenu.x}px; top: {contextMenu.y}px"
+		>
+			<button
+				onclick={() => handleCopyServerId(contextMenu!.serverId)}
+				class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+			>
+				Copy Server ID
+			</button>
+		</div>
+	{/if}
 </aside>
 
 <style>

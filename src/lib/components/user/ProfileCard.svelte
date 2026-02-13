@@ -2,8 +2,16 @@
 	import { fade, scale } from 'svelte/transition';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { Button, Avatar } from '$lib/components/ui';
-	import { MessageSquare, User, MoreHorizontal, Settings, Edit, Clock } from 'lucide-svelte';
-	import { profileCardOpen, profileCardUser, profileCardPosition, closeProfileCard, openModal, addToast } from '$lib/stores/ui';
+	import { MessageSquare, MoreHorizontal, Edit, Clock } from 'lucide-svelte';
+	import {
+		profileCardOpen,
+		profileCardUser,
+		profileCardPosition,
+		closeProfileCard,
+		openModal,
+		addToast,
+		userSettings
+	} from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
 	import { activeCommunityMembers, selectCommunity, getMemberNameColor } from '$lib/stores/community';
 	import { setActiveDmConversationId, upsertDmConversation } from '$lib/stores/dm';
@@ -14,6 +22,8 @@
 	let position = $derived($profileCardPosition);
 	let isOwnProfile = $derived(user?.id === $currentUserId);
 	let isStartingDm = $state(false);
+	let isUserMenuOpen = $state(false);
+	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
 	let member = $derived.by(() => {
 		if (!user) return null;
 		return $activeCommunityMembers.find((m) => m.userId === user.id) || null;
@@ -49,6 +59,22 @@
 		closeProfileCard();
 		openModal('settings');
 	}
+
+	function toggleUserMenu() {
+		isUserMenuOpen = !isUserMenuOpen;
+	}
+
+	async function copyUserId() {
+		if (!user?.id) return;
+		try {
+			await navigator.clipboard.writeText(user.id);
+			addToast({ type: 'success', message: 'User ID copied' });
+		} catch (err) {
+			console.error('Failed to copy user ID:', err);
+			addToast({ type: 'error', message: 'Failed to copy user ID' });
+		}
+		isUserMenuOpen = false;
+	}
 </script>
 
 {#if $profileCardOpen && user}
@@ -80,11 +106,25 @@
 						<Edit size={18} />
 					</button>
 				{:else}
-					<button
+					<div class="relative">
+						<button
 						class="p-1.5 hover:bg-bg-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
+						onclick={toggleUserMenu}
 					>
 						<MoreHorizontal size={18} />
-					</button>
+						</button>
+
+						{#if isUserMenuOpen && developerModeEnabled}
+							<div class="absolute right-0 top-8 min-w-40 rounded-lg border border-border bg-background shadow-xl z-20 p-1">
+								<button
+									onclick={copyUserId}
+									class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+								>
+									Copy User ID
+								</button>
+							</div>
+						{/if}
+					</div>
 				{/if}
 			</div>
 

@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { PUBLIC_DEFAULT_INSTANCE_URL, PUBLIC_DEFAULT_INSTANCE_NAME } from '$env/static/public';
 import type { Instance, InstanceAuth, FullUser } from '$lib/types';
+import { upsertPortableProfileFromUser } from '$lib/stores/profile';
 
 // Storage keys
 const INSTANCES_KEY = 'zentra_instances';
@@ -167,6 +168,8 @@ export function setInstanceAuth(instanceId: string, auth: InstanceAuth): void {
 		[instanceId]: auth
 	}));
 
+	upsertPortableProfileFromUser(auth.user);
+
 	const user = auth.user;
 	const now = new Date().toISOString();
 	savedAccounts.update((current) => {
@@ -237,6 +240,8 @@ export function switchActiveAccount(userId: string): boolean {
 }
 
 export function updateInstanceUser(instanceId: string, user: FullUser): void {
+	upsertPortableProfileFromUser(user);
+
 	instanceAuth.update((current) => {
 		if (!current[instanceId]) return current;
 		return {
@@ -273,6 +278,11 @@ export function loadInstances(): void {
 export function updateCurrentUser(updates: Partial<FullUser>): void {
 	const activeId = get(activeInstanceId);
 	if (!activeId) return;
+
+	const current = get(instanceAuth)[activeId]?.user;
+	if (current) {
+		upsertPortableProfileFromUser({ ...current, ...updates } as FullUser);
+	}
 
 	instanceAuth.update((current) => {
 		if (!current[activeId]) return current;

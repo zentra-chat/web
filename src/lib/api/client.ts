@@ -6,6 +6,7 @@ import {
 	clearInstanceAuth,
 	logout as logoutFromStore
 } from '$lib/stores/instance';
+import { applyProfileSync, getPortableProfileForAuth } from '$lib/stores/profile';
 import type {
 	ApiResponse,
 	PaginatedResponse,
@@ -137,6 +138,7 @@ class ApiClient {
 			if (!response.ok) return false;
 
 			const result: ApiResponse<AuthResponse> = await response.json();
+			applyProfileSync(result.data.profileSync);
 			setInstanceAuth(instance.id, {
 				instanceId: instance.id,
 				accessToken: result.data.accessToken,
@@ -154,26 +156,56 @@ class ApiClient {
 
 	// Auth endpoints
 	async register(data: RegisterRequest): Promise<AuthResponse> {
+		const payload: RegisterRequest = {
+			...data,
+			portableProfile: data.portableProfile ?? getPortableProfileForAuth()
+		};
+
 		const result = await this.request<ApiResponse<AuthResponse>>(
 			'/auth/register',
 			{
 				method: 'POST',
-				body: JSON.stringify(data)
+				body: JSON.stringify(payload)
 			},
 			false
 		);
+		applyProfileSync(result.data.profileSync);
 		return result.data;
 	}
 
 	async login(data: LoginRequest): Promise<AuthResponse> {
+		const payload: LoginRequest = {
+			...data,
+			portableProfile: data.portableProfile ?? getPortableProfileForAuth()
+		};
+
 		const result = await this.request<ApiResponse<AuthResponse>>(
 			'/auth/login',
 			{
 				method: 'POST',
-				body: JSON.stringify(data)
+				body: JSON.stringify(payload)
 			},
 			false
 		);
+		applyProfileSync(result.data.profileSync);
+		return result.data;
+	}
+
+	async portableAuth(): Promise<AuthResponse> {
+		const portableProfile = getPortableProfileForAuth();
+		if (!portableProfile) {
+			throw { error: 'Portable profile not available', code: 'PROFILE_REQUIRED' };
+		}
+
+		const result = await this.request<ApiResponse<AuthResponse>>(
+			'/auth/portable',
+			{
+				method: 'POST',
+				body: JSON.stringify({ portableProfile })
+			},
+			false
+		);
+		applyProfileSync(result.data.profileSync);
 		return result.data;
 	}
 

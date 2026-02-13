@@ -6,6 +6,7 @@
 	import { api } from '$lib/api';
 	import { activeInstance, setInstanceAuth, isLoggedIn, instanceAuth } from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';
+	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
 	import { onMount } from 'svelte';
 
@@ -18,6 +19,7 @@
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
 	let isAddAccountMode = $derived($page.url.searchParams.get('addAccount') === '1');
+	let attemptedPortableAuth = false;
 
 	onMount(() => {
 		// Check for pending invite
@@ -31,7 +33,40 @@
 		if (!$activeInstance) {
 			showInstanceModal = true;
 		}
+
+		attemptPortableAuth();
 	});
+
+	function canTryPortableAuth(): boolean {
+		return Boolean($activeInstance && !attemptedPortableAuth && !isAddAccountMode && hasPortableProfile());
+	}
+
+	async function attemptPortableAuth() {
+		if (!canTryPortableAuth()) return;
+
+		attemptedPortableAuth = true;
+		isLoading = true;
+		error = '';
+
+		try {
+			const response = await api.portableAuth();
+
+			setInstanceAuth($activeInstance!.id, {
+				instanceId: $activeInstance!.id,
+				accessToken: response.accessToken,
+				refreshToken: response.refreshToken,
+				expiresAt: response.expiresAt,
+				user: response.user
+			});
+
+			showToast('success', `Signed in as ${response.user.displayName || response.user.username}`);
+			handleRedirectAfterLogin();
+		} catch {
+			// No-op; user can continue with normal login.
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	function handleRedirectAfterLogin() {
 		if (pendingInvite) {

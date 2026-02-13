@@ -5,6 +5,7 @@
 	import { api } from '$lib/api';
 	import { activeInstance, setInstanceAuth, isLoggedIn } from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';
+	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
 	import { onMount } from 'svelte';
 
@@ -17,6 +18,7 @@
 	let errors = $state<Record<string, string>>({});
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
+	let attemptedPortableAuth = false;
 
 	onMount(() => {
 		// Check for pending invite
@@ -30,7 +32,39 @@
 		if (!$activeInstance) {
 			showInstanceModal = true;
 		}
+
+		attemptPortableAuth();
 	});
+
+	function canTryPortableAuth(): boolean {
+		return Boolean($activeInstance && !attemptedPortableAuth && hasPortableProfile());
+	}
+
+	async function attemptPortableAuth() {
+		if (!canTryPortableAuth()) return;
+
+		attemptedPortableAuth = true;
+		isLoading = true;
+
+		try {
+			const response = await api.portableAuth();
+
+			setInstanceAuth($activeInstance!.id, {
+				instanceId: $activeInstance!.id,
+				accessToken: response.accessToken,
+				refreshToken: response.refreshToken,
+				expiresAt: response.expiresAt,
+				user: response.user
+			});
+
+			showToast('success', `Signed in as ${response.user.displayName || response.user.username}`);
+			handleRedirectAfterRegister();
+		} catch {
+			// Fall through to normal register flow.
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	function handleRedirectAfterRegister() {
 		if (pendingInvite) {

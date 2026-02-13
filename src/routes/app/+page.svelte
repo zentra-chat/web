@@ -7,6 +7,7 @@
 	import { Hash } from 'lucide-svelte';
 	import {
 		activeCommunity,
+		activeCommunityId,
 		activeChannel,
 		communitiesCache,
 		setCommunities,
@@ -30,7 +31,7 @@
 
 		const cachedCommunities = $communitiesCache[instance.id] || [];
 		if (cachedCommunities.length > 0) {
-			if (!$activeCommunity || !cachedCommunities.some((community) => community.id === $activeCommunity.id)) {
+			if ($activeCommunityId === undefined || ($activeCommunityId !== null && !$activeCommunity)) {
 				setActiveCommunity(cachedCommunities[0] || null);
 			}
 			isLoadingCommunities = false;
@@ -42,7 +43,9 @@
 			.then((communities) => {
 				const list = communities || [];
 				setCommunities(list);
-				setActiveCommunity(list[0] || null);
+				if ($activeCommunityId === undefined) {
+					setActiveCommunity(list[0] || null);
+				}
 			})
 			.catch((err) => {
 				console.error('Failed to load communities:', err);

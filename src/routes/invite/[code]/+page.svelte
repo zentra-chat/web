@@ -6,7 +6,7 @@
 	import { Users, AlertCircle, CheckCircle, LogIn } from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { isAuthenticated, activeInstance, loadInstances } from '$lib/stores/instance';
-	import { addCommunity } from '$lib/stores/community';
+	import { addCommunity, selectCommunity } from '$lib/stores/community';
 	import { addToast } from '$lib/stores/ui';
 	import type { Community } from '$lib/types';
 
@@ -78,6 +78,7 @@
 		try {
 			const community = await api.joinWithInvite(inviteCode);
 			addCommunity(community);
+			selectCommunity(community.id);
 			hasJoined = true;
 			addToast({
 				type: 'success',

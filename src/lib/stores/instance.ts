@@ -122,8 +122,7 @@ export const activeInstanceSavedAccounts = derived(
 
 // Derived store to check if logged in to active instance
 export const isLoggedIn = derived(activeAuth, ($activeAuth) => {
-	if (!$activeAuth) return false;
-	return new Date($activeAuth.expiresAt) > new Date();
+	return !!$activeAuth;
 });
 
 // Instance management functions

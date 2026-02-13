@@ -33,7 +33,7 @@ export function memberHasPermission(member: CommunityMember | null, permission: 
 }
 
 // Currently selected community
-export const activeCommunityId = writable<string | null>(null);
+export const activeCommunityId = writable<string | null | undefined>(undefined);
 
 // Currently selected channel
 export const activeChannelId = writable<string | null>(null);

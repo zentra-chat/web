@@ -63,26 +63,20 @@ export const isLoadingMessages = writable(false);
 
 // Derived stores
 export const activeCommunity = derived(
-	[communitiesCache, activeCommunityId],
-	([$cache, $activeId]) => {
+	[communitiesCache, activeCommunityId, activeInstance],
+	([$cache, $activeId, $activeInstance]) => {
 		if (!$activeId) return null;
-		for (const communities of Object.values($cache)) {
-			const found = communities.find((c) => c.id === $activeId);
-			if (found) return found;
-		}
-		return null;
+		if (!$activeInstance) return null;
+		return ($cache[$activeInstance.id] || []).find((c) => c.id === $activeId) || null;
 	}
 );
 
 export const activeChannel = derived(
-	[channelsCache, activeChannelId],
-	([$cache, $activeId]) => {
+	[channelsCache, activeChannelId, activeCommunityId],
+	([$cache, $activeId, $communityId]) => {
 		if (!$activeId) return null;
-		for (const channels of Object.values($cache)) {
-			const found = channels.find((c) => c.id === $activeId);
-			if (found) return found;
-		}
-		return null;
+		if (!$communityId) return null;
+		return ($cache[$communityId] || []).find((c) => c.id === $activeId) || null;
 	}
 );
 
@@ -440,6 +434,16 @@ export function setActiveChannel(channel: Channel | null): void {
 		clearUnread(channel.id);
 	}
 }
+
+let lastInstanceId: string | null = null;
+activeInstance.subscribe((instance) => {
+	const nextInstanceId = instance?.id || null;
+	if (nextInstanceId !== lastInstanceId) {
+		activeCommunityId.set(null);
+		activeChannelId.set(null);
+		lastInstanceId = nextInstanceId;
+	}
+});
 
 // Messages alias for direct access
 export const messages = messagesCache;

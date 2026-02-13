@@ -8,37 +8,57 @@
 	import {
 		activeCommunity,
 		activeChannel,
+		communitiesCache,
 		setCommunities,
 		setActiveCommunity,
 		setChannels,
 		setActiveChannel
 	} from '$lib/stores/community';
+	import { activeInstance } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 
 	let isLoadingCommunities = $state(true);
 	let isLoadingChannels = $state(false);
 
-	onMount(async () => {
-		// Load communities
-		try {
-			const communities = (await api.getCommunities()) || [];
-			setCommunities(communities);
+	onMount(() => {
+		isLoadingCommunities = false;
+	});
 
-			// Select first community if available
-			if (communities.length > 0 && !$activeCommunity) {
-				setActiveCommunity(communities[0]);
+	$effect(() => {
+		const instance = $activeInstance;
+		if (!instance) return;
+
+		const cachedCommunities = $communitiesCache[instance.id] || [];
+		if (cachedCommunities.length > 0) {
+			if (!$activeCommunity || !cachedCommunities.some((community) => community.id === $activeCommunity.id)) {
+				setActiveCommunity(cachedCommunities[0] || null);
 			}
-		} catch (err) {
-			console.error('Failed to load communities:', err);
-		} finally {
 			isLoadingCommunities = false;
+			return;
 		}
+
+		isLoadingCommunities = true;
+		api.getCommunities()
+			.then((communities) => {
+				const list = communities || [];
+				setCommunities(list);
+				setActiveCommunity(list[0] || null);
+			})
+			.catch((err) => {
+				console.error('Failed to load communities:', err);
+				setActiveCommunity(null);
+			})
+			.finally(() => {
+				isLoadingCommunities = false;
+			});
 	});
 
 	// Load channels when community changes
 	$effect(() => {
 		if ($activeCommunity) {
 			loadChannels($activeCommunity.id);
+		} else {
+			setActiveChannel(null);
 		}
 	});
 

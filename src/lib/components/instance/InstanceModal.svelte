@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Button, Input, Modal } from '$lib/components/ui';
-	import { Server, Globe, Check, X, AlertCircle } from 'lucide-svelte';
+	import { Server, Globe, Check, X, AlertCircle, Pencil, Save, ImagePlus } from 'lucide-svelte';
 	import {
 		instances,
 		addInstance,
 		removeInstance,
+		updateInstance,
 		setActiveInstance,
 		activeInstanceId,
 		generateInstanceId
@@ -21,8 +22,58 @@
 	let { isOpen, onclose }: Props = $props();
 
 	let newInstanceUrl = $state('');
+	let newInstanceName = $state('');
+	let newInstanceIconPreview = $state<string | null>(null);
 	let isChecking = $state(false);
 	let checkResult = $state<'success' | 'error' | null>(null);
+	let editingInstanceId = $state<string | null>(null);
+	let editName = $state('');
+	let editIconPreview = $state<string | null>(null);
+
+	async function readImageAsDataUrl(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(String(reader.result));
+			reader.onerror = () => reject(new Error('Failed to read image file'));
+			reader.readAsDataURL(file);
+		});
+	}
+
+	function handleNewInstanceIconChange(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		if (!file.type.startsWith('image/')) {
+			showToast('error', 'Please choose an image file');
+			input.value = '';
+			return;
+		}
+
+		readImageAsDataUrl(file)
+			.then((dataUrl) => {
+				newInstanceIconPreview = dataUrl;
+			})
+			.catch(() => showToast('error', 'Failed to load image'));
+	}
+
+	function handleEditIconChange(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		if (!file.type.startsWith('image/')) {
+			showToast('error', 'Please choose an image file');
+			input.value = '';
+			return;
+		}
+
+		readImageAsDataUrl(file)
+			.then((dataUrl) => {
+				editIconPreview = dataUrl;
+			})
+			.catch(() => showToast('error', 'Failed to load image'));
+	}
 
 	async function checkInstance() {
 		if (!newInstanceUrl.trim()) return;
@@ -68,7 +119,8 @@
 		const instance = {
 			id: generateInstanceId(),
 			url: newInstanceUrl,
-			name: new URL(newInstanceUrl).hostname,
+			name: newInstanceName.trim() || new URL(newInstanceUrl).hostname,
+			iconUrl: newInstanceIconPreview || undefined,
 			isOnline: true,
 			lastChecked: new Date().toISOString()
 		};
@@ -77,9 +129,33 @@
 		setActiveInstance(instance.id);
 		showToast('success', 'Instance added successfully');
 		newInstanceUrl = '';
+		newInstanceName = '';
+		newInstanceIconPreview = null;
 		checkResult = null;
 		onclose();
 		goto('/login');
+	}
+
+	function startEditInstance(instance: { id: string; name: string; iconUrl?: string }) {
+		editingInstanceId = instance.id;
+		editName = instance.name;
+		editIconPreview = instance.iconUrl || null;
+	}
+
+	function saveInstanceEdits(instance: { id: string; url: string }) {
+		const fallbackName = new URL(instance.url).hostname;
+		updateInstance(instance.id, {
+			name: editName.trim() || fallbackName,
+			iconUrl: editIconPreview || undefined
+		});
+		showToast('success', 'Instance updated');
+		editingInstanceId = null;
+	}
+
+	function cancelEdit() {
+		editingInstanceId = null;
+		editName = '';
+		editIconPreview = null;
 	}
 
 	function handleRemoveInstance(id: string) {
@@ -95,6 +171,9 @@
 
 	function handleClose() {
 		newInstanceUrl = '';
+		newInstanceName = '';
+		newInstanceIconPreview = null;
+		cancelEdit();
 		checkResult = null;
 		onclose();
 	}
@@ -104,6 +183,25 @@
 	<div class="space-y-6">
 		<div class="space-y-3">
 			<h3 class="text-sm font-medium text-text-secondary">Add New Instance</h3>
+			<Input
+				type="text"
+				bind:value={newInstanceName}
+				placeholder="Display name (optional)"
+			/>
+			<div class="space-y-2">
+				<label class="text-xs text-text-muted">Instance Image (optional)</label>
+				<div class="flex items-center gap-3">
+					<label class="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-border text-sm text-text-secondary hover:text-text-primary hover:border-border-light transition-colors">
+						<ImagePlus size={16} />
+						Choose image
+						<input type="file" accept="image/*" class="hidden" onchange={handleNewInstanceIconChange} />
+					</label>
+					{#if newInstanceIconPreview}
+						<img src={newInstanceIconPreview} alt="Instance preview" class="w-10 h-10 rounded-lg object-cover border border-border" />
+						<Button variant="ghost" size="sm" onclick={() => (newInstanceIconPreview = null)}>Remove</Button>
+					{/if}
+				</div>
+			</div>
 			<div class="flex gap-2">
 				<div class="flex-1 relative">
 					<Input
@@ -164,6 +262,13 @@
 								<span
 									class="w-2 h-2 rounded-full {instance.isOnline ? 'bg-success' : 'bg-text-muted'}"
 								></span>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={() => startEditInstance(instance)}
+								>
+									<Pencil size={14} />
+								</Button>
 								{#if $activeInstanceId === instance.id}
 									<span class="text-xs text-primary font-medium">Active</span>
 								{:else}
@@ -185,6 +290,29 @@
 								</Button>
 							</div>
 						</div>
+						{#if editingInstanceId === instance.id}
+							<div class="mt-3 p-3 rounded-lg border border-border bg-background space-y-3">
+								<Input type="text" bind:value={editName} placeholder="Instance display name" />
+								<div class="flex items-center gap-3">
+									<label class="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-border text-sm text-text-secondary hover:text-text-primary hover:border-border-light transition-colors">
+										<ImagePlus size={16} />
+										Change image
+										<input type="file" accept="image/*" class="hidden" onchange={handleEditIconChange} />
+									</label>
+									{#if editIconPreview}
+										<img src={editIconPreview} alt="Instance image" class="w-10 h-10 rounded-lg object-cover border border-border" />
+										<Button variant="ghost" size="sm" onclick={() => (editIconPreview = null)}>Remove</Button>
+									{/if}
+								</div>
+								<div class="flex items-center justify-end gap-2">
+									<Button variant="ghost" size="sm" onclick={cancelEdit}>Cancel</Button>
+									<Button size="sm" onclick={() => saveInstanceEdits(instance)}>
+										<Save size={14} />
+										Save
+									</Button>
+								</div>
+							</div>
+						{/if}
 					{/each}
 				</div>
 			</div>

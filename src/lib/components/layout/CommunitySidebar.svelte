@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { Plus, Settings, Users, Home, Search, UserPlus, LogOut } from 'lucide-svelte';
 	import { Avatar, Button, Tooltip } from '$lib/components/ui';
 	import {
@@ -33,21 +32,24 @@
 	let switchingUserId = $state<string | null>(null);
 	let isLoggingOut = $state(false);
 
-	onMount(async () => {
-		if (!$activeInstance) return;
+	$effect(() => {
+		const instance = $activeInstance;
+		if (!instance) return;
 
 		isLoadingCommunities.set(true);
-		try {
-			const list = (await api.getMyCommunities()) || [];
-			communitiesCache.update((cache) => ({
-				...cache,
-				[$activeInstance!.id]: list
-			}));
-		} catch (err) {
-			console.error('Failed to load communities:', err);
-		} finally {
-			isLoadingCommunities.set(false);
-		}
+		api.getMyCommunities()
+			.then((list) => {
+				communitiesCache.update((cache) => ({
+					...cache,
+					[instance.id]: list || []
+				}));
+			})
+			.catch((err) => {
+				console.error('Failed to load communities:', err);
+			})
+			.finally(() => {
+				isLoadingCommunities.set(false);
+			});
 	});
 
 	function handleCommunityClick(community: Community) {

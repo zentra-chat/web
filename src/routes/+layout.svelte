@@ -5,7 +5,7 @@
 	import { isDesktop } from '$lib/utils/platform';
 	
 	let { children } = $props();
-	let showWaylandTitlebar = $state(false);
+	let showDesktopTitlebar = $state(false);
 	let appWindow: {
 		minimize: () => Promise<void>;
 		toggleMaximize: () => Promise<void>;
@@ -13,14 +13,18 @@
 	} | null = null;
 
 	onMount(async () => {
-		if (!isDesktop() || !(window as Window & { __ZENTRA_WAYLAND__?: boolean }).__ZENTRA_WAYLAND__) {
+		if (!isDesktop()) {
 			return;
 		}
 
-		showWaylandTitlebar = true;
-
-		const tauriApi = await import('@tauri-apps/api');
-		appWindow = tauriApi.window.getCurrentWindow();
+		try {
+			const tauriApi = await import('@tauri-apps/api');
+			appWindow = tauriApi.window.getCurrentWindow();
+			showDesktopTitlebar = true;
+		} catch (error) {
+			console.error('Failed to initialize desktop titlebar controls:', error);
+			showDesktopTitlebar = false;
+		}
 	});
 
 	async function minimizeWindow() {
@@ -39,16 +43,16 @@
 	}
 </script>
 
-<div class="wayland-shell" class:wayland-shell-enabled={showWaylandTitlebar}>
-	{#if showWaylandTitlebar}
-		<header class="wayland-titlebar">
-			<div class="wayland-titlebar-drag" data-tauri-drag-region>
-				<div class="wayland-title" data-tauri-drag-region>
+<div class="desktop-shell" class:desktop-shell-enabled={showDesktopTitlebar}>
+	{#if showDesktopTitlebar}
+		<header class="desktop-titlebar">
+			<div class="desktop-titlebar-drag" data-tauri-drag-region>
+				<div class="desktop-title" data-tauri-drag-region>
 					<img src="/favicon-32x32.png" alt="Zentra" width="16" height="16" />
 					<span>Zentra</span>
 				</div>
 			</div>
-			<div class="wayland-window-controls">
+			<div class="desktop-window-controls">
 				<button type="button" class="titlebar-btn" aria-label="Minimize window" onclick={minimizeWindow}>
 					<Minus size={14} strokeWidth={2} />
 				</button>
@@ -62,24 +66,24 @@
 		</header>
 	{/if}
 
-	<div class="wayland-content" class:wayland-content-with-titlebar={showWaylandTitlebar}>
+	<div class="desktop-content" class:desktop-content-with-titlebar={showDesktopTitlebar}>
 		{@render children()}
 	</div>
 </div>
 
 <style>
-	.wayland-shell {
+	.desktop-shell {
 		min-height: 100vh;
 	}
 
-	.wayland-shell-enabled {
+	.desktop-shell-enabled {
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
 	}
 
-	.wayland-titlebar {
+	.desktop-titlebar {
 		height: 32px;
 		background: var(--color-background-secondary);
 		border-bottom: 1px solid var(--color-border);
@@ -90,7 +94,7 @@
 		flex-shrink: 0;
 	}
 
-	.wayland-titlebar-drag {
+	.desktop-titlebar-drag {
 		flex: 1;
 		height: 100%;
 		display: flex;
@@ -98,7 +102,7 @@
 		-webkit-app-region: drag;
 	}
 
-	.wayland-title {
+	.desktop-title {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -109,7 +113,7 @@
 		-webkit-app-region: drag;
 	}
 
-	.wayland-window-controls {
+	.desktop-window-controls {
 		display: flex;
 		height: 100%;
 		-webkit-app-region: no-drag;
@@ -138,16 +142,16 @@
 		color: #fff;
 	}
 
-	.wayland-content {
+	.desktop-content {
 		min-height: 0;
 	}
 
-	.wayland-content-with-titlebar {
+	.desktop-content-with-titlebar {
 		flex: 1;
 		overflow: hidden;
 	}
 
-	.wayland-content-with-titlebar :global(.h-screen) {
+	.desktop-content-with-titlebar :global(.h-screen) {
 		height: 100%;
 	}
 </style>

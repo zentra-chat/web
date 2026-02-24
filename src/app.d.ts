@@ -13,4 +13,8 @@ declare global {
 declare module 'markdown-it';
 declare module 'markdown-it-ins';
 
+interface Window {
+	__ZENTRA_WAYLAND__?: boolean;
+}
+
 export {};

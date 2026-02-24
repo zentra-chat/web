@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import { Minimize2, Maximize2, X } from 'lucide-svelte';
+	import { Maximize, X, Minus } from 'lucide-svelte';
 	import { isDesktop } from '$lib/utils/platform';
 	
 	let { children } = $props();
@@ -50,10 +50,10 @@
 			</div>
 			<div class="wayland-window-controls">
 				<button type="button" class="titlebar-btn" aria-label="Minimize window" onclick={minimizeWindow}>
-					<Minimize2 size={14} strokeWidth={2} />
+					<Minus size={14} strokeWidth={2} />
 				</button>
 				<button type="button" class="titlebar-btn" aria-label="Maximize window" onclick={toggleWindowMaximize}>
-					<Maximize2 size={14} strokeWidth={2} />
+					<Maximize size={14} strokeWidth={2} />
 				</button>
 				<button type="button" class="titlebar-btn titlebar-btn-close" aria-label="Close window" onclick={closeWindow}>
 					<X size={14} strokeWidth={2} />

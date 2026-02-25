@@ -6,6 +6,7 @@ import {
 	clearInstanceAuth,
 	logout as logoutFromStore
 } from '$lib/stores/instance';
+import { showToast } from '$lib/stores/ui';
 import { applyProfileSync, getPortableProfileForAuth } from '$lib/stores/profile';
 import type {
 	ApiResponse,
@@ -32,6 +33,15 @@ import type {
 import { mapDmMessage } from '$lib/utils/dm';
 
 class ApiClient {
+	private authFailureHandled = false;
+
+	private handleAuthFailure(): void {
+		if (this.authFailureHandled) return;
+		this.authFailureHandled = true;
+		logoutFromStore();
+		showToast('warning', 'Your session expired. Please sign in again.');
+	}
+
 	private getBaseUrl(): string {
 		const instance = get(activeInstance);
 		if (!instance) throw new Error('No active instance');
@@ -52,7 +62,7 @@ class ApiClient {
 		return headers;
 	}
 
-	private async handleResponse<T>(response: Response): Promise<T> {
+	private async handleResponse<T>(response: Response, includeAuth = true): Promise<T> {
 		if (!response.ok) {
 			let error: ApiError;
 			try {
@@ -65,7 +75,7 @@ class ApiClient {
 			}
 
 			// Handle token expiration
-			if (response.status === 401) {
+			if (includeAuth && response.status === 401) {
 				const refreshed = await this.refreshToken();
 				if (!refreshed) {
 					throw error;
@@ -105,7 +115,7 @@ class ApiClient {
 				headers: { ...Object.fromEntries(headers.entries()), ...options.headers }
 			});
 
-			return await this.handleResponse<T>(response);
+			return await this.handleResponse<T>(response, includeAuth);
 		} catch (error) {
 			if (retry && (error as any).shouldRetry) {
 				// Retry the request after token refresh
@@ -118,7 +128,7 @@ class ApiClient {
 					...options,
 					headers: { ...Object.fromEntries(newHeaders.entries()), ...options.headers }
 				});
-				return await this.handleResponse<T>(response);
+				return await this.handleResponse<T>(response, includeAuth);
 			}
 			throw error;
 		}
@@ -136,7 +146,10 @@ class ApiClient {
 				body: JSON.stringify({ refreshToken: auth.refreshToken })
 			});
 
-			if (!response.ok) return false;
+			if (!response.ok) {
+				this.handleAuthFailure();
+				return false;
+			}
 
 			const result: ApiResponse<AuthResponse> = await response.json();
 			applyProfileSync(result.data.profileSync);
@@ -147,10 +160,12 @@ class ApiClient {
 				expiresAt: result.data.expiresAt,
 				user: result.data.user ?? auth.user
 			});
+			this.authFailureHandled = false;
 
 			return true;
 		} catch {
 			clearInstanceAuth(instance.id);
+			this.handleAuthFailure();
 			return false;
 		}
 	}
@@ -170,6 +185,7 @@ class ApiClient {
 			},
 			false
 		);
+		this.authFailureHandled = false;
 		applyProfileSync(result.data.profileSync);
 		return result.data;
 	}
@@ -188,6 +204,7 @@ class ApiClient {
 			},
 			false
 		);
+		this.authFailureHandled = false;
 		applyProfileSync(result.data.profileSync);
 		return result.data;
 	}
@@ -206,6 +223,7 @@ class ApiClient {
 			},
 			false
 		);
+		this.authFailureHandled = false;
 		applyProfileSync(result.data.profileSync);
 		return result.data;
 	}

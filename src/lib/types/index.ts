@@ -254,7 +254,9 @@ export type WebSocketEventType =
 	| 'MEMBER_JOIN'
 	| 'MEMBER_LEAVE'
 	| 'REACTION_ADD'
-	| 'REACTION_REMOVE';
+	| 'REACTION_REMOVE'
+	| 'NOTIFICATION'
+	| 'NOTIFICATION_READ';
 
 export interface WebSocketEvent<T = unknown> {
 	type: WebSocketEventType;
@@ -294,4 +296,38 @@ export interface DMConversation {
 	unreadCount: number;
 	createdAt: string;
 	updatedAt: string;
+}
+
+// Notification types
+
+export type NotificationType =
+	| 'mention_user'
+	| 'mention_role'
+	| 'mention_everyone'
+	| 'mention_here'
+	| 'reply'
+	| 'dm_message';
+
+export interface Notification {
+	id: string;
+	userId: string;
+	type: NotificationType;
+	title: string;
+	body: string | null;
+	communityId: string | null;
+	channelId: string | null;
+	messageId: string | null;
+	actorId: string | null;
+	metadata: Record<string, unknown>;
+	isRead: boolean;
+	createdAt: string;
+	actor?: User | null;
+}
+
+export type MentionType = 'user' | 'role' | 'everyone' | 'here';
+
+export interface ParsedMention {
+	type: MentionType;
+	userId?: string;
+	roleId?: string;
 }

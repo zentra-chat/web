@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Plus, Settings, Users, Home, Search, UserPlus, LogOut } from 'lucide-svelte';
-	import { Avatar, Button, Tooltip } from '$lib/components/ui';
+	import { Avatar, Button, Tooltip, NotificationPanel } from '$lib/components/ui';
 	import {
 		activeInstance,
 		currentUser,
@@ -249,6 +249,8 @@
 
 	<!-- User section -->
 	<div class="flex flex-col items-center gap-2 mt-auto">
+		<NotificationPanel />
+
 		<Tooltip text="Settings" position="right">
 			<button
 				onclick={openSettingsModal}

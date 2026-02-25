@@ -26,7 +26,8 @@ import type {
 	Message,
 	SendMessageRequest,
 	Attachment,
-	DMConversation
+	DMConversation,
+	Notification
 } from '$lib/types';
 import { mapDmMessage } from '$lib/utils/dm';
 
@@ -720,6 +721,30 @@ class ApiClient {
 		} catch {
 			return false;
 		}
+	}
+
+	// Notification endpoints
+	async getNotifications(page = 1, limit = 50): Promise<PaginatedResponse<Notification>> {
+		return this.request<PaginatedResponse<Notification>>(
+			`/notifications?page=${page}&limit=${limit}`
+		);
+	}
+
+	async getUnreadNotificationCount(): Promise<number> {
+		const result = await this.request<ApiResponse<{ count: number }>>('/notifications/unread-count');
+		return result.data.count;
+	}
+
+	async markNotificationRead(notificationId: string): Promise<void> {
+		await this.request(`/notifications/${notificationId}/read`, { method: 'POST' });
+	}
+
+	async markAllNotificationsRead(): Promise<void> {
+		await this.request('/notifications/read-all', { method: 'POST' });
+	}
+
+	async deleteNotification(notificationId: string): Promise<void> {
+		await this.request(`/notifications/${notificationId}`, { method: 'DELETE' });
 	}
 }
 

@@ -23,6 +23,8 @@ import {
 	removeDmMessageReaction
 } from '$lib/stores/dm';
 import { setTyping, setUserPresence, showToast } from '$lib/stores/ui';
+import { prependNotification, markNotificationReadLocal, markAllNotificationsReadLocal } from '$lib/stores/notification';
+import { sendNativeNotification } from '$lib/utils/nativeNotification';
 import type {
 	WebSocketEvent,
 	ReadyEvent,
@@ -31,7 +33,8 @@ import type {
 	Community,
 	TypingEvent,
 	PresenceEvent,
-	User
+	User,
+	Notification
 } from '$lib/types';
 import { mapDmMessage } from '$lib/utils/dm';
 
@@ -187,6 +190,12 @@ class WebSocketManager {
 					event.data as { channelId: string; messageId: string; userId: string; emoji: string }
 				);
 				break;
+			case 'NOTIFICATION':
+				this.handleNotification(event.data as Notification);
+				break;
+			case 'NOTIFICATION_READ':
+				this.handleNotificationRead(event.data as { notificationId?: string; all?: boolean });
+				break;
 		}
 	}
 
@@ -282,6 +291,20 @@ class WebSocketManager {
 		emoji: string;
 	}): void {
 		removeMessageReaction(data.channelId, data.messageId, data.userId, data.emoji);
+	}
+
+	private handleNotification(notification: Notification): void {
+		prependNotification(notification);
+		showToast('info', notification.title + (notification.body ? ': ' + notification.body : ''));
+		sendNativeNotification(notification.title, { body: notification.body ?? undefined });
+	}
+
+	private handleNotificationRead(data: { notificationId?: string; all?: boolean }): void {
+		if (data.all) {
+			markAllNotificationsReadLocal();
+		} else if (data.notificationId) {
+			markNotificationReadLocal(data.notificationId);
+		}
 	}
 
 	private startHeartbeat(): void {

@@ -2,7 +2,7 @@
 	import { Spinner } from '$lib/components/ui';
 	import { Send, Plus, X, Smile, Paperclip } from 'lucide-svelte';
 	import { replyingToMessage, editingMessageId, typingUsers, setReplyingTo, setEditingMessage, addToast } from '$lib/stores/ui';
-	import { addMessage, updateMessage, messages } from '$lib/stores/community';
+	import { addMessage, updateMessage, messages, activeCommunityMembers } from '$lib/stores/community';
 	import {
 		addDmMessage,
 		updateDmMessage,
@@ -28,6 +28,77 @@
 	let showEmojiPicker = $state(false);
 	let textareaRef: HTMLTextAreaElement | null = $state(null);
 	let fileInputRef: HTMLInputElement | null = $state(null);
+
+	// ---- Mention autocomplete ----
+	let mentionQuery = $state<string | null>(null); // null = not active
+	let mentionStartIndex = $state(-1); // index of @ in content
+	let mentionSelectedIndex = $state(0);
+
+	const SPECIAL_MENTIONS = [
+		{ id: 'everyone', label: '@everyone', insert: '@everyone' },
+		{ id: 'here', label: '@here', insert: '@here' }
+	];
+
+	let mentionResults = $derived.by(() => {
+		if (mentionQuery === null) return [];
+		const q = mentionQuery.toLowerCase();
+
+		const specials = SPECIAL_MENTIONS.filter((s) => s.label.includes(q));
+
+		const members = $activeCommunityMembers
+			.filter((m) => {
+				const name = (m.nickname ?? m.user?.displayName ?? m.user?.username ?? '').toLowerCase();
+				const uname = (m.user?.username ?? '').toLowerCase();
+				return name.includes(q) || uname.includes(q);
+			})
+			.slice(0, 10)
+			.map((m) => ({
+				id: m.userId,
+				label: `@${m.nickname ?? m.user?.displayName ?? m.user?.username ?? m.userId.slice(0, 8)}`,
+				insert: `<@${m.userId}>`
+			}));
+
+		return [...specials, ...members].slice(0, 12);
+	});
+
+	function detectMention() {
+		const el = textareaRef;
+		if (!el) return;
+		const cursor = el.selectionStart;
+		const before = content.slice(0, cursor);
+
+		// Find the most recent @ that isn't part of a completed mention
+		const atMatch = before.match(/(?:^|[\s\n])@(\w*)$/);
+		if (atMatch) {
+			mentionQuery = atMatch[1];
+			mentionStartIndex = before.lastIndexOf('@');
+			mentionSelectedIndex = 0;
+		} else {
+			closeMention();
+		}
+	}
+
+	function closeMention() {
+		mentionQuery = null;
+		mentionStartIndex = -1;
+		mentionSelectedIndex = 0;
+	}
+
+	function insertMention(insert: string) {
+		if (mentionStartIndex < 0 || !textareaRef) return;
+		const el = textareaRef;
+		const cursor = el.selectionStart;
+		const before = content.slice(0, mentionStartIndex);
+		const after = content.slice(cursor);
+		content = before + insert + ' ' + after;
+		closeMention();
+		// Re-focus and position
+		const newCursor = before.length + insert.length + 1;
+		requestAnimationFrame(() => {
+			el.focus();
+			el.setSelectionRange(newCursor, newCursor);
+		});
+	}
 
 
 	let isDm = $derived(!!dmConversationId);
@@ -147,6 +218,30 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		// Intercept keys when mention autocomplete is open
+		if (mentionQuery !== null && mentionResults.length > 0) {
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				mentionSelectedIndex = (mentionSelectedIndex + 1) % mentionResults.length;
+				return;
+			}
+			if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				mentionSelectedIndex = (mentionSelectedIndex - 1 + mentionResults.length) % mentionResults.length;
+				return;
+			}
+			if (e.key === 'Enter' || e.key === 'Tab') {
+				e.preventDefault();
+				insertMention(mentionResults[mentionSelectedIndex].insert);
+				return;
+			}
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				closeMention();
+				return;
+			}
+		}
+
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			handleSubmit();
@@ -321,6 +416,28 @@
 
 	<!-- Input area -->
 	<div class="relative flex items-end gap-2 bg-surface {$replyingToMessage || $editingMessageId || attachments.length > 0 ? 'rounded-b-lg border-t-0' : 'rounded-lg'} border border-border">
+		<!-- Mention autocomplete popup -->
+		{#if mentionQuery !== null && mentionResults.length > 0}
+			<div
+				class="absolute bottom-full left-0 right-0 mb-1 bg-surface border border-border rounded-lg shadow-xl z-50 overflow-hidden"
+				role="listbox"
+				aria-label="Mention suggestions"
+			>
+				<div class="px-3 py-1.5 text-xs text-text-muted border-b border-border">Mentions</div>
+				{#each mentionResults as result, i (result.id)}
+					<button
+						onclick={() => insertMention(result.insert)}
+						class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover transition-colors
+						{i === mentionSelectedIndex ? 'bg-surface-hover text-text-primary' : 'text-text-secondary'}"
+						role="option"
+						aria-selected={i === mentionSelectedIndex}
+					>
+						<span class="font-medium">{result.label}</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+
 		<input
 			bind:this={fileInputRef}
 			type="file"
@@ -343,6 +460,7 @@
 			bind:this={textareaRef}
 			bind:value={content}
 			onkeydown={handleKeydown}
+			oninput={detectMention}
 			placeholder={$editingMessageId ? 'Edit message...' : 'Message...'}
 			rows={1}
 			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none focus-visible:outline-none max-h-48 min-h-12 message-send-field"

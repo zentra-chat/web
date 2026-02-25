@@ -7,3 +7,4 @@ export { default as Toast } from './Toast.svelte';
 export { default as ToastContainer } from './ToastContainer.svelte';
 export { default as Spinner } from './Spinner.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
+export { default as NotificationPanel } from './NotificationPanel.svelte';

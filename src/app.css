@@ -222,3 +222,35 @@ body {
 .message-content a:hover {
 	color: var(--color-primary-hover);
 }
+
+/* Mention styling */
+.mention {
+	display: inline;
+	padding: 0 0.25rem;
+	border-radius: 0.25rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color 150ms;
+}
+
+.mention-user,
+.mention-role {
+	background-color: rgba(0, 255, 169, 0.15);
+	color: var(--color-primary);
+}
+
+.mention-user:hover,
+.mention-role:hover {
+	background-color: rgba(0, 255, 169, 0.3);
+}
+
+.mention-everyone,
+.mention-here {
+	background-color: rgba(245, 158, 11, 0.18);
+	color: var(--color-warning);
+}
+
+.mention-everyone:hover,
+.mention-here:hover {
+	background-color: rgba(245, 158, 11, 0.32);
+}

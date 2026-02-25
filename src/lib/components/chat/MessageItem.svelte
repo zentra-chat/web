@@ -14,7 +14,7 @@
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import EmojiPicker from './EmojiPicker.svelte';
-	import { renderMarkdown } from '$lib/utils/markdown';
+	import { renderMarkdown, type MentionResolver } from '$lib/utils/markdown';
 
 	interface Props {
 		message: Message;
@@ -55,6 +55,25 @@
 		if (!message.replyTo?.authorId) return null;
 		const replyMember = $activeCommunityMembers.find((m) => m.userId === message.replyTo?.authorId) || null;
 		return getMemberNameColor(replyMember);
+	});
+
+	// Mention resolver for markdown rendering
+	let mentionResolver = $derived.by((): MentionResolver => {
+		const members = $activeCommunityMembers;
+		// Collect all unique roles from members
+		const rolesById = new Map<string, string>();
+		for (const m of members) {
+			for (const r of m.roles ?? []) {
+				rolesById.set(r.id, r.name);
+			}
+		}
+		return {
+			getUserName: (id) => {
+				const m = members.find((x) => x.userId === id);
+				return m ? (m.nickname ?? m.user?.displayName ?? m.user?.username ?? null) : null;
+			},
+			getRoleName: (id) => rolesById.get(id) ?? null
+		};
 	});
 
 	// Check if we should show the header (avatar + name)
@@ -245,7 +264,7 @@
 			<!-- Message content -->
 			{#if hasContent}
 				<div class="message-content text-text-secondary">
-					{@html renderMarkdown(message.content || '')}
+					{@html renderMarkdown(message.content || '', mentionResolver)}
 				</div>
 				{#if message.isEdited}
 					<div class="text-xs text-text-muted mt-1">(edited)</div>

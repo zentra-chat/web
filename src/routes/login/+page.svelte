@@ -245,7 +245,7 @@
 		</p>
 
 		<p class="text-center mt-6 text-sm text-text-muted">
-			<a href="/" class="hover:text-text-secondary">Back to home!</a>
+			<a href="/" class="hover:text-text-secondary">Back to home</a>
 		</p>
 	</div>
 </div>

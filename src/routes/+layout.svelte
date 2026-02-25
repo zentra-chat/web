@@ -13,18 +13,17 @@
 	} | null = null;
 
 	onMount(async () => {
-		if (isDesktop()) {
+		console.log('Checking platform...');
+		const desktop = await waitForDesktop();
+		console.log('isDesktop:', desktop);
+		if (desktop) {
 			try {
-				const tauriApi = await import('@tauri-apps/api');
-				appWindow = tauriApi.window.getCurrentWindow();
+				const { getCurrentWindow } = await import('@tauri-apps/api/window');
+				appWindow = getCurrentWindow();
 				showDesktopTitlebar = true;
-				console.log('Desktop environment detected. Showing custom titlebar.');
 			} catch (error) {
-				console.error('Failed to initialize desktop titlebar controls:', error);
-				showDesktopTitlebar = false;
+				console.error('Titlebar init failed:', error);
 			}
-		} else {
-			console.log('Not running in a desktop environment. Hiding custom titlebar.');
 		}
 	});
 

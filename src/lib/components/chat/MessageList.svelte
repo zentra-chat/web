@@ -29,6 +29,7 @@
 	let hasMore = $state(true);
 	let error = $state<string | null>(null);
 	let isFirstLoad = $state(true);
+	let stickToBottomUntil = $state(0);
 
 	let isDm = $derived(!!dmConversationId);
 	let channelMessages = $derived(
@@ -43,6 +44,7 @@
 		const streamId = dmConversationId || channelId;
 		if (streamId) {
 			isFirstLoad = true;
+			stickToBottomUntil = Date.now() + 1500;
 			loadMessages();
 
 			// Subscribe to channel events
@@ -59,12 +61,8 @@
 		if (channelMessages.length && containerRef) {
 			// If it's the first load, scroll to bottom immediately
 			if (isFirstLoad) {
-				tick().then(() => {
-					if (containerRef) {
-						containerRef.scrollTop = containerRef.scrollHeight;
-						isFirstLoad = false;
-					}
-				});
+				void forceScrollToBottom();
+				isFirstLoad = false;
 				return;
 			}
 
@@ -73,15 +71,46 @@
 				containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight < 150;
 
 			if (isNearBottom) {
-				tick().then(() => {
-					containerRef?.scrollTo({
-						top: containerRef.scrollHeight,
-						behavior: 'smooth'
-					});
-				});
+				void scrollToBottom('smooth');
 			}
 		}
 	});
+
+	$effect(() => {
+		if (!containerRef) return;
+
+		const observer = new ResizeObserver(() => {
+			if (!containerRef) return;
+			if (Date.now() <= stickToBottomUntil) {
+				containerRef.scrollTop = containerRef.scrollHeight;
+			}
+		});
+
+		observer.observe(containerRef);
+
+		return () => observer.disconnect();
+	});
+
+	async function scrollToBottom(behavior: ScrollBehavior = 'auto') {
+		await tick();
+		if (!containerRef) return;
+		containerRef.scrollTo({
+			top: containerRef.scrollHeight,
+			behavior
+		});
+	}
+
+	async function forceScrollToBottom() {
+		await scrollToBottom('auto');
+		setTimeout(() => {
+			if (!containerRef) return;
+			containerRef.scrollTop = containerRef.scrollHeight;
+		}, 120);
+		setTimeout(() => {
+			if (!containerRef) return;
+			containerRef.scrollTop = containerRef.scrollHeight;
+		}, 320);
+	}
 
 	async function loadMessages() {
 		const streamId = dmConversationId || channelId;
@@ -105,10 +134,7 @@
 			hasMore = reversedMsgs.length >= 50;
 
 			// Scroll to bottom after initial load
-			await tick();
-			if (containerRef) {
-				containerRef.scrollTop = containerRef.scrollHeight;
-			}
+			await forceScrollToBottom();
 		} catch (err) {
 			error = 'Failed to load messages';
 			console.error('Failed to load messages:', err);

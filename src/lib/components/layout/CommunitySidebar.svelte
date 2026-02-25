@@ -23,7 +23,8 @@
 		userSettings
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
-	import type { Community, User } from '$lib/types';
+	import { unreadDmConversations, totalDmUnread, setActiveDmConversationId } from '$lib/stores/dm';
+	import type { Community, User, DMConversation } from '$lib/types';
 	import { goto } from '$app/navigation';
 
 	let communities = $derived($communitiesCache[$activeInstance?.id || ''] || []);
@@ -31,6 +32,24 @@
 	let contextMenu = $state<{ x: number; y: number; serverId: string } | null>(null);
 	let switchingUserId = $state<string | null>(null);
 	let isLoggingOut = $state(false);
+
+	// Unread DM conversations to show as avatar indicators (max 3)
+	let dmIndicators = $derived($unreadDmConversations.slice(0, 3));
+
+	function getOtherUser(convo: DMConversation): User | null {
+		return convo.participants.find((p) => p.id !== $currentUser?.id) ?? convo.participants[0] ?? null;
+	}
+
+	function getDmLabel(convo: DMConversation): string {
+		const u = getOtherUser(convo);
+		return u ? (u.displayName || u.username) : 'Direct Message';
+	}
+
+	function openDm(convo: DMConversation) {
+		selectCommunity(null);
+		setActiveDmConversationId(convo.id);
+		goto('/app');
+	}
 
 	$effect(() => {
 		const instance = $activeInstance;
@@ -160,15 +179,49 @@
 		<Tooltip text="Home" position="right">
 			<button
 				onclick={handleHomeClick}
-				class="w-12 h-12 flex items-center justify-center transition-all duration-200
+				class="relative w-12 h-12 flex items-center justify-center transition-all duration-200
 				{$activeCommunityId === null
 					? 'bg-primary text-background rounded-xl'
 					: 'bg-surface-hover hover:bg-primary hover:text-background rounded-2xl hover:rounded-xl text-text-secondary'}"
 			>
 				<Home size={24} />
+				{#if $totalDmUnread > 0}
+					<span
+						class="absolute -bottom-1 -right-1 min-w-4.5 h-4.5 px-1 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center leading-none"
+					>
+						{$totalDmUnread > 99 ? '99+' : $totalDmUnread}
+					</span>
+				{/if}
 			</button>
 		</Tooltip>
 	</div>
+
+	<!-- Unread DM conversation indicators -->
+	{#each dmIndicators as convo (convo.id)}
+		{@const otherUser = getOtherUser(convo)}
+		{#if otherUser}
+			<div class="relative group">
+				<div
+					class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 bg-primary rounded-r-full transition-all duration-200 h-0 group-hover:h-5"
+				></div>
+				<Tooltip text={getDmLabel(convo)} position="right">
+					<button
+						onclick={() => openDm(convo)}
+						class="relative w-12 h-12 rounded-full flex items-center justify-center overflow-visible transition-all duration-200 hover:opacity-90"
+						aria-label="Open DM with {getDmLabel(convo)}"
+					>
+						<Avatar user={otherUser} size="lg" />
+						<!-- Unread count badge -->
+						<span
+							class="absolute -bottom-1 -right-1 min-w-4.5 h-4.5 px-1 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center leading-none z-10 shadow"
+						>
+							{convo.unreadCount > 99 ? '99+' : convo.unreadCount}
+						</span>
+					</button>
+				</Tooltip>
+			</div>
+		{/if}
+	{/each}
 
 	<div class="w-8 h-0.5 bg-border rounded-full my-1"></div>
 

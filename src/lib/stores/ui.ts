@@ -31,6 +31,19 @@ export const createChannelModalData = writable<{ categoryId: string | null }>({ 
 // Toast notifications
 export const toasts = writable<ToastMessage[]>([]);
 
+// Notification previews (Discord-style message preview cards)
+export interface NotificationPreview {
+	id: string;
+	actorAvatarUrl: string | null;
+	actorName: string;
+	title: string;
+	body: string | null;
+	duration: number;
+	onClick?: () => void;
+}
+
+export const notificationPreviews = writable<NotificationPreview[]>([]);
+
 // Quick switcher (Ctrl+K)
 export const isQuickSwitcherOpen = writable(false);
 
@@ -151,6 +164,23 @@ export function addToast(options: {
 
 export function dismissToast(id: string): void {
 	toasts.update((list) => list.filter((t) => t.id !== id));
+}
+
+let notifPreviewIdCounter = 0;
+
+export function showNotificationPreview(
+	preview: Omit<NotificationPreview, 'id'>
+): string {
+	const id = `notif_${++notifPreviewIdCounter}`;
+	notificationPreviews.update((list) => [...list, { ...preview, id }]);
+	if (preview.duration > 0) {
+		setTimeout(() => dismissNotificationPreview(id), preview.duration);
+	}
+	return id;
+}
+
+export function dismissNotificationPreview(id: string): void {
+	notificationPreviews.update((list) => list.filter((n) => n.id !== id));
 }
 
 // Typing indicator functions

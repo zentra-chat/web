@@ -13,17 +13,15 @@
 	} | null = null;
 
 	onMount(async () => {
-		if (!isDesktop()) {
-			return;
-		}
-
-		try {
-			const tauriApi = await import('@tauri-apps/api');
-			appWindow = tauriApi.window.getCurrentWindow();
-			showDesktopTitlebar = true;
-		} catch (error) {
-			console.error('Failed to initialize desktop titlebar controls:', error);
-			showDesktopTitlebar = false;
+		if (isDesktop()) {
+			try {
+				const tauriApi = await import('@tauri-apps/api');
+				appWindow = tauriApi.window.getCurrentWindow();
+				showDesktopTitlebar = true;
+			} catch (error) {
+				console.error('Failed to initialize desktop titlebar controls:', error);
+				showDesktopTitlebar = false;
+			}
 		}
 	});
 

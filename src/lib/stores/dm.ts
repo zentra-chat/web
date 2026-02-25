@@ -6,6 +6,24 @@ export const activeDmConversationId = writable<string | null>(null);
 export const dmConversationsCache = writable<Record<string, DMConversation[]>>({});
 export const dmMessagesCache = writable<Record<string, Message[]>>({});
 
+// Total unread DM count across all conversations (current instance)
+export const totalDmUnread = derived(
+	[dmConversationsCache, activeInstance],
+	([$cache, $instance]) => {
+		if (!$instance) return 0;
+		return ($cache[$instance.id] ?? []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+	}
+);
+
+// Conversations with unread messages, sorted by most recent
+export const unreadDmConversations = derived(
+	[dmConversationsCache, activeInstance],
+	([$cache, $instance]) => {
+		if (!$instance) return [] as DMConversation[];
+		return ($cache[$instance.id] ?? []).filter((c) => (c.unreadCount || 0) > 0);
+	}
+);
+
 export const activeDmConversation = derived(
 	[dmConversationsCache, activeDmConversationId],
 	([$cache, $activeId]) => {

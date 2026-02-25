@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { ToastContainer } from '$lib/components/ui';
+	import { ToastContainer, NotificationPreviewContainer } from '$lib/components/ui';
 	import { InstanceModal } from '$lib/components/instance';
 	import {
 		CreateCommunityModal,
@@ -75,3 +75,4 @@
 <FilePreviewModal />
 <ProfileCard />
 <ToastContainer />
+<NotificationPreviewContainer />

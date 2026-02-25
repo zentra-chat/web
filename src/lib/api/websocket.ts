@@ -22,7 +22,7 @@ import {
 	addDmMessageReaction,
 	removeDmMessageReaction
 } from '$lib/stores/dm';
-import { setTyping, setUserPresence, showToast } from '$lib/stores/ui';
+import { setTyping, setUserPresence, showToast, showNotificationPreview } from '$lib/stores/ui';
 import { prependNotification, markNotificationReadLocal, markAllNotificationsReadLocal } from '$lib/stores/notification';
 import { sendNativeNotification } from '$lib/utils/nativeNotification';
 import type {
@@ -295,7 +295,13 @@ class WebSocketManager {
 
 	private handleNotification(notification: Notification): void {
 		prependNotification(notification);
-		showToast('info', notification.title + (notification.body ? ': ' + notification.body : ''));
+		showNotificationPreview({
+			actorAvatarUrl: notification.actor?.avatarUrl ?? null,
+			actorName: notification.actor?.displayName ?? notification.actor?.username ?? 'Zentra',
+			title: notification.title,
+			body: notification.body ?? null,
+			duration: 5000
+		});
 		sendNativeNotification(notification.title, { body: notification.body ?? undefined });
 	}
 

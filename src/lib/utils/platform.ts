@@ -1,12 +1,20 @@
-export async function waitForDesktop(timeout = 2000): Promise<boolean> {
-    if (typeof window === 'undefined') return false;
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-        const w = window as any;
-        if (w.__TAURI__ || w.__TAURI_IPC__ || w.tauri) return true;
-        await new Promise(r => setTimeout(r, 50));
-    }
-    return false;
+export function isDesktop(): boolean {
+	if (typeof window === 'undefined') return false;
+	const w = window as any;
+
+	// explicit override used for debugging or test environments
+	if (typeof w.__IS_DESKTOP__ !== 'undefined') return Boolean(w.__IS_DESKTOP__);
+
+	// Common Tauri globals that may be injected
+	if (w.__TAURI__ || w.__TAURI_IPC__ || w.tauri) return true;
+
+	// Fallback to user agent detection
+	if (typeof navigator !== 'undefined' && /tauri/i.test(navigator.userAgent)) return true;
+
+	// Log results of checks for easier debugging
+	console.log('Platform check: Not detected as desktop environment.');
+	
+	return false;
 }
 
 export function logTauriGlobals(): void {

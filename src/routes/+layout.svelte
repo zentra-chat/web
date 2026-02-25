@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { Maximize, X, Minus } from 'lucide-svelte';
-	import { waitForDesktop } from '$lib/utils/platform';
+	import { isDesktop } from '$lib/utils/platform';
 	
 	let { children } = $props();
 	let showDesktopTitlebar = $state(false);
@@ -13,17 +13,19 @@
 	} | null = null;
 
 	onMount(async () => {
-		console.log('Checking platform...');
-		const desktop = await waitForDesktop();
-		console.log('isDesktop:', desktop);
-		if (desktop) {
+		console.log('Checking platform for desktop titlebar...');
+		if (isDesktop()) {
 			try {
-				const { getCurrentWindow } = await import('@tauri-apps/api/window');
-				appWindow = getCurrentWindow();
+				const tauriApi = await import('@tauri-apps/api');
+				appWindow = tauriApi.window.getCurrentWindow();
 				showDesktopTitlebar = true;
+				console.log('Desktop environment detected. Showing custom titlebar.');
 			} catch (error) {
-				console.error('Titlebar init failed:', error);
+				console.error('Failed to initialize desktop titlebar controls:', error);
+				showDesktopTitlebar = false;
 			}
+		} else {
+			console.log('Not running in a desktop environment. Hiding custom titlebar.');
 		}
 	});
 

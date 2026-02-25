@@ -3,7 +3,13 @@
 	import { Button, Input } from '$lib/components/ui';
 	import { Server } from 'lucide-svelte';
 	import { api } from '$lib/api';
-	import { activeInstance, setInstanceAuth, isLoggedIn } from '$lib/stores/instance';
+	import {
+		activeInstance,
+		setInstanceAuth,
+		isLoggedIn,
+		shouldSkipAutoPortableAuth,
+		clearSkipAutoPortableAuth
+	} from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';
 	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
@@ -19,8 +25,11 @@
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
 	let attemptedPortableAuth = false;
+	let skipAutoPortableAuth = false;
 
 	onMount(() => {
+		skipAutoPortableAuth = shouldSkipAutoPortableAuth();
+
 		// Check for pending invite
 		pendingInvite = sessionStorage.getItem('pendingInvite');
 
@@ -37,7 +46,9 @@
 	});
 
 	function canTryPortableAuth(): boolean {
-		return Boolean($activeInstance && !attemptedPortableAuth && hasPortableProfile());
+		return Boolean(
+			$activeInstance && !attemptedPortableAuth && !skipAutoPortableAuth && hasPortableProfile()
+		);
 	}
 
 	async function attemptPortableAuth() {
@@ -133,6 +144,7 @@
 				expiresAt: response.expiresAt,
 				user: response.user
 			});
+			clearSkipAutoPortableAuth();
 
 			showToast('success', 'Account created successfully! Welcome to Zentra.');
 			handleRedirectAfterRegister();

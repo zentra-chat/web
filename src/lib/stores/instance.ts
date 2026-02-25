@@ -8,6 +8,7 @@ const INSTANCES_KEY = 'zentra_instances';
 const AUTH_KEY = 'zentra_auth';
 const SAVED_ACCOUNTS_KEY = 'zentra_saved_accounts';
 const ACTIVE_INSTANCE_KEY = 'zentra_active_instance';
+const SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY = 'zentra_skip_auto_portable_auth_once';
 
 export interface SavedAccountSession {
 	userId: string;
@@ -296,8 +297,22 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 	});
 }
 
+export function shouldSkipAutoPortableAuth(): boolean {
+	if (typeof window === 'undefined') return false;
+	return sessionStorage.getItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY) === '1';
+}
+
+export function clearSkipAutoPortableAuth(): void {
+	if (typeof window === 'undefined') return;
+	sessionStorage.removeItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY);
+}
+
 // Logout from current instance
 export function logout(options?: { removeSavedAccount?: boolean }): void {
+	if (typeof window !== 'undefined') {
+		sessionStorage.setItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY, '1');
+	}
+
 	const activeId = get(activeInstanceId);
 	if (activeId) {
 		if (options?.removeSavedAccount) {

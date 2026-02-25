@@ -4,7 +4,14 @@
 	import { Button, Input } from '$lib/components/ui';
 	import { Mail, Lock, ArrowLeft, Server } from 'lucide-svelte';
 	import { api } from '$lib/api';
-	import { activeInstance, setInstanceAuth, isLoggedIn, instanceAuth } from '$lib/stores/instance';
+	import {
+		activeInstance,
+		setInstanceAuth,
+		isLoggedIn,
+		instanceAuth,
+		shouldSkipAutoPortableAuth,
+		clearSkipAutoPortableAuth
+	} from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';
 	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
@@ -20,8 +27,11 @@
 	let pendingInvite = $state<string | null>(null);
 	let isAddAccountMode = $derived($page.url.searchParams.get('addAccount') === '1');
 	let attemptedPortableAuth = false;
+	let skipAutoPortableAuth = false;
 
 	onMount(() => {
+		skipAutoPortableAuth = shouldSkipAutoPortableAuth();
+
 		// Check for pending invite
 		pendingInvite = sessionStorage.getItem('pendingInvite');
 
@@ -38,7 +48,13 @@
 	});
 
 	function canTryPortableAuth(): boolean {
-		return Boolean($activeInstance && !attemptedPortableAuth && !isAddAccountMode && hasPortableProfile());
+		return Boolean(
+			$activeInstance &&
+			!attemptedPortableAuth &&
+			!isAddAccountMode &&
+			!skipAutoPortableAuth &&
+			hasPortableProfile()
+		);
 	}
 
 	async function attemptPortableAuth() {
@@ -116,6 +132,7 @@
 				expiresAt: response.expiresAt,
 				user: response.user
 			});
+			clearSkipAutoPortableAuth();
 
 			showToast('success', `Welcome back, ${response.user.displayName || response.user.username}!`);
 			handleRedirectAfterLogin();

@@ -4,7 +4,12 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
-	  optimizeDeps: {
-    exclude: ['@tauri-apps/api']
-  }
+	build: {
+		rollupOptions: {
+			external: ['@tauri-apps/api', '@tauri-apps/api/window']
+		}
+	},
+	optimizeDeps: {
+		exclude: ['@tauri-apps/api']
+	}
 });

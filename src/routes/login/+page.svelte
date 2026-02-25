@@ -30,6 +30,12 @@
 	let skipAutoPortableAuth = false;
 
 	onMount(() => {
+		const authNotice = sessionStorage.getItem('zentra_auth_notice');
+		if (authNotice === 'expired') {
+			error = 'Your session expired. Please sign in again.';
+			sessionStorage.removeItem('zentra_auth_notice');
+		}
+
 		skipAutoPortableAuth = shouldSkipAutoPortableAuth();
 
 		// Check for pending invite

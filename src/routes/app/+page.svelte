@@ -20,6 +20,8 @@
 
 	let isLoadingCommunities = $state(true);
 	let isLoadingChannels = $state(false);
+	let loadingCommunitiesForInstanceId = $state<string | null>(null);
+	let communityRetryAfterByInstance = $state<Record<string, number>>({});
 
 	onMount(() => {
 		isLoadingCommunities = false;
@@ -31,29 +33,59 @@
 
 		const cachedCommunities = $communitiesCache[instance.id] || [];
 		if (cachedCommunities.length > 0) {
-			if ($activeCommunityId === undefined || ($activeCommunityId !== null && !$activeCommunity)) {
-				setActiveCommunity(cachedCommunities[0] || null);
-			}
+			isLoadingCommunities = false;
+			return;
+		}
+
+		if (loadingCommunitiesForInstanceId === instance.id) {
+			return;
+		}
+
+		const retryAfter = communityRetryAfterByInstance[instance.id] || 0;
+		if (Date.now() < retryAfter) {
 			isLoadingCommunities = false;
 			return;
 		}
 
 		isLoadingCommunities = true;
+		loadingCommunitiesForInstanceId = instance.id;
 		api.getCommunities()
 			.then((communities) => {
 				const list = communities || [];
 				setCommunities(list);
-				if ($activeCommunityId === undefined) {
-					setActiveCommunity(list[0] || null);
-				}
+				communityRetryAfterByInstance = {
+					...communityRetryAfterByInstance,
+					[instance.id]: 0
+				};
 			})
 			.catch((err) => {
 				console.error('Failed to load communities:', err);
-				setActiveCommunity(null);
+				communityRetryAfterByInstance = {
+					...communityRetryAfterByInstance,
+					[instance.id]: Date.now() + 5000
+				};
 			})
 			.finally(() => {
+				loadingCommunitiesForInstanceId = null;
 				isLoadingCommunities = false;
 			});
+	});
+
+	$effect(() => {
+		const instance = $activeInstance;
+		if (!instance) return;
+
+		const cachedCommunities = $communitiesCache[instance.id] || [];
+		if (cachedCommunities.length === 0) {
+			if ($activeCommunityId !== null) {
+				setActiveCommunity(null);
+			}
+			return;
+		}
+
+		if ($activeCommunityId === undefined || ($activeCommunityId !== null && !$activeCommunity)) {
+			setActiveCommunity(cachedCommunities[0] || null);
+		}
 	});
 
 	// Load channels when community changes

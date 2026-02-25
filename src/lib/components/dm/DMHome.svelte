@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { Input, Avatar, Spinner } from '$lib/components/ui';
 	import { MessageSquare, Search } from 'lucide-svelte';
 	import { MessageList, MessageInput } from '$lib/components/chat';
 	import { api } from '$lib/api';
-	import { activeInstance, currentUserId } from '$lib/stores/instance';
+	import { activeInstance, currentUserId, activeAuth } from '$lib/stores/instance';
 	import {
 		dmConversationsCache,
 		activeDmConversationId,
@@ -14,6 +14,9 @@
 	} from '$lib/stores/dm';
 	import type { DMConversation, User } from '$lib/types';
 
+	const dmLoadInFlightByInstance: Record<string, boolean> = {};
+	const dmRetryAfterByInstance: Record<string, number> = {};
+
 	let isLoading = $state(true);
 	let searchQuery = $state('');
 	let isSearching = $state(false);
@@ -22,22 +25,61 @@
 
 	let conversations = $derived($dmConversationsCache[$activeInstance?.id || ''] || []);
 
-	onMount(async () => {
-		if (!$activeInstance) return;
+	async function loadDmConversationsFor(instanceId: string): Promise<void> {
+		if (!$activeAuth) {
+			isLoading = false;
+			return;
+		}
+
+		const cached = get(dmConversationsCache)[instanceId] || [];
+		if (cached.length > 0) {
+			isLoading = false;
+			if (cached.length > 0 && !$activeDmConversationId) {
+				setActiveDmConversationId(cached[0].id);
+			}
+			return;
+		}
+
+		if (dmLoadInFlightByInstance[instanceId]) {
+			isLoading = false;
+			return;
+		}
+
+		const retryAfter = dmRetryAfterByInstance[instanceId] || 0;
+		if (Date.now() < retryAfter) {
+			isLoading = false;
+			return;
+		}
 
 		isLoading = true;
+		dmLoadInFlightByInstance[instanceId] = true;
 		try {
 			const list = await api.getDmConversations();
 			setDmConversations(list || []);
+			dmRetryAfterByInstance[instanceId] = 0;
 
 			if (list.length > 0 && !$activeDmConversationId) {
 				setActiveDmConversationId(list[0].id);
 			}
 		} catch (err) {
 			console.error('Failed to load DM conversations:', err);
+			dmRetryAfterByInstance[instanceId] = Date.now() + 5000;
 		} finally {
+			dmLoadInFlightByInstance[instanceId] = false;
 			isLoading = false;
 		}
+	}
+
+	$effect(() => {
+		const instance = $activeInstance;
+		const auth = $activeAuth;
+
+		if (!instance || !auth) {
+			isLoading = false;
+			return;
+		}
+
+		void loadDmConversationsFor(instance.id);
 	});
 
 	$effect(() => {

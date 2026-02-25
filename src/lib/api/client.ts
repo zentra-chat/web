@@ -38,6 +38,9 @@ class ApiClient {
 	private handleAuthFailure(): void {
 		if (this.authFailureHandled) return;
 		this.authFailureHandled = true;
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('zentra_auth_notice', 'expired');
+		}
 		logoutFromStore();
 		showToast('warning', 'Your session expired. Please sign in again.');
 	}

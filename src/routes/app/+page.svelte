@@ -22,6 +22,7 @@
 	let isLoadingChannels = $state(false);
 	let loadingCommunitiesForInstanceId = $state<string | null>(null);
 	let communityRetryAfterByInstance = $state<Record<string, number>>({});
+	let communitiesLoadedByInstance = $state<Record<string, boolean>>({});
 
 	onMount(() => {
 		isLoadingCommunities = false;
@@ -30,6 +31,11 @@
 	$effect(() => {
 		const instance = $activeInstance;
 		if (!instance) return;
+
+		if (communitiesLoadedByInstance[instance.id]) {
+			isLoadingCommunities = false;
+			return;
+		}
 
 		const cachedCommunities = $communitiesCache[instance.id] || [];
 		if (cachedCommunities.length > 0) {
@@ -53,6 +59,10 @@
 			.then((communities) => {
 				const list = communities || [];
 				setCommunities(list);
+				communitiesLoadedByInstance = {
+					...communitiesLoadedByInstance,
+					[instance.id]: true
+				};
 				communityRetryAfterByInstance = {
 					...communityRetryAfterByInstance,
 					[instance.id]: 0
@@ -60,6 +70,10 @@
 			})
 			.catch((err) => {
 				console.error('Failed to load communities:', err);
+				communitiesLoadedByInstance = {
+					...communitiesLoadedByInstance,
+					[instance.id]: false
+				};
 				communityRetryAfterByInstance = {
 					...communityRetryAfterByInstance,
 					[instance.id]: Date.now() + 5000

@@ -561,6 +561,14 @@ class ApiClient {
 		return result.data;
 	}
 
+	async updateCategory(categoryId: string, name: string): Promise<ChannelCategory> {
+		const result = await this.request<ApiResponse<ChannelCategory>>(`/channels/categories/${categoryId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ name })
+		});
+		return result.data;
+	}
+
 	// Message endpoints
 	async getMessages(channelId: string, options?: { limit?: number; before?: string; after?: string }): Promise<Message[]> {
 		const params = new URLSearchParams();

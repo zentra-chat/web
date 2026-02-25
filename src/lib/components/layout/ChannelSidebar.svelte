@@ -7,7 +7,8 @@
 		ChevronDown,
 		ChevronRight,
 		Plus,
-		Settings
+		Settings,
+		FolderPlus
 	} from 'lucide-svelte';
 	import { Tooltip, Button } from '$lib/components/ui';
 	import {
@@ -30,7 +31,11 @@
 
 	let collapsedCategories = $state<Set<string>>(new Set());
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
-	let contextMenu = $state<{ x: number; y: number; channelId: string } | null>(null);
+	let contextMenu = $state<
+		| { x: number; y: number; type: 'channel'; channelId: string }
+		| { x: number; y: number; type: 'category'; categoryId: string }
+		| null
+	>(null);
 	let isLoading = $state(false);
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
@@ -76,6 +81,10 @@
 	});
 
 	onMount(async () => {
+		await loadChannelsAndCategories();
+	});
+
+	async function loadChannelsAndCategories() {
 		if (!$activeCommunity) return;
 
 		isLoading = true;
@@ -96,7 +105,7 @@
 		} finally {
 			isLoading = false;
 		}
-	});
+	}
 
 	function toggleCategory(categoryId: string) {
 		collapsedCategories = new Set(collapsedCategories);
@@ -112,11 +121,24 @@
 	}
 
 	function handleChannelContextMenu(event: MouseEvent, channel: Channel) {
-		if (!developerModeEnabled) {
+		if (!canManageChannels && !developerModeEnabled) {
 			return;
 		}
 		event.preventDefault();
-		contextMenu = { x: event.clientX, y: event.clientY, channelId: channel.id };
+		contextMenu = { x: event.clientX, y: event.clientY, type: 'channel', channelId: channel.id };
+	}
+
+	function handleCategoryContextMenu(event: MouseEvent, category: ChannelCategory) {
+		if (!canManageChannels) {
+			return;
+		}
+		event.preventDefault();
+		contextMenu = {
+			x: event.clientX,
+			y: event.clientY,
+			type: 'category',
+			categoryId: category.id
+		};
 	}
 
 	async function handleCopyChannelId(channelId: string) {
@@ -128,6 +150,102 @@
 			addToast({ type: 'error', message: 'Failed to copy channel ID' });
 		}
 		contextMenu = null;
+	}
+
+	async function handleRenameChannel(channelId: string) {
+		const channel = $activeCommunityChannels.find((c) => c.id === channelId);
+		if (!channel || !$activeCommunity) {
+			contextMenu = null;
+			return;
+		}
+
+		const nextNameInput = window.prompt('Rename channel', channel.name);
+		if (nextNameInput === null) {
+			contextMenu = null;
+			return;
+		}
+
+		const formattedName = nextNameInput.trim().toLowerCase().replace(/\s+/g, '-');
+		if (!formattedName || formattedName === channel.name) {
+			contextMenu = null;
+			return;
+		}
+
+		try {
+			await api.updateChannel(channel.id, { name: formattedName });
+			await loadChannelsAndCategories();
+			addToast({ type: 'success', message: `Renamed to #${formattedName}` });
+		} catch (err: any) {
+			console.error('Failed to rename channel:', err);
+			addToast({ type: 'error', message: err?.error || 'Failed to rename channel' });
+		} finally {
+			contextMenu = null;
+		}
+	}
+
+	async function handleCreateCategory() {
+		if (!canManageChannels || !$activeCommunity) return;
+
+		const nameInput = window.prompt('Create folder (category) name');
+		if (nameInput === null) return;
+
+		const name = nameInput.trim();
+		if (!name) return;
+
+		try {
+			await api.createCategory($activeCommunity.id, name);
+			await loadChannelsAndCategories();
+			addToast({ type: 'success', message: 'Folder created' });
+		} catch (err: any) {
+			console.error('Failed to create folder:', err);
+			addToast({ type: 'error', message: err?.error || 'Failed to create folder' });
+		}
+	}
+
+	async function handleRenameCategory(categoryId: string) {
+		const category = $activeCommunityCategories.find((c) => c.id === categoryId);
+		if (!category) {
+			contextMenu = null;
+			return;
+		}
+
+		const nextNameInput = window.prompt('Rename folder', category.name);
+		if (nextNameInput === null) {
+			contextMenu = null;
+			return;
+		}
+
+		const nextName = nextNameInput.trim();
+		if (!nextName || nextName === category.name) {
+			contextMenu = null;
+			return;
+		}
+
+		try {
+			await api.updateCategory(category.id, nextName);
+			await loadChannelsAndCategories();
+			addToast({ type: 'success', message: 'Folder renamed' });
+		} catch (err: any) {
+			console.error('Failed to rename folder:', err);
+			addToast({ type: 'error', message: err?.error || 'Failed to rename folder' });
+		} finally {
+			contextMenu = null;
+		}
+	}
+
+	function handleContextRenameChannel() {
+		if (!contextMenu || contextMenu.type !== 'channel') return;
+		void handleRenameChannel(contextMenu.channelId);
+	}
+
+	function handleContextCopyChannelId() {
+		if (!contextMenu || contextMenu.type !== 'channel') return;
+		void handleCopyChannelId(contextMenu.channelId);
+	}
+
+	function handleContextRenameCategory() {
+		if (!contextMenu || contextMenu.type !== 'category') return;
+		void handleRenameCategory(contextMenu.categoryId);
 	}
 
 	function handleOpenCommunitySettings() {
@@ -203,6 +321,14 @@
 				<div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase tracking-wider group">
 					<span>Text Channels</span>
 					{#if canManageChannels}
+						<Tooltip text="Create Folder" position="top">
+							<button
+								onclick={handleCreateCategory}
+								class="p-1 opacity-60 group-hover:opacity-100 hover:text-text-primary transition-opacity"
+							>
+								<FolderPlus size={14} />
+							</button>
+						</Tooltip>
 						<Tooltip text="Create Channel" position="top">
 							<button
 								onclick={() => handleCreateChannel(null)}
@@ -245,6 +371,7 @@
 				<div class="mb-2">
 					<button
 						onclick={() => toggleCategory(category.id)}
+						oncontextmenu={(event) => handleCategoryContextMenu(event, category)}
 						class="w-full px-2 py-1 flex items-center gap-1 text-xs font-semibold text-text-muted uppercase tracking-wider hover:text-text-secondary group"
 					>
 						{#if isCollapsed}
@@ -302,12 +429,31 @@
 			class="fixed z-70 min-w-44 rounded-lg border border-border bg-surface p-1 shadow-xl"
 			style="left: {contextMenu.x}px; top: {contextMenu.y}px"
 		>
-			<button
-				onclick={() => handleCopyChannelId(contextMenu!.channelId)}
-				class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
-			>
-				Copy Channel ID
-			</button>
+			{#if contextMenu.type === 'channel'}
+				{#if canManageChannels}
+					<button
+						onclick={handleContextRenameChannel}
+						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+					>
+						Rename Channel
+					</button>
+				{/if}
+				{#if developerModeEnabled}
+					<button
+						onclick={handleContextCopyChannelId}
+						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+					>
+						Copy Channel ID
+					</button>
+				{/if}
+			{:else if contextMenu.type === 'category'}
+				<button
+					onclick={handleContextRenameCategory}
+					class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+				>
+					Rename Folder
+				</button>
+			{/if}
 		</div>
 	{/if}
 

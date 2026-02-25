@@ -18,10 +18,13 @@
 				const tauriApi = await import('@tauri-apps/api');
 				appWindow = tauriApi.window.getCurrentWindow();
 				showDesktopTitlebar = true;
+				console.log('Desktop environment detected. Showing custom titlebar.');
 			} catch (error) {
 				console.error('Failed to initialize desktop titlebar controls:', error);
 				showDesktopTitlebar = false;
 			}
+		} else {
+			console.log('Not running in a desktop environment. Hiding custom titlebar.');
 		}
 	});
 

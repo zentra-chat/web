@@ -12,25 +12,36 @@
 		close: () => Promise<void>;
 	} | null = null;
 
-	onMount(async () => {
-		// Poll until __TAURI__ is available (should handle slow injection on Windows???)
+	onMount(() => {
 		const w = window as any;
-		let attempts = 0;
-		while (!w.__TAURI__ && attempts < 20) {
-			await new Promise(r => setTimeout(r, 100));
-			attempts++;
+		
+		// Already available (production / fast load)
+		if (w.__TAURI__ || w.__TAURI_IPC__) {
+			initTitlebar();
+			return;
 		}
 
-		if (w.__TAURI__) {
-			try {
-				const { getCurrentWindow } = await import('@tauri-apps/api/window');
-				appWindow = getCurrentWindow();
-				showDesktopTitlebar = true;
-			} catch (error) {
-				console.error('Titlebar init failed:', error);
+		// Poll until Tauri injects its globals (dev mode: can take 15+ seconds)
+		const interval = setInterval(async () => {
+			if (w.__TAURI__ || w.__TAURI_IPC__) {
+				clearInterval(interval);
+				await initTitlebar();
 			}
-		}
+		}, 200);
+
+		// Give up after 30 seconds
+		setTimeout(() => clearInterval(interval), 30_000);
 	});
+
+	async function initTitlebar() {
+		try {
+			const { getCurrentWindow } = await import('@tauri-apps/api/window');
+			appWindow = getCurrentWindow();
+			showDesktopTitlebar = true;
+		} catch (error) {
+			console.error('Titlebar init failed:', error);
+		}
+	}
 
 	async function minimizeWindow() {
 		if (!appWindow) return;

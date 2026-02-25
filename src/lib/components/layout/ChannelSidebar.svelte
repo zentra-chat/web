@@ -33,8 +33,10 @@
 	let contextMenu = $state<{ x: number; y: number; channelId: string } | null>(null);
 	let isLoading = $state(false);
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
-	let canManageChannels = $derived(memberHasPermission(myMember, Permission.ManageChannels));
+	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
+	let canManageChannels = $derived(isOwner || memberHasPermission(myMember, Permission.ManageChannels));
 	let canOpenCommunitySettings = $derived(
+		isOwner ||
 		memberHasPermission(myMember, Permission.ManageCommunity) ||
 			memberHasPermission(myMember, Permission.ManageRoles) ||
 			memberHasPermission(myMember, Permission.CreateInvites) ||

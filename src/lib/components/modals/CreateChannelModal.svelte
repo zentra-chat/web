@@ -15,7 +15,8 @@
 
 	let categoryId = $derived($createChannelModalData.categoryId);
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
-	let canManageChannels = $derived(memberHasPermission(myMember, Permission.ManageChannels));
+	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
+	let canManageChannels = $derived(isOwner || memberHasPermission(myMember, Permission.ManageChannels));
 
 	function handleClose() {
 		closeCreateChannelModal();

@@ -65,6 +65,9 @@
 	<nav class="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
 		<h1 class="text-2xl font-bold text-gradient">Zentra</h1>
 		<div class="flex items-center gap-4">
+			<a href="/docs" class="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium">
+				Docs
+			</a>
 			<a href="/download" class="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium">
 				Download
 			</a>
@@ -158,6 +161,7 @@
 		<div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-text-muted">
 			<p>© 2026 Zentra / Abstractmelon</p>
 			<div class="flex items-center gap-4">
+				<a href="/docs" class="hover:text-text-secondary">Docs</a>
 				<a href="/download" class="hover:text-text-secondary">Download</a>
 				<a href="/privacy" class="hover:text-text-secondary">Privacy Policy</a>
 				<a href="/terms" class="hover:text-text-secondary">Terms of Service</a>

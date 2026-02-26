@@ -11,13 +11,6 @@ Initialize/update the docs submodule:
 git submodule update --init --recursive docs
 ```
 
-If you need to add it in a fresh clone where it is missing:
-
-```bash
-git submodule add https://github.com/zentra-chat/zentra-docs.git docs
-git submodule update --init --recursive docs
-```
-
 ## Deploy build + host binary
 
 Run:

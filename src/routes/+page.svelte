@@ -2,24 +2,10 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui';
+	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import { Github, ArrowRight, MessageSquare, Lock, Users, Globe, Server } from 'lucide-svelte';
 	import { isLoggedIn, instances } from '$lib/stores/instance';
 	import { isDesktop, logTauriGlobals } from '$lib/utils/platform';
-
-	let canvas: HTMLCanvasElement;
-	let ctx: CanvasRenderingContext2D | null;
-	let particles: Array<{
-		x: number;
-		y: number;
-		vx: number;
-		vy: number;
-		size: number;
-	}> = [];
-	let mouse = { x: 0, y: 0, radius: 100 };
-	let animationId: number;
-
-	const maxDistance = 150;
-	const particleCount = typeof window !== 'undefined' && window.innerWidth < 768 ? 80 : 250;
 
 	onMount(() => {
 		// For Tauri desktop app, skip homepage and go directly to app or login
@@ -35,135 +21,8 @@
 			logTauriGlobals();
 		}
 
-		if (!canvas) return;
-		ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		resize();
-		createParticles();
-		animate();
-
-		window.addEventListener('resize', resize);
-		window.addEventListener('mousemove', handleMouseMove);
-		window.addEventListener('mouseout', handleMouseOut);
-
-		return () => {
-			window.removeEventListener('resize', resize);
-			window.removeEventListener('mousemove', handleMouseMove);
-			window.removeEventListener('mouseout', handleMouseOut);
-			cancelAnimationFrame(animationId);
-		};
+		return;
 	});
-
-	function resize() {
-		if (!canvas) return;
-		canvas.width = window.innerWidth;
-		canvas.height = window.innerHeight;
-	}
-
-	function createParticles() {
-		particles = [];
-		for (let i = 0; i < particleCount; i++) {
-			particles.push({
-				x: Math.random() * (canvas?.width || 1920),
-				y: Math.random() * (canvas?.height || 1080),
-				vx: (Math.random() - 0.5) * 0.5,
-				vy: (Math.random() - 0.5) * 0.5,
-				size: Math.random() * 2 + 1
-			});
-		}
-	}
-
-	function handleMouseMove(e: MouseEvent) {
-		mouse.x = e.clientX;
-		mouse.y = e.clientY;
-	}
-
-	function handleMouseOut() {
-		mouse.x = 0;
-		mouse.y = 0;
-	}
-
-	function updateParticles() {
-		particles.forEach((particle) => {
-			// Mouse push effect
-			if (mouse.x && mouse.y) {
-				const dx = particle.x - mouse.x;
-				const dy = particle.y - mouse.y;
-				const dist = Math.sqrt(dx * dx + dy * dy);
-
-				if (dist < mouse.radius && dist > 0) {
-					const force = ((mouse.radius - dist) / mouse.radius) * 0.03;
-					const angle = Math.atan2(dy, dx);
-					particle.vx += Math.cos(angle) * force;
-					particle.vy += Math.sin(angle) * force;
-				}
-			}
-
-			// Limit velocity
-			const speed = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
-			if (speed > 3) {
-				const factor = 3 / speed;
-				particle.vx *= factor;
-				particle.vy *= factor;
-			}
-
-			// Move particle
-			particle.x += particle.vx;
-			particle.y += particle.vy;
-
-			// Bounce off walls
-			if (particle.x < 0 || particle.x > (canvas?.width || 1920)) particle.vx *= -1;
-			if (particle.y < 0 || particle.y > (canvas?.height || 1080)) particle.vy *= -1;
-
-			// Clamp position
-			particle.x = Math.max(0, Math.min(canvas?.width || 1920, particle.x));
-			particle.y = Math.max(0, Math.min(canvas?.height || 1080, particle.y));
-		});
-	}
-
-	function drawParticles() {
-		if (!ctx) return;
-		ctx.fillStyle = 'rgba(0, 255, 169, 0.8)';
-		particles.forEach((particle) => {
-			ctx!.beginPath();
-			ctx!.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-			ctx!.fill();
-		});
-	}
-
-	function drawConnections() {
-		if (!ctx) return;
-		ctx.lineWidth = 1;
-
-		for (let i = 0; i < particles.length; i++) {
-			for (let j = i + 1; j < particles.length; j++) {
-				const dx = particles[i].x - particles[j].x;
-				const dy = particles[i].y - particles[j].y;
-				const distance = Math.sqrt(dx * dx + dy * dy);
-
-				if (distance < maxDistance) {
-					const opacity = ((maxDistance - distance) / maxDistance) * 0.3;
-					ctx.strokeStyle = `rgba(0, 255, 169, ${opacity})`;
-					ctx.beginPath();
-					ctx.moveTo(particles[i].x, particles[i].y);
-					ctx.lineTo(particles[j].x, particles[j].y);
-					ctx.stroke();
-				}
-			}
-		}
-	}
-
-	function animate() {
-		if (!ctx || !canvas) return;
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-		updateParticles();
-		drawConnections();
-		drawParticles();
-
-		animationId = requestAnimationFrame(animate);
-	}
 
 	const features = [
 		{
@@ -200,12 +59,15 @@
 </svelte:head>
 
 <div class="min-h-screen bg-background relative overflow-hidden flex flex-col">
-	<canvas bind:this={canvas} class="absolute inset-0 z-0"></canvas>
+	<AnimatedBackground />
 
 	<!-- Navigation -->
 	<nav class="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
 		<h1 class="text-2xl font-bold text-gradient">Zentra</h1>
 		<div class="flex items-center gap-4">
+			<a href="/download" class="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium">
+				Download
+			</a>
 			<a
 				href="https://github.com/zentra-chat"
 				target="_blank"
@@ -296,6 +158,7 @@
 		<div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-text-muted">
 			<p>© 2026 Zentra / Abstractmelon</p>
 			<div class="flex items-center gap-4">
+				<a href="/download" class="hover:text-text-secondary">Download</a>
 				<a href="/privacy" class="hover:text-text-secondary">Privacy Policy</a>
 				<a href="/terms" class="hover:text-text-secondary">Terms of Service</a>
 			</div>

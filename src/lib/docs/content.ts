@@ -20,7 +20,7 @@ export interface DocsSection {
 	items: Array<{ slug: string; title: string; href: string }>;
 }
 
-const rawDocs = import.meta.glob('../../../../docs/**/*.md', {
+const rawDocs = import.meta.glob('../../../docs/**/*.md', {
 	eager: true,
 	query: '?raw',
 	import: 'default'
@@ -110,19 +110,39 @@ function slugifyHeading(text: string): string {
 
 function extractHeadings(markdown: string): DocHeading[] {
 	const headings: DocHeading[] = [];
+	const anchorCount = new Map<string, number>();
 	const lines = markdown.split('\n');
 	for (const line of lines) {
 		const match = line.match(/^(##|###)\s+(.+)$/);
 		if (!match) continue;
 		const level = match[1] === '##' ? 2 : 3;
 		const text = match[2].trim();
+		const baseAnchor = slugifyHeading(text);
+		const count = anchorCount.get(baseAnchor) ?? 0;
+		anchorCount.set(baseAnchor, count + 1);
+		const anchor = count === 0 ? baseAnchor : `${baseAnchor}-${count + 1}`;
 		headings.push({
 			level,
 			text,
-			anchor: slugifyHeading(text)
+			anchor
 		});
 	}
 	return headings;
+}
+
+function injectHeadingIds(html: string): string {
+	const anchorCount = new Map<string, number>();
+	return html.replace(/<(h[1-6])>([\s\S]*?)<\/\1>/gi, (_full, tag: string, inner: string) => {
+		const text = inner.replace(/<[^>]*>/g, '').trim();
+		if (!text) return `<${tag}>${inner}</${tag}>`;
+
+		const baseAnchor = slugifyHeading(text);
+		const count = anchorCount.get(baseAnchor) ?? 0;
+		anchorCount.set(baseAnchor, count + 1);
+		const anchor = count === 0 ? baseAnchor : `${baseAnchor}-${count + 1}`;
+
+		return `<${tag} id="${anchor}">${inner}</${tag}>`;
+	});
 }
 
 function rewriteDocLinks(html: string): string {
@@ -151,7 +171,7 @@ function buildPages(): DocPage[] {
 		const title = extractTitle(markdown, baseSlug);
 		const headings = extractHeadings(markdown);
 		const description = extractDescription(markdown, title);
-		const html = rewriteDocLinks(renderMarkdown(markdown));
+		const html = injectHeadingIds(rewriteDocLinks(renderMarkdown(markdown)));
 
 		return {
 			slug: baseSlug,

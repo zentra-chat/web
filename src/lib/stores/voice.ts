@@ -50,6 +50,7 @@ let localAudioContext: AudioContext | null = null;
 
 // WebSocket event unsubscribers
 let unsubscribers: (() => void)[] = [];
+let listenersInitialized = false;
 
 // Derived store: am I in a voice channel?
 export const isInVoiceCall = derived(voiceChannelId, ($id) => $id !== null);
@@ -316,7 +317,11 @@ function handleVoiceStateUpdate(data: VoiceStateUpdateEvent) {
 
 // Initialize WebSocket listeners for voice events
 function setupVoiceListeners() {
-	cleanupVoiceListeners();
+	if (listenersInitialized) {
+		return;
+	}
+
+	listenersInitialized = true;
 
 	unsubscribers.push(
 		websocket.on('VOICE_JOIN', (data) => handleVoiceJoin(data as VoiceJoinEvent)),
@@ -331,6 +336,7 @@ function setupVoiceListeners() {
 function cleanupVoiceListeners() {
 	unsubscribers.forEach((unsub) => unsub());
 	unsubscribers = [];
+	listenersInitialized = false;
 }
 
 // Join a voice channel
@@ -430,7 +436,7 @@ function cleanupVoiceResources() {
 	document.querySelectorAll('[id^="voice-audio-"]').forEach((el) => el.remove());
 
 	// Clean up listeners
-	cleanupVoiceListeners();
+	// Keep listeners active so channel sidebar voice state stays live even when not in a call.
 
 	// Update stores
 	voiceChannelId.set(null);
@@ -613,6 +619,8 @@ function stopSpeakingDetection(userId: string) {
 
 // Clean up voice state on page unload so the server doesn't keep stale entries after WS closes
 if (typeof window !== 'undefined') {
+	setupVoiceListeners();
+
 	window.addEventListener('beforeunload', () => {
 		const channelId = get(voiceChannelId);
 		if (channelId) {
@@ -620,5 +628,7 @@ if (typeof window !== 'undefined') {
 			// The WS close will also trigger server cleanup, but this is faster
 			cleanupVoiceResources();
 		}
+
+		cleanupVoiceListeners();
 	});
 }

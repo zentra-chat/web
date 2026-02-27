@@ -19,8 +19,9 @@
 		switchActiveAccount,
 		removeSavedAccount
 	} from '$lib/stores/instance';
-	import { api } from '$lib/api';	
+	import { api } from '$lib/api';
 	import { updateMemberUser } from '$lib/stores/community';
+	import { updateDmUser } from '$lib/stores/dm';
 	import type { InstanceSelectorMode } from '$lib/types';
 
 	type ApiErrorLike = { error?: string; message?: string };
@@ -280,6 +281,8 @@
 			}
 
 			updateCurrentUser(user);
+			updateMemberUser(user.id, user);
+			updateDmUser(user.id, user);
 			addToast({
 				type: 'success',
 				message: 'Profile updated!'

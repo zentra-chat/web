@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { DMConversation, Message } from '$lib/types';
+import type { DMConversation, Message, User } from '$lib/types';
 import { activeInstance, currentUserId } from './instance';
 import { clearReplyingTo } from './ui';
 
@@ -236,5 +236,67 @@ export function clearDmUnread(conversationId: string): void {
 				c.id === conversationId ? { ...c, unreadCount: 0 } : c
 			)
 		};
+	});
+}
+
+export function updateDmUser(userId: string, updates: Partial<User>): void {
+	dmConversationsCache.update((cache) => {
+		const nextCache: Record<string, DMConversation[]> = {};
+
+		for (const [instanceId, conversations] of Object.entries(cache)) {
+			nextCache[instanceId] = conversations.map((conversation) => {
+				const updatedParticipants = conversation.participants.map((participant) =>
+					participant.id === userId ? { ...participant, ...updates } : participant
+				);
+
+				const updatedLastMessage = conversation.lastMessage
+					? {
+						...conversation.lastMessage,
+						author:
+							conversation.lastMessage.authorId === userId && conversation.lastMessage.author
+								? { ...conversation.lastMessage.author, ...updates }
+								: conversation.lastMessage.author,
+						replyTo:
+							conversation.lastMessage.replyTo?.authorId === userId && conversation.lastMessage.replyTo?.author
+								? {
+									...conversation.lastMessage.replyTo,
+									author: { ...conversation.lastMessage.replyTo.author, ...updates }
+								}
+								: conversation.lastMessage.replyTo
+					}
+					: conversation.lastMessage;
+
+				return {
+					...conversation,
+					participants: updatedParticipants,
+					lastMessage: updatedLastMessage
+				};
+			});
+		}
+
+		return nextCache;
+	});
+
+	dmMessagesCache.update((cache) => {
+		const nextCache: Record<string, Message[]> = {};
+
+		for (const [conversationId, messages] of Object.entries(cache)) {
+			nextCache[conversationId] = messages.map((message) => ({
+				...message,
+				author:
+					message.authorId === userId && message.author
+						? { ...message.author, ...updates }
+						: message.author,
+				replyTo:
+					message.replyTo?.authorId === userId && message.replyTo?.author
+						? {
+							...message.replyTo,
+							author: { ...message.replyTo.author, ...updates }
+						}
+						: message.replyTo
+			}));
+		}
+
+		return nextCache;
 	});
 }

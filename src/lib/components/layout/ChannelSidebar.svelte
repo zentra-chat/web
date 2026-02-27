@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import {
 		Hash,
 		Megaphone,
@@ -29,7 +29,7 @@
 	} from '$lib/stores/community';
 	import { openModal, isMobileMenuOpen, addToast, userSettings } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
-	import { api } from '$lib/api';
+	import { api, websocket } from '$lib/api';
 	import { joinVoiceChannel, voiceChannelId, loadVoiceStates } from '$lib/stores/voice';
 	import type { Channel, ChannelCategory } from '$lib/types';
 
@@ -57,6 +57,7 @@
 	let renameInput = $state('');
 	let renameError = $state('');
 	let isRenaming = $state(false);
+	let subscribedVoiceChannelIds = new Set<string>();
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
 	let canManageChannels = $derived(isOwner || memberHasPermission(myMember, Permission.ManageChannels));
@@ -102,6 +103,35 @@
 
 	onMount(async () => {
 		await loadChannelsAndCategories();
+	});
+
+	onDestroy(() => {
+		for (const channelId of subscribedVoiceChannelIds) {
+			websocket.unsubscribe(channelId);
+		}
+		subscribedVoiceChannelIds = new Set();
+	});
+
+	$effect(() => {
+		const nextVoiceChannelIds = new Set(
+			$activeCommunityChannels
+				.filter((channel) => channel.type === 'voice')
+				.map((channel) => channel.id)
+		);
+
+		for (const channelId of subscribedVoiceChannelIds) {
+			if (!nextVoiceChannelIds.has(channelId)) {
+				websocket.unsubscribe(channelId);
+			}
+		}
+
+		for (const channelId of nextVoiceChannelIds) {
+			if (!subscribedVoiceChannelIds.has(channelId)) {
+				websocket.subscribe(channelId);
+			}
+		}
+
+		subscribedVoiceChannelIds = nextVoiceChannelIds;
 	});
 
 	async function loadChannelsAndCategories() {

@@ -21,6 +21,7 @@ import {
 	clearDmUnread,
 	activeDmConversationId,
 	dmConversationsCache,
+	updateDmUser,
 	addDmMessageReaction,
 	removeDmMessageReaction
 } from '$lib/stores/dm';
@@ -53,6 +54,13 @@ class WebSocketManager {
 	private messageQueue: string[] = [];
 	private isConnecting = false;
 	private activeSubscriptions: Set<string> = new Set();
+	private subscriptionRefCounts: Map<string, number> = new Map();
+
+	private withCacheBuster(url: string | null | undefined): string | null | undefined {
+		if (!url) return url;
+		const separator = url.includes('?') ? '&' : '?';
+		return `${url}${separator}v=${Date.now()}`;
+	}
 
 	connect(): void {
 		const instance = get(activeInstance);
@@ -288,16 +296,26 @@ class WebSocketManager {
 	}
 
 	private handleCommunityUpdate(community: Community): void {
-		updateCommunity(community.id, community);
+		updateCommunity(community.id, {
+			...community,
+			iconUrl: this.withCacheBuster(community.iconUrl)
+		});
 	}
 
 	private handleUserUpdate(user: User): void {
+		const nextUser: User = {
+			...user,
+			avatarUrl: this.withCacheBuster(user.avatarUrl) ?? null
+		};
+
 		// Update current user if it's us
-		if (user.id === get(currentUserId)) {
-			updateCurrentUser(user);
+		if (nextUser.id === get(currentUserId)) {
+			updateCurrentUser(nextUser);
 		}
 		// Update user in all member lists and messages
-		updateMemberUser(user.id, user);
+		updateMemberUser(nextUser.id, nextUser);
+		// Update user in DM conversations and messages
+		updateDmUser(nextUser.id, nextUser);
 	}
 
 	private handleReactionAdd(data: {
@@ -391,13 +409,28 @@ class WebSocketManager {
 	}
 
 	subscribe(channelId: string): void {
-		this.activeSubscriptions.add(channelId);
-		this.send({ type: 'SUBSCRIBE', data: { channelId } });
+		const currentCount = this.subscriptionRefCounts.get(channelId) || 0;
+		const nextCount = currentCount + 1;
+		this.subscriptionRefCounts.set(channelId, nextCount);
+
+		if (currentCount === 0) {
+			this.activeSubscriptions.add(channelId);
+			this.send({ type: 'SUBSCRIBE', data: { channelId } });
+		}
 	}
 
 	unsubscribe(channelId: string): void {
-		this.activeSubscriptions.delete(channelId);
-		this.send({ type: 'UNSUBSCRIBE', data: { channelId } });
+		const currentCount = this.subscriptionRefCounts.get(channelId) || 0;
+		if (currentCount <= 1) {
+			this.subscriptionRefCounts.delete(channelId);
+			if (this.activeSubscriptions.has(channelId)) {
+				this.activeSubscriptions.delete(channelId);
+				this.send({ type: 'UNSUBSCRIBE', data: { channelId } });
+			}
+			return;
+		}
+
+		this.subscriptionRefCounts.set(channelId, currentCount - 1);
 	}
 
 	sendTyping(channelId: string): void {
@@ -430,6 +463,8 @@ class WebSocketManager {
 			this.ws = null;
 		}
 		this.messageQueue = [];
+		this.subscriptionRefCounts.clear();
+		this.activeSubscriptions.clear();
 	}
 
 	isConnected(): boolean {

@@ -295,6 +295,35 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 			}
 		};
 	});
+
+	savedAccounts.update((current) => {
+		const instanceAccounts = current[activeId] || [];
+		if (instanceAccounts.length === 0) return current;
+
+		const nextAccounts = instanceAccounts.map((account) => {
+			if (account.userId !== updates.id) return account;
+			return {
+				...account,
+				username: updates.username ?? account.username,
+				displayName: updates.displayName ?? account.displayName,
+				avatarUrl: updates.avatarUrl ?? account.avatarUrl,
+				email: updates.email ?? account.email,
+				lastUsedAt: new Date().toISOString(),
+				auth: {
+					...account.auth,
+					user: {
+						...account.auth.user,
+						...updates
+					}
+				}
+			};
+		});
+
+		return {
+			...current,
+			[activeId]: nextAccounts
+		};
+	});
 }
 
 export function shouldSkipAutoPortableAuth(): boolean {

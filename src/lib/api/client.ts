@@ -40,6 +40,11 @@ interface RetryableApiError extends ApiError {
 class ApiClient {
 	private authFailureHandled = false;
 
+	private withCacheBuster(url: string): string {
+		const separator = url.includes('?') ? '&' : '?';
+		return `${url}${separator}v=${Date.now()}`;
+	}
+
 	private handleAuthFailure(): void {
 		if (this.authFailureHandled) return;
 		this.authFailureHandled = true;
@@ -281,7 +286,7 @@ class ApiClient {
 			body: formData
 		});
 
-		return result.data.url;
+		return this.withCacheBuster(result.data.url);
 	}
 
 	async removeAvatar(): Promise<void> {
@@ -412,7 +417,7 @@ class ApiClient {
 			body: formData
 		});
 
-		return result.data.iconUrl;
+		return this.withCacheBuster(result.data.iconUrl);
 	}
 
 	async removeCommunityIcon(communityId: string): Promise<void> {

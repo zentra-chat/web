@@ -14,6 +14,8 @@
 	import { api, websocket } from '$lib/api';
 	import type { Attachment } from '$lib/types';
 	import EmojiPicker from './EmojiPicker.svelte';
+	import { customEmojis } from '$lib/stores/emoji';
+	import { searchEmojis as searchNativeEmojis } from '$lib/utils/emoji';
 
 	interface Props {
 		channelId?: string;
@@ -116,6 +118,86 @@
 			el.focus();
 			el.setSelectionRange(newCursor, newCursor);
 		});
+	}
+
+	// ---- Emoji shortcode autocomplete ----
+	let emojiQuery = $state<string | null>(null);
+	let emojiStartIndex = $state(-1);
+	let emojiSelectedIndex = $state(0);
+
+	let emojiResults = $derived.by(() => {
+		if (emojiQuery === null || emojiQuery.length < 2) return [];
+		const q = emojiQuery.toLowerCase();
+
+		// Custom emojis matching the query
+		const customs = $customEmojis
+			.filter((e) => e.name.toLowerCase().includes(q))
+			.slice(0, 8)
+			.map((e) => ({
+				id: `custom-${e.id}`,
+				label: `:${e.name}:`,
+				insert: `<:${e.name}:${e.id}>`,
+				imageUrl: e.imageUrl,
+				native: undefined as string | undefined,
+				type: 'custom' as const
+			}));
+
+		// Native emojis matching the query
+		const natives = searchNativeEmojis(q)
+			.slice(0, 8)
+			.map((e) => ({
+				id: `native-${e.id}`,
+				label: `:${e.id}:`,
+				insert: e.native,
+				imageUrl: undefined as string | undefined,
+				native: e.native,
+				type: 'native' as const
+			}));
+
+		return [...customs, ...natives].slice(0, 10);
+	});
+
+	function detectEmoji() {
+		const el = textareaRef;
+		if (!el) return;
+		const cursor = el.selectionStart;
+		const before = content.slice(0, cursor);
+
+		// Match :word at the end (must start after whitespace or start of line)
+		const colonMatch = before.match(/(?:^|[\s\n]):([a-zA-Z0-9_+-]{2,})$/);
+		if (colonMatch) {
+			emojiQuery = colonMatch[1];
+			emojiStartIndex = before.lastIndexOf(':');
+			emojiSelectedIndex = 0;
+		} else {
+			closeEmoji();
+		}
+	}
+
+	function closeEmoji() {
+		emojiQuery = null;
+		emojiStartIndex = -1;
+		emojiSelectedIndex = 0;
+	}
+
+	function insertEmoji(insert: string) {
+		if (emojiStartIndex < 0 || !textareaRef) return;
+		const el = textareaRef;
+		const cursor = el.selectionStart;
+		const before = content.slice(0, emojiStartIndex);
+		const after = content.slice(cursor);
+		content = before + insert + ' ' + after;
+		closeEmoji();
+		const newCursor = before.length + insert.length + 1;
+		requestAnimationFrame(() => {
+			el.focus();
+			el.setSelectionRange(newCursor, newCursor);
+		});
+	}
+
+	function handleAutoComplete() {
+		detectMention();
+		detectEmoji();
 	}
 
 
@@ -256,6 +338,30 @@
 			if (e.key === 'Escape') {
 				e.preventDefault();
 				closeMention();
+				return;
+			}
+		}
+
+		// Intercept keys when emoji autocomplete is open
+		if (emojiQuery !== null && emojiResults.length > 0) {
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				emojiSelectedIndex = (emojiSelectedIndex + 1) % emojiResults.length;
+				return;
+			}
+			if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				emojiSelectedIndex = (emojiSelectedIndex - 1 + emojiResults.length) % emojiResults.length;
+				return;
+			}
+			if (e.key === 'Enter' || e.key === 'Tab') {
+				e.preventDefault();
+				insertEmoji(emojiResults[emojiSelectedIndex].insert);
+				return;
+			}
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				closeEmoji();
 				return;
 			}
 		}
@@ -456,6 +562,33 @@
 			</div>
 		{/if}
 
+		<!-- Emoji shortcode autocomplete popup -->
+		{#if emojiQuery !== null && emojiResults.length > 0}
+			<div
+				class="absolute bottom-full left-0 right-0 mb-1 bg-surface border border-border rounded-lg shadow-xl z-50 overflow-hidden"
+				role="listbox"
+				aria-label="Emoji suggestions"
+			>
+				<div class="px-3 py-1.5 text-xs text-text-muted border-b border-border">Emojis matching :{emojiQuery}</div>
+				{#each emojiResults as result, i (result.id)}
+					<button
+						onclick={() => insertEmoji(result.insert)}
+						class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover transition-colors
+						{i === emojiSelectedIndex ? 'bg-surface-hover text-text-primary' : 'text-text-secondary'}"
+						role="option"
+						aria-selected={i === emojiSelectedIndex}
+					>
+						{#if result.type === 'custom'}
+							<img src={result.imageUrl} alt={result.label} class="w-5 h-5 object-contain" />
+						{:else}
+							<span class="text-lg leading-none">{result.native}</span>
+						{/if}
+						<span class="font-medium">{result.label}</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+
 		<input
 			bind:this={fileInputRef}
 			type="file"
@@ -478,7 +611,7 @@
 			bind:this={textareaRef}
 			bind:value={content}
 			onkeydown={handleKeydown}
-			oninput={detectMention}
+			oninput={handleAutoComplete}
 			placeholder={$editingMessageId ? 'Edit message...' : 'Message...'}
 			rows={1}
 			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none focus-visible:outline-none max-h-48 min-h-12 message-send-field"

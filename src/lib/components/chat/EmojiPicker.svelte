@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Smile, Search } from 'lucide-svelte';
+	import { Smile, Search, ImageIcon } from 'lucide-svelte';
 	import {
 		EMOJI_CATEGORIES,
 		searchEmojis,
@@ -8,6 +8,8 @@
 		type EmojiCategory,
 		type EmojiEntry
 	} from '$lib/utils/emoji';
+	import { customEmojisByCommunity, customEmojis } from '$lib/stores/emoji';
+	import type { CustomEmojiWithCommunity } from '$lib/types';
 
 	interface Props {
 		onSelect: (emoji: string) => void;
@@ -39,17 +41,64 @@
 		};
 	});
 
-	let categories = $derived.by(() => {
+	// Build the combined list: custom emoji groups first, then standard categories
+	let allSections = $derived.by(() => {
+		const sections: Array<{
+			id: string;
+			label: string;
+			type: 'native' | 'custom';
+			nativeEmojis?: EmojiEntry[];
+			customEmojis?: CustomEmojiWithCommunity[];
+		}> = [];
+
+		// Recent native emojis
 		if (recentCategory.emojis.length > 0) {
-			return [recentCategory, ...EMOJI_CATEGORIES];
+			sections.push({
+				id: 'recent',
+				label: 'Recent',
+				type: 'native',
+				nativeEmojis: recentCategory.emojis
+			});
 		}
-		return EMOJI_CATEGORIES;
+
+		// Custom emojis grouped by community
+		for (const group of $customEmojisByCommunity) {
+			sections.push({
+				id: `custom-${group.communityId}`,
+				label: group.communityName,
+				type: 'custom',
+				customEmojis: group.emojis
+			});
+		}
+
+		// Standard unicode categories
+		for (const category of EMOJI_CATEGORIES) {
+			sections.push({
+				id: category.id,
+				label: category.label,
+				type: 'native',
+				nativeEmojis: category.emojis
+			});
+		}
+
+		return sections;
 	});
 
-	let filteredEmojis = $derived.by(() => {
+	// Search results for custom emojis
+	let filteredCustomEmojis = $derived.by(() => {
+		if (!searchQuery.trim()) return [];
+		const q = searchQuery.trim().toLowerCase();
+		return $customEmojis.filter(
+			(e) => e.name.toLowerCase().includes(q) || e.communityName.toLowerCase().includes(q)
+		);
+	});
+
+	let filteredNativeEmojis = $derived.by(() => {
 		if (!searchQuery.trim()) return [];
 		return searchEmojis(searchQuery);
 	});
+
+	let hasSearchResults = $derived(filteredCustomEmojis.length > 0 || filteredNativeEmojis.length > 0);
 
 	function saveRecents() {
 		if (typeof localStorage === 'undefined') return;
@@ -75,9 +124,14 @@
 		saveRecents();
 	}
 
-	function handleEmojiClick(emoji: EmojiEntry) {
+	function handleNativeEmojiClick(emoji: EmojiEntry) {
 		registerRecent(emoji);
 		onSelect(emoji.native);
+	}
+
+	function handleCustomEmojiClick(emoji: CustomEmojiWithCommunity) {
+		// Insert custom emoji token that the renderer will pick up: <:name:id>
+		onSelect(`<:${emoji.name}:${emoji.id}>`);
 	}
 
 	function jumpToCategory(categoryId: string) {
@@ -96,13 +150,13 @@
 		let bestId = selectedCategoryId;
 		let bestDistance = Number.POSITIVE_INFINITY;
 
-		for (const category of categories) {
-			const section = sectionRefs[category.id];
-			if (!section) continue;
-			const distance = Math.abs(section.offsetTop - scrollTop - 4);
+		for (const section of allSections) {
+			const ref = sectionRefs[section.id];
+			if (!ref) continue;
+			const distance = Math.abs(ref.offsetTop - scrollTop - 4);
 			if (distance < bestDistance) {
 				bestDistance = distance;
-				bestId = category.id;
+				bestId = section.id;
 			}
 		}
 
@@ -144,28 +198,39 @@
 	<!-- Content -->
 	<div bind:this={scrollRef} onscroll={handleScroll} class="flex-1 overflow-y-auto max-h-72 p-2 custom-scrollbar">
 		{#if searchQuery.trim()}
-			<div class="grid grid-cols-8 gap-1">
-				{#each filteredEmojis as emoji (emoji.id)}
-					<button
-						onclick={() => handleEmojiClick(emoji)}
-						title={emoji.name}
-						class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
-					>
-						{emoji.native}
-					</button>
-				{/each}
-			</div>
-			{#if filteredEmojis.length === 0}
-				<p class="text-center py-4 text-sm text-text-muted">No emojis found</p>
-			{/if}
-		{:else}
-			{#each categories as category (category.id)}
-				<div bind:this={sectionRefs[category.id]} class="mb-3 scroll-mt-1">
-					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">{category.label}</h3>
+			<!-- Custom emoji search results -->
+			{#if filteredCustomEmojis.length > 0}
+				<div class="mb-3">
+					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">Custom</h3>
 					<div class="grid grid-cols-8 gap-1">
-						{#each category.emojis as emoji (emoji.id)}
+						{#each filteredCustomEmojis as emoji (emoji.id)}
 							<button
-								onclick={() => handleEmojiClick(emoji)}
+								onclick={() => handleCustomEmojiClick(emoji)}
+								title={`:${emoji.name}: (${emoji.communityName})`}
+								class="w-8 h-8 flex items-center justify-center hover:bg-surface-hover rounded transition-colors"
+							>
+								<img
+									src={emoji.imageUrl}
+									alt={emoji.name}
+									class="w-6 h-6 object-contain"
+									loading="lazy"
+								/>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Native emoji search results -->
+			{#if filteredNativeEmojis.length > 0}
+				<div class="mb-3">
+					{#if filteredCustomEmojis.length > 0}
+						<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">Standard</h3>
+					{/if}
+					<div class="grid grid-cols-8 gap-1">
+						{#each filteredNativeEmojis as emoji (emoji.id)}
+							<button
+								onclick={() => handleNativeEmojiClick(emoji)}
 								title={emoji.name}
 								class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
 							>
@@ -174,23 +239,67 @@
 						{/each}
 					</div>
 				</div>
+			{/if}
+
+			{#if !hasSearchResults}
+				<p class="text-center py-4 text-sm text-text-muted">No emojis found</p>
+			{/if}
+		{:else}
+			{#each allSections as section (section.id)}
+				<div bind:this={sectionRefs[section.id]} class="mb-3 scroll-mt-1">
+					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">{section.label}</h3>
+					<div class="grid grid-cols-8 gap-1">
+						{#if section.type === 'custom' && section.customEmojis}
+							{#each section.customEmojis as emoji (emoji.id)}
+								<button
+									onclick={() => handleCustomEmojiClick(emoji)}
+									title={`:${emoji.name}:`}
+									class="w-8 h-8 flex items-center justify-center hover:bg-surface-hover rounded transition-colors"
+								>
+									<img
+										src={emoji.imageUrl}
+										alt={emoji.name}
+										class="w-6 h-6 object-contain"
+										loading="lazy"
+									/>
+								</button>
+							{/each}
+						{:else if section.nativeEmojis}
+							{#each section.nativeEmojis as emoji (emoji.id)}
+								<button
+									onclick={() => handleNativeEmojiClick(emoji)}
+									title={emoji.name}
+									class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
+								>
+									{emoji.native}
+								</button>
+							{/each}
+						{/if}
+					</div>
+				</div>
 			{/each}
 		{/if}
 	</div>
 
-	<!-- Bottom categories -->
-	<div class="flex border-t border-border p-1 bg-surface-hover/50">
-		{#each categories as category (category.id)}
+	<!-- Bottom category tabs -->
+	<div class="flex border-t border-border p-1 bg-surface-hover/50 overflow-x-auto">
+		{#each allSections as section (section.id)}
 			<button
-				onclick={() => jumpToCategory(category.id)}
-				class="flex-1 h-8 flex items-center justify-center rounded transition-all {selectedCategoryId === category.id && !searchQuery.trim()
+				onclick={() => jumpToCategory(section.id)}
+				class="shrink-0 h-8 w-8 flex items-center justify-center rounded transition-all {selectedCategoryId === section.id && !searchQuery.trim()
 					? 'bg-surface text-text-primary'
 					: 'text-text-muted hover:text-text-primary'}"
-				title={category.label}
+				title={section.label}
 			>
-				{category.id === 'recent'
-					? '🕒'
-					: category.emojis[0]?.native || '🙂'}
+				{#if section.id === 'recent'}
+					🕒
+				{:else if section.type === 'custom' && section.customEmojis?.[0]}
+					<img src={section.customEmojis[0].imageUrl} alt="" class="w-5 h-5 object-contain" />
+				{:else if section.nativeEmojis?.[0]}
+					{section.nativeEmojis[0].native}
+				{:else}
+					🙂
+				{/if}
 			</button>
 		{/each}
 	</div>

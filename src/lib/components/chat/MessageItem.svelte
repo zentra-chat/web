@@ -15,7 +15,8 @@
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import EmojiPicker from './EmojiPicker.svelte';
-	import { renderMarkdown, type MentionResolver } from '$lib/utils/markdown';
+	import { renderMarkdown, type MentionResolver, type EmojiResolver } from '$lib/utils/markdown';
+	import { customEmojiById } from '$lib/stores/emoji';
 
 	interface Props {
 		message: Message;
@@ -85,6 +86,18 @@
 				return m ? (m.nickname ?? m.user?.displayName ?? m.user?.username ?? null) : null;
 			},
 			getRoleName: (id) => rolesById.get(id) ?? null
+		};
+	});
+
+	// Custom emoji resolver for rendering <:name:id> tokens in messages
+	let emojiResolver = $derived.by((): EmojiResolver => {
+		const lookup = $customEmojiById;
+		return {
+			getCustomEmoji: (id) => {
+				const emoji = lookup.get(id);
+				if (!emoji) return null;
+				return { name: emoji.name, imageUrl: emoji.imageUrl };
+			}
 		};
 	});
 
@@ -276,7 +289,7 @@
 			<!-- Message content -->
 			{#if hasContent}
 				<div class="message-content text-text-secondary">
-					{@html renderMarkdown(message.content || '', mentionResolver)}
+					{@html renderMarkdown(message.content || '', mentionResolver, emojiResolver)}
 				</div>
 				{#if message.isEdited}
 					<div class="text-xs text-text-muted mt-1">(edited)</div>
@@ -365,11 +378,17 @@
 			{#if enableReactions && message.reactions && message.reactions.length > 0}
 				<div class="mt-2 flex flex-wrap gap-1">
 					{#each message.reactions as reaction}
+						{@const customMatch = reaction.emoji.match(/^<:([^:]+):([0-9a-f-]+)>$/)}
+						{@const customEmoji = customMatch ? $customEmojiById.get(customMatch[2]) : null}
 						<button
 							onclick={() => handleToggleReaction(reaction.emoji, reaction.reacted)}
 							class="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium transition-colors {reaction.reacted ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-muted hover:border-text-muted'}"
 						>
-							<span>{reaction.emoji}</span>
+							{#if customEmoji}
+								<img src={customEmoji.imageUrl} alt={`:${customEmoji.name}:`} class="w-4 h-4 object-contain" />
+							{:else}
+								<span>{reaction.emoji}</span>
+							{/if}
 							<span>{reaction.count}</span>
 						</button>
 					{/each}

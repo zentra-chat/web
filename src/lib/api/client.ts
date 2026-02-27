@@ -29,7 +29,9 @@ import type {
 	Attachment,
 	DMConversation,
 	Notification,
-	VoiceState
+	VoiceState,
+	CustomEmoji,
+	CustomEmojiWithCommunity
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
 
@@ -821,6 +823,47 @@ class ApiClient {
 
 	async deleteNotification(notificationId: string): Promise<void> {
 		await this.request(`/notifications/${notificationId}`, { method: 'DELETE' });
+	}
+
+	// Custom emoji endpoints
+
+	async getAccessibleEmojis(): Promise<CustomEmojiWithCommunity[]> {
+		const result = await this.request<ApiResponse<CustomEmojiWithCommunity[]>>('/emojis');
+		return result.data;
+	}
+
+	async getCommunityEmojis(communityId: string): Promise<CustomEmoji[]> {
+		const result = await this.request<ApiResponse<CustomEmoji[]>>(
+			`/emojis/communities/${communityId}`
+		);
+		return result.data;
+	}
+
+	async createEmoji(communityId: string, name: string, image: File): Promise<CustomEmoji> {
+		const formData = new FormData();
+		formData.append('name', name);
+		formData.append('image', image);
+
+		const result = await this.request<ApiResponse<CustomEmoji>>(
+			`/emojis/communities/${communityId}`,
+			{
+				method: 'POST',
+				body: formData
+			}
+		);
+		return result.data;
+	}
+
+	async updateEmoji(emojiId: string, name: string): Promise<CustomEmoji> {
+		const result = await this.request<ApiResponse<CustomEmoji>>(`/emojis/${emojiId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ name })
+		});
+		return result.data;
+	}
+
+	async deleteEmoji(emojiId: string): Promise<void> {
+		await this.request(`/emojis/${emojiId}`, { method: 'DELETE' });
 	}
 }
 

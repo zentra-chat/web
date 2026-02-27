@@ -376,3 +376,20 @@ export interface ParsedMention {
 	userId?: string;
 	roleId?: string;
 }
+
+// Custom emoji types
+
+export interface CustomEmoji {
+	id: string;
+	communityId: string;
+	name: string;
+	imageUrl: string;
+	uploaderId: string;
+	animated: boolean;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface CustomEmojiWithCommunity extends CustomEmoji {
+	communityName: string;
+}

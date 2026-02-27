@@ -96,3 +96,12 @@ export function searchEmojis(query: string): EmojiEntry[] {
 		return emoji.keywords.some((keyword) => normalizeText(keyword).includes(normalizedQuery));
 	});
 }
+
+/**
+ * Resolve a :shortcode: to a native emoji character.
+ * Looks up by emoji ID (which is the shortcode used by emoji-mart).
+ */
+export function resolveShortcode(shortcode: string): string | undefined {
+	const entry = emojiById.get(shortcode);
+	return entry?.native;
+}

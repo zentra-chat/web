@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import markdownItIns from 'markdown-it-ins';
+import { resolveShortcode } from './emoji';
 
 const markdown = new MarkdownIt({
 	html: false,
@@ -15,6 +16,10 @@ const UUID_PATTERN = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 export interface MentionResolver {
 	getUserName?: (id: string) => string | null | undefined;
 	getRoleName?: (id: string) => string | null | undefined;
+}
+
+export interface EmojiResolver {
+	getCustomEmoji?: (id: string) => { name: string; imageUrl: string } | null | undefined;
 }
 
 /**
@@ -50,8 +55,42 @@ function postProcessMentions(html: string, resolver?: MentionResolver): string {
 	return html;
 }
 
-export function renderMarkdown(content: string, resolver?: MentionResolver): string {
+/**
+ * Replaces custom emoji tokens &lt;:name:UUID&gt; with inline images,
+ * and standard :shortcode: with native unicode emojis.
+ */
+function postProcessEmojis(html: string, emojiResolver?: EmojiResolver): string {
+	// Custom emojis: <:name:UUID> (HTML-escaped by markdown-it)
+	html = html.replace(
+		new RegExp(`&lt;:([a-zA-Z0-9_]{2,32}):(${UUID_PATTERN})&gt;`, 'gi'),
+		(match, name, id) => {
+			const emoji = emojiResolver?.getCustomEmoji?.(id);
+			if (emoji) {
+				return `<img class="custom-emoji" src="${emoji.imageUrl}" alt=":${emoji.name}:" title=":${emoji.name}:" draggable="false" />`;
+			}
+			// Fall back to showing the shortcode if we can't resolve it
+			return `:${name}:`;
+		}
+	);
+
+	// Standard shortcodes like :smile: — only match 2+ word chars between colons
+	// Avoid matching things inside URLs or already-processed HTML attributes
+	html = html.replace(
+		/(?<!=["'])(?::([a-zA-Z0-9_+-]{2,})::skin-tone-(\d):|:([a-zA-Z0-9_+-]{2,}):)/g,
+		(match, _skinName, _skinTone, shortcode) => {
+			const code = shortcode || _skinName;
+			if (!code) return match;
+			const native = resolveShortcode(code);
+			return native ?? match;
+		}
+	);
+
+	return html;
+}
+
+export function renderMarkdown(content: string, resolver?: MentionResolver, emojiResolver?: EmojiResolver): string {
 	const rendered = markdown.render(content);
-	return postProcessMentions(rendered, resolver);
+	const withMentions = postProcessMentions(rendered, resolver);
+	return postProcessEmojis(withMentions, emojiResolver);
 }
 

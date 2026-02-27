@@ -254,3 +254,13 @@ body {
 .mention-here:hover {
 	background-color: rgba(245, 158, 11, 0.32);
 }
+
+/* Custom emoji inline images */
+.custom-emoji {
+	display: inline-block;
+	width: 1.375em;
+	height: 1.375em;
+	vertical-align: -0.3em;
+	object-fit: contain;
+	margin: 0 0.05em;
+}

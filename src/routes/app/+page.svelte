@@ -16,6 +16,7 @@
 	} from '$lib/stores/community';
 	import { activeInstance } from '$lib/stores/instance';
 	import { api } from '$lib/api';
+	import { loadCustomEmojis } from '$lib/stores/emoji';
 
 	let isLoadingCommunities = $state(true);
 	let isLoadingChannels = $state(false);
@@ -66,6 +67,8 @@
 					...communityRetryAfterByInstance,
 					[instance.id]: 0
 				};
+				// Load custom emojis once communities are fetched
+				loadCustomEmojis();
 			})
 			.catch((err) => {
 				console.error('Failed to load communities:', err);

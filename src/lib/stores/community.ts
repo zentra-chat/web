@@ -23,7 +23,8 @@ export const Permission = {
 	VoiceConnect: 1 << 16,
 	VoiceSpeak: 1 << 17,
 	VoiceMuteOthers: 1 << 18,
-	VoiceDeafenOthers: 1 << 19
+	VoiceDeafenOthers: 1 << 19,
+	ManageEmojis: 1 << 20
 } as const;
 
 export function getMemberPermissions(member: CommunityMember | null): number {

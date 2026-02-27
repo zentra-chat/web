@@ -558,7 +558,7 @@
 	{/if}
 
 	<!-- Input area -->
-	<div class="relative flex items-end gap-2 bg-surface {$replyingToMessage || $editingMessageId || attachments.length > 0 ? 'rounded-b-lg border-t-0' : 'rounded-lg'} border border-border">
+	<div class="relative flex items-center gap-2 bg-surface {$replyingToMessage || $editingMessageId || attachments.length > 0 ? 'rounded-b-lg border-t-0' : 'rounded-lg'} border border-border">
 		<!-- Mention autocomplete popup -->
 		{#if mentionQuery !== null && mentionResults.length > 0}
 			<div
@@ -619,7 +619,7 @@
 
 		<button
 			onclick={openFilePicker}
-			class="p-3 text-text-muted hover:text-text-primary transition-colors shrink-0"
+			class="p-3 text-text-muted hover:text-text-primary transition-colors shrink-0 flex items-center justify-center h-12"
 			aria-label="Add attachment"
 			disabled={isSending}
 		>
@@ -633,12 +633,12 @@
 			oninput={handleAutoComplete}
 			placeholder={$editingMessageId ? 'Edit message...' : 'Message...'}
 			rows={1}
-			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none focus-visible:outline-none max-h-48 min-h-12 message-send-field"
+			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none focus-visible:outline-none max-h-48 min-h-[48px] flex items-center message-send-field"
 			disabled={isSending}
 		></textarea>
 
-		<div class="flex items-center gap-1 pr-1 shrink-0">
-			<div class="relative">
+		<div class="flex items-center gap-1 pr-1 shrink-0 h-12">
+			<div class="relative flex items-center h-full">
 				{#if showEmojiPicker}
 					<div class="absolute bottom-full right-0 mb-4 z-50">
 						<EmojiPicker onSelect={handleEmojiSelect} onClose={() => (showEmojiPicker = false)} />
@@ -646,7 +646,7 @@
 				{/if}
 				<button
 					onclick={() => (showEmojiPicker = !showEmojiPicker)}
-					class="p-3 text-text-muted hover:text-text-primary transition-colors {showEmojiPicker ? 'text-primary' : ''}"
+					class="p-3 text-text-muted hover:text-text-primary transition-colors flex items-center justify-center {showEmojiPicker ? 'text-primary' : ''}"
 					aria-label="Add emoji"
 				>
 					<Smile size={20} />
@@ -655,7 +655,7 @@
 			<button
 				onclick={handleSubmit}
 				disabled={isSending || (!content.trim() && attachments.length === 0)}
-				class="p-3 text-primary hover:text-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+				class="p-3 text-primary hover:text-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center justify-center h-full"
 				aria-label={$editingMessageId ? 'Save edit' : 'Send message'}
 			>
 				{#if isSending}

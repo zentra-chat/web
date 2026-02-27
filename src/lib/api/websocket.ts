@@ -17,8 +17,10 @@ import {
 	updateDmMessage,
 	removeDmMessage,
 	updateDmConversationFromMessage,
+	upsertDmConversation,
 	clearDmUnread,
 	activeDmConversationId,
+	dmConversationsCache,
 	addDmMessageReaction,
 	removeDmMessageReaction
 } from '$lib/stores/dm';
@@ -36,7 +38,8 @@ import type {
 	User,
 	Notification
 } from '$lib/types';
-import { mapDmMessage } from '$lib/utils/dm';
+import { mapDmMessage, type RawDmMessage } from '$lib/utils/dm';
+import { api } from './client';
 
 type EventHandler = (data: unknown) => void;
 
@@ -148,10 +151,10 @@ class WebSocketManager {
 				this.handleMessageDelete(event.data as { channelId: string; messageId: string });
 				break;
 			case 'DM_MESSAGE_CREATE':
-				this.handleDmMessageCreate(event.data as any);
+				void this.handleDmMessageCreate(event.data as RawDmMessage);
 				break;
 			case 'DM_MESSAGE_UPDATE':
-				this.handleDmMessageUpdate(event.data as any);
+				this.handleDmMessageUpdate(event.data as RawDmMessage);
 				break;
 			case 'DM_MESSAGE_DELETE':
 				this.handleDmMessageDelete(event.data as { conversationId: string; messageId: string });
@@ -222,8 +225,23 @@ class WebSocketManager {
 		removeMessage(data.channelId, data.messageId);
 	}
 
-	private handleDmMessageCreate(message: any): void {
+	private async handleDmMessageCreate(message: RawDmMessage): Promise<void> {
 		const mapped = mapDmMessage(message);
+
+		const instance = get(activeInstance);
+		if (instance) {
+			const conversations = get(dmConversationsCache)[instance.id] || [];
+			const hasConversation = conversations.some((conversation) => conversation.id === mapped.channelId);
+			if (!hasConversation) {
+				try {
+					const conversation = await api.getDmConversation(mapped.channelId);
+					upsertDmConversation(conversation);
+				} catch (error) {
+					console.warn('Failed to load DM conversation for incoming message:', error);
+				}
+			}
+		}
+
 		addDmMessage(mapped.channelId, mapped);
 		updateDmConversationFromMessage(mapped.channelId, mapped);
 		if (get(activeDmConversationId) === mapped.channelId) {
@@ -231,7 +249,7 @@ class WebSocketManager {
 		}
 	}
 
-	private handleDmMessageUpdate(message: any): void {
+	private handleDmMessageUpdate(message: RawDmMessage): void {
 		const mapped = mapDmMessage(message);
 		updateDmMessage(mapped.channelId, mapped.id, mapped);
 		updateDmConversationFromMessage(mapped.channelId, mapped);

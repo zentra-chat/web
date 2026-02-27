@@ -1,6 +1,6 @@
 import type { Attachment, LinkPreview, Message, User } from '$lib/types';
 
-type RawDmMessage = {
+export type RawDmMessage = {
 	id: string;
 	conversationId: string;
 	senderId: string;

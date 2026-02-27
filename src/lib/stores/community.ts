@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Community, Channel, ChannelCategory, CommunityMember, Message, User, Role } from '$lib/types';
 import { activeInstance } from './instance';
+import { clearReplyingTo } from './ui';
 
 export const Permission = {
 	ViewChannels: 1 << 0,
@@ -418,10 +419,12 @@ export function incrementUnread(channelId: string): void {
 export function selectCommunity(communityId: string | null): void {
 	activeCommunityId.set(communityId);
 	activeChannelId.set(null);
+	clearReplyingTo();
 }
 
 export function selectChannel(channelId: string | null): void {
 	activeChannelId.set(channelId);
+	clearReplyingTo();
 	if (channelId) {
 		clearUnread(channelId);
 	}
@@ -430,10 +433,12 @@ export function selectChannel(channelId: string | null): void {
 export function setActiveCommunity(community: Community | null): void {
 	activeCommunityId.set(community?.id || null);
 	activeChannelId.set(null);
+	clearReplyingTo();
 }
 
 export function setActiveChannel(channel: Channel | null): void {
 	activeChannelId.set(channel?.id || null);
+	clearReplyingTo();
 	if (channel?.id) {
 		clearUnread(channel.id);
 	}
@@ -445,6 +450,7 @@ activeInstance.subscribe((instance) => {
 	if (nextInstanceId !== lastInstanceId) {
 		activeCommunityId.set(null);
 		activeChannelId.set(null);
+		clearReplyingTo();
 		lastInstanceId = nextInstanceId;
 	}
 });

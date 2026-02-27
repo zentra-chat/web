@@ -13,6 +13,7 @@
 	import { showToast } from '$lib/stores/ui';
 	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
+	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import { onMount } from 'svelte';
 
 	let username = $state('');
@@ -167,8 +168,11 @@
 	<title>Register - Zentra</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background flex items-center justify-center p-4">
-	<div class="w-full max-w-md">
+<div class="relative min-h-screen bg-background flex items-center justify-center p-4 overflow-hidden">
+	<AnimatedBackground particleCountDesktop={220} particleCountMobile={70} />
+	<div class="absolute inset-0 bg-background/80 z-0"></div>
+
+	<div class="relative z-10 w-full max-w-md">
 		<div class="text-center mb-8">
 			<a href="/" class="inline-block">
 				<h1 class="text-4xl font-bold text-gradient glow-text">Zentra</h1>

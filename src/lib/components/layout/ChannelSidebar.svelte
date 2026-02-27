@@ -41,6 +41,9 @@
 		| null
 	>(null);
 	let isLoading = $state(false);
+	let draggedChannelId = $state<string | null>(null);
+	let dragOverChannelId = $state<string | null>(null);
+	let isReorderingChannels = $state(false);
 	let renameModal = $state<
 		| {
 			type: 'channel' | 'category';
@@ -136,6 +139,7 @@
 	}
 
 	function handleChannelClick(channel: Channel) {
+		if (isReorderingChannels) return;
 		if (channel.type === 'voice') {
 			// Select the channel to show the voice view, and join if not already in
 			selectChannel(channel.id);
@@ -143,6 +147,68 @@
 			return;
 		}
 		selectChannel(channel.id);
+	}
+
+	function handleChannelDragStart(event: DragEvent, channelId: string) {
+		if (!canManageChannels || isReorderingChannels) return;
+		draggedChannelId = channelId;
+		dragOverChannelId = channelId;
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			event.dataTransfer.setData('text/plain', channelId);
+		}
+	}
+
+	function handleChannelDragOver(event: DragEvent, channelId: string) {
+		if (!draggedChannelId || draggedChannelId === channelId) return;
+		event.preventDefault();
+		dragOverChannelId = channelId;
+	}
+
+	function handleChannelDragLeave(channelId: string) {
+		if (dragOverChannelId === channelId) {
+			dragOverChannelId = null;
+		}
+	}
+
+	async function handleChannelDrop(event: DragEvent, targetChannelId: string) {
+		event.preventDefault();
+		const sourceChannelId = draggedChannelId;
+		draggedChannelId = null;
+		dragOverChannelId = null;
+
+		if (!sourceChannelId || sourceChannelId === targetChannelId || !$activeCommunity) {
+			return;
+		}
+
+		const orderedIds = [...$activeCommunityChannels]
+			.sort((a, b) => a.position - b.position)
+			.map((channel) => channel.id);
+
+		const sourceIndex = orderedIds.indexOf(sourceChannelId);
+		const targetIndex = orderedIds.indexOf(targetChannelId);
+		if (sourceIndex < 0 || targetIndex < 0) {
+			return;
+		}
+
+		orderedIds.splice(sourceIndex, 1);
+		orderedIds.splice(targetIndex, 0, sourceChannelId);
+
+		isReorderingChannels = true;
+		try {
+			await api.reorderChannels($activeCommunity.id, orderedIds);
+			await loadChannelsAndCategories();
+		} catch (err: any) {
+			console.error('Failed to reorder channels:', err);
+			addToast({ type: 'error', message: err?.error || 'Failed to reorder channels' });
+		} finally {
+			isReorderingChannels = false;
+		}
+	}
+
+	function handleChannelDragEnd() {
+		draggedChannelId = null;
+		dragOverChannelId = null;
 	}
 
 	function handleChannelContextMenu(event: MouseEvent, channel: Channel) {
@@ -388,11 +454,17 @@
 						<button
 							onclick={() => handleChannelClick(channel)}
 							oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
+							draggable={canManageChannels && !isReorderingChannels}
+							ondragstart={(event) => handleChannelDragStart(event, channel.id)}
+							ondragover={(event) => handleChannelDragOver(event, channel.id)}
+							ondragleave={() => handleChannelDragLeave(channel.id)}
+							ondrop={(event) => handleChannelDrop(event, channel.id)}
+							ondragend={handleChannelDragEnd}
 							class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
 								? 'bg-success/10 text-success'
 								: isSelected
 									? 'bg-surface-active text-text-primary'
-									: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
+									: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors {dragOverChannelId === channel.id ? 'ring-1 ring-primary' : ''}"
 						>
 							<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
 							<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
@@ -452,11 +524,17 @@
 								<button
 									onclick={() => handleChannelClick(channel)}
 									oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
+									draggable={canManageChannels && !isReorderingChannels}
+									ondragstart={(event) => handleChannelDragStart(event, channel.id)}
+									ondragover={(event) => handleChannelDragOver(event, channel.id)}
+									ondragleave={() => handleChannelDragLeave(channel.id)}
+									ondrop={(event) => handleChannelDrop(event, channel.id)}
+									ondragend={handleChannelDragEnd}
 									class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
 										? 'bg-success/10 text-success'
 										: isSelected
 											? 'bg-surface-active text-text-primary'
-											: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
+											: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors {dragOverChannelId === channel.id ? 'ring-1 ring-primary' : ''}"
 								>
 									<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
 									<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>

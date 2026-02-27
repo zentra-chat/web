@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type { DMConversation, Message } from '$lib/types';
 import { activeInstance, currentUserId } from './instance';
+import { clearReplyingTo } from './ui';
 
 export const activeDmConversationId = writable<string | null>(null);
 export const dmConversationsCache = writable<Record<string, DMConversation[]>>({});
@@ -74,6 +75,7 @@ export function upsertDmConversation(conversation: DMConversation): void {
 
 export function setActiveDmConversationId(conversationId: string | null): void {
 	activeDmConversationId.set(conversationId);
+	clearReplyingTo();
 	if (conversationId) {
 		clearDmUnread(conversationId);
 	}

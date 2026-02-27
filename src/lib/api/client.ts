@@ -548,6 +548,13 @@ class ApiClient {
 		await this.request(`/channels/${channelId}`, { method: 'DELETE' });
 	}
 
+	async reorderChannels(communityId: string, channelIds: string[]): Promise<void> {
+		await this.request(`/channels/communities/${communityId}/channels/reorder`, {
+			method: 'PUT',
+			body: JSON.stringify({ channelIds })
+		});
+	}
+
 	// Category endpoints
 	async getCategories(communityId: string): Promise<ChannelCategory[]> {
 		const result = await this.request<ApiResponse<ChannelCategory[]>>(`/channels/communities/${communityId}/categories`);

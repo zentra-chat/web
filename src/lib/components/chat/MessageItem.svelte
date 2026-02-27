@@ -2,9 +2,10 @@
 	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
 	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from 'lucide-svelte';
-	import type { Message } from '$lib/types';
+	import type { Attachment, Message } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
 	import { activeCommunityMembers, getMemberNameColor, memberHasPermission, Permission } from '$lib/stores/community';
+	import { activeDmConversation } from '$lib/stores/dm';
 	import {
 		setEditingMessage,
 		setReplyingTo,
@@ -59,6 +60,17 @@
 
 	// Mention resolver for markdown rendering
 	let mentionResolver = $derived.by((): MentionResolver => {
+		if (isDm) {
+			const participants = $activeDmConversation?.participants ?? [];
+			return {
+				getUserName: (id) => {
+					const user = participants.find((participant) => participant.id === id);
+					return user ? (user.displayName ?? user.username) : null;
+				},
+				getRoleName: () => null
+			};
+		}
+
 		const members = $activeCommunityMembers;
 		// Collect all unique roles from members
 		const rolesById = new Map<string, string>();
@@ -168,7 +180,7 @@
 		}
 	}
 
-	function handleFileClick(event: MouseEvent, attachment: any) {
+	function handleFileClick(event: MouseEvent, attachment: Attachment) {
 		const previewableTypes = ['text/', 'application/json', 'application/javascript', 'application/x-typescript'];
 		const contentType = attachment.contentType || '';
 		const isPreviewable = previewableTypes.some(type => contentType.startsWith(type));

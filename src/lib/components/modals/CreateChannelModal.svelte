@@ -7,6 +7,8 @@
 	import { api } from '$lib/api';
 	import type { Channel } from '$lib/types';
 
+	type ApiErrorLike = { error?: string; message?: string };
+
 	let name = $state('');
 	let description = $state('');
 	let type = $state<Channel['type']>('text');
@@ -74,15 +76,16 @@
 				message: `Channel ${type === 'voice' ? '' : '#'}${channel.name} created!`
 			});
 			handleClose();
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to create channel:', err);
-			errors = { submit: err.error || err.message || 'Failed to create channel. Please try again.' };
+			errors = { submit: error.error || error.message || 'Failed to create channel. Please try again.' };
 		} finally {
 			isSubmitting = false;
 		}
 	}
 
-	const channelTypes: { value: Channel['type']; label: string; icon: any; description: string }[] = [
+	const channelTypes: { value: Channel['type']; label: string; icon: typeof Hash; description: string }[] = [
 		{
 			value: 'text',
 			label: 'Text',

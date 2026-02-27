@@ -10,6 +10,8 @@
 	import { addToast } from '$lib/stores/ui';
 	import type { Community } from '$lib/types';
 
+	type ApiErrorLike = { error?: string; code?: string; message?: string };
+
 	let inviteCode = $derived($page.params.code);
 	let isLoading = $state(true);
 	let isJoining = $state(false);
@@ -47,13 +49,14 @@
 			if (!inviteInfo.valid) {
 				error = 'This invite link has expired or is invalid';
 			}
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const apiError = err as ApiErrorLike;
 			console.error('Failed to fetch invite info:', err);
-			if (err.code === 'NETWORK_ERROR' || !$activeInstance) {
+			if (apiError.code === 'NETWORK_ERROR' || !$activeInstance) {
 				error = 'Please connect to an instance to view this invite';
-			} else if (err.error?.includes('expired')) {
+			} else if (apiError.error?.includes('expired')) {
 				error = 'This invite link has expired';
-			} else if (err.error?.includes('maximum uses')) {
+			} else if (apiError.error?.includes('maximum uses')) {
 				error = 'This invite link has reached its maximum uses';
 			} else {
 				error = 'Invalid or expired invite link';
@@ -89,9 +92,10 @@
 			setTimeout(() => {
 				goto('/app');
 			}, 1500);
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to join community:', err);
-			const errorMessage = err.error || err.message || 'Failed to join community';
+			const errorMessage = error.error || error.message || 'Failed to join community';
 			const lowerError = errorMessage.toLowerCase();
 
 			if (lowerError.includes('already a member')) {

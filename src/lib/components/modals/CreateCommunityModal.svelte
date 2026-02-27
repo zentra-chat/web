@@ -5,6 +5,8 @@
 	import { addCommunity } from '$lib/stores/community';
 	import { api } from '$lib/api';
 
+	type ApiErrorLike = { error?: string; message?: string };
+
 	let name = $state('');
 	let description = $state('');
 	let icon = $state<File | null>(null);
@@ -109,9 +111,10 @@
 				message: `Community "${community.name}" created!`
 			});
 			handleClose();
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to create community:', err);
-			errors = { submit: err.error || err.message || 'Failed to create community. Please try again.' };
+			errors = { submit: error.error || error.message || 'Failed to create community. Please try again.' };
 		} finally {
 			isSubmitting = false;
 		}

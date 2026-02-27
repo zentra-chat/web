@@ -20,6 +20,15 @@ export type RawDmMessage = {
 	attachments?: Attachment[];
 };
 
+export type RawDmConversation = {
+	id: string;
+	participants: User[];
+	lastMessage?: RawDmMessage;
+	unreadCount: number;
+	createdAt: string;
+	updatedAt: string;
+};
+
 export function mapDmMessage(message: RawDmMessage): Message {
 	return {
 		id: message.id,
@@ -36,6 +45,7 @@ export function mapDmMessage(message: RawDmMessage): Message {
 		replyTo: message.replyTo
 			? {
 				id: message.replyTo.id,
+				channelId: message.conversationId,
 				authorId: message.replyTo.senderId,
 				content: message.replyTo.content,
 				author: message.replyTo.sender || ({} as User),

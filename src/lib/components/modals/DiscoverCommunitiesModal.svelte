@@ -6,6 +6,8 @@
 	import { api } from '$lib/api';
 	import type { Community } from '$lib/types';
 
+	type ApiErrorLike = { error?: string; message?: string; response?: { data?: { message?: string } } };
+
 	let searchQuery = $state('');
 	let communities = $state<Community[]>([]);
 	let isSearching = $state(false);
@@ -51,11 +53,12 @@
 			});
 			// Remove from discover list
 			communities = communities.filter(c => c.id !== community.id);
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to join community:', err);
 			addToast({
 				type: 'error',
-				message: err.response?.data?.message || 'Failed to join community'
+				message: error.response?.data?.message || error.error || error.message || 'Failed to join community'
 			});
 		} finally {
 			isJoining = null;

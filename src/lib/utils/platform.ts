@@ -1,6 +1,13 @@
+type DesktopWindow = Window & {
+	__IS_DESKTOP__?: unknown;
+	__TAURI__?: unknown;
+	__TAURI_IPC__?: unknown;
+	tauri?: unknown;
+};
+
 export function isDesktop(): boolean {
 	if (typeof window === 'undefined') return false;
-	const w = window as any;
+	const w = window as DesktopWindow;
 
 	// explicit override used for debugging or test environments
 	if (typeof w.__IS_DESKTOP__ !== 'undefined') return Boolean(w.__IS_DESKTOP__);
@@ -19,7 +26,7 @@ export function isDesktop(): boolean {
 
 export function logTauriGlobals(): void {
 	if (typeof window === 'undefined') return;
-	const w = window as any;
+	const w = window as DesktopWindow;
 	console.log('Tauri globals:', {
 		__TAURI__: w.__TAURI__,
 		__TAURI_IPC__: w.__TAURI_IPC__,

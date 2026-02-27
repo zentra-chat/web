@@ -14,6 +14,8 @@
 	import { api } from '$lib/api';
 	import type { CommunityInvite, Role, CommunityMember } from '$lib/types';
 
+	type ApiErrorLike = { error?: string; message?: string; response?: { data?: { message?: string } } };
+
 	let name = $state('');
 	let description = $state('');
 	let icon = $state<File | null>(null);
@@ -393,12 +395,13 @@
 				type: 'success',
 				message: 'Community updated!'
 			});
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to update community:', err);
-			if (err.response?.data?.message) {
-				errors = { submit: err.response.data.message };
+			if (error.response?.data?.message) {
+				errors = { submit: error.response.data.message };
 			} else {
-				errors = { submit: 'Failed to update community. Please try again.' };
+				errors = { submit: error.error || error.message || 'Failed to update community. Please try again.' };
 			}
 		} finally {
 			isSubmitting = false;

@@ -31,7 +31,11 @@ import type {
 	Notification,
 	VoiceState
 } from '$lib/types';
-import { mapDmMessage } from '$lib/utils/dm';
+import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
+
+interface RetryableApiError extends ApiError {
+	shouldRetry?: boolean;
+}
 
 class ApiClient {
 	private authFailureHandled = false;
@@ -121,7 +125,7 @@ class ApiClient {
 
 			return await this.handleResponse<T>(response, includeAuth);
 		} catch (error) {
-			if (retry && (error as any).shouldRetry) {
+			if (retry && (error as RetryableApiError).shouldRetry) {
 				// Retry the request after token refresh
 				const newHeaders = this.getHeaders(includeAuth);
 				if (options.body instanceof FormData) {
@@ -530,7 +534,7 @@ class ApiClient {
 	}
 
 	async updateChannel(channelId: string, data: Partial<{ name: string; topic: string; categoryId: string | null; isNsfw: boolean; slowmodeSeconds: number }>): Promise<Channel> {
-		const payload: any = {};
+		const payload: Record<string, unknown> = {};
 		if (data.name !== undefined) payload.name = data.name;
 		if (data.topic !== undefined) payload.topic = data.topic;
 		if (data.categoryId !== undefined) payload.categoryId = data.categoryId;
@@ -664,7 +668,7 @@ class ApiClient {
 
 	// DM endpoints
 	async getDmConversations(): Promise<DMConversation[]> {
-		const result = await this.request<ApiResponse<any[]>>('/dms/conversations');
+		const result = await this.request<ApiResponse<RawDmConversation[]>>('/dms/conversations');
 		return (result.data || []).map((conversation) => ({
 			...conversation,
 			lastMessage: conversation.lastMessage ? mapDmMessage(conversation.lastMessage) : undefined
@@ -672,7 +676,7 @@ class ApiClient {
 	}
 
 	async getDmConversation(conversationId: string): Promise<DMConversation> {
-		const result = await this.request<ApiResponse<any>>(`/dms/conversations/${conversationId}`);
+		const result = await this.request<ApiResponse<RawDmConversation>>(`/dms/conversations/${conversationId}`);
 		const conversation = result.data;
 		return {
 			...conversation,
@@ -681,7 +685,7 @@ class ApiClient {
 	}
 
 	async createDmConversation(userId: string): Promise<DMConversation> {
-		const result = await this.request<ApiResponse<any>>('/dms/conversations', {
+		const result = await this.request<ApiResponse<RawDmConversation>>('/dms/conversations', {
 			method: 'POST',
 			body: JSON.stringify({ userId })
 		});
@@ -705,7 +709,7 @@ class ApiClient {
 		if (options?.before) params.set('before', options.before);
 		if (options?.after) params.set('after', options.after);
 
-		const result = await this.request<ApiResponse<any[]>>(
+		const result = await this.request<ApiResponse<RawDmMessage[]>>(
 			`/dms/conversations/${conversationId}/messages?${params}`
 		);
 		return (result.data || []).map((msg) => mapDmMessage(msg));
@@ -715,7 +719,7 @@ class ApiClient {
 		conversationId: string,
 		data: { content: string; attachments?: string[]; replyToId?: string }
 	): Promise<Message> {
-		const result = await this.request<ApiResponse<any>>(
+		const result = await this.request<ApiResponse<RawDmMessage>>(
 			`/dms/conversations/${conversationId}/messages`,
 			{
 				method: 'POST',
@@ -726,7 +730,7 @@ class ApiClient {
 	}
 
 	async editDmMessage(messageId: string, content: string): Promise<Message> {
-		const result = await this.request<ApiResponse<any>>(`/dms/messages/${messageId}`, {
+		const result = await this.request<ApiResponse<RawDmMessage>>(`/dms/messages/${messageId}`, {
 			method: 'PATCH',
 			body: JSON.stringify({ content })
 		});

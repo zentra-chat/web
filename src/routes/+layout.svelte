@@ -12,8 +12,13 @@
 		close: () => Promise<void>;
 	} | null = null;
 
+	type DesktopWindow = Window & {
+		__TAURI__?: unknown;
+		__TAURI_IPC__?: unknown;
+	};
+
 	onMount(() => {
-		const w = window as any;
+		const w = window as DesktopWindow;
 		
 		// Already available (production / fast load)
 		if (w.__TAURI__ || w.__TAURI_IPC__) {

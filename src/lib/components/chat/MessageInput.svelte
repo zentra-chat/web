@@ -7,7 +7,8 @@
 		addDmMessage,
 		updateDmMessage,
 		dmMessagesCache,
-		updateDmConversationFromMessage
+		updateDmConversationFromMessage,
+		activeDmConversation
 	} from '$lib/stores/dm';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
@@ -42,6 +43,23 @@
 	let mentionResults = $derived.by(() => {
 		if (mentionQuery === null) return [];
 		const q = mentionQuery.toLowerCase();
+
+		if (isDm) {
+			const participants = $activeDmConversation?.participants ?? [];
+			return participants
+				.filter((participant) => participant.id !== $currentUserId)
+				.filter((participant) => {
+					const displayName = (participant.displayName ?? '').toLowerCase();
+					const username = participant.username.toLowerCase();
+					return displayName.includes(q) || username.includes(q);
+				})
+				.slice(0, 10)
+				.map((participant) => ({
+					id: participant.id,
+					label: `@${participant.displayName ?? participant.username}`,
+					insert: `<@${participant.id}>`
+				}));
+		}
 
 		const specials = SPECIAL_MENTIONS.filter((s) => s.label.includes(q));
 

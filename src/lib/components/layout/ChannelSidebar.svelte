@@ -33,6 +33,8 @@
 	import { joinVoiceChannel, voiceChannelId, loadVoiceStates } from '$lib/stores/voice';
 	import type { Channel, ChannelCategory } from '$lib/types';
 
+	type ApiErrorLike = { error?: string; message?: string };
+
 	let collapsedCategories = $state<Set<string>>(new Set());
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
 	let contextMenu = $state<
@@ -66,7 +68,7 @@
 			memberHasPermission(myMember, Permission.ManageChannels)
 	);
 
-	const channelIcons: Record<string, any> = {
+	const channelIcons: Record<string, typeof Hash> = {
 		text: Hash,
 		announcement: Megaphone,
 		gallery: Image,
@@ -198,9 +200,10 @@
 		try {
 			await api.reorderChannels($activeCommunity.id, orderedIds);
 			await loadChannelsAndCategories();
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to reorder channels:', err);
-			addToast({ type: 'error', message: err?.error || 'Failed to reorder channels' });
+			addToast({ type: 'error', message: error.error || error.message || 'Failed to reorder channels' });
 		} finally {
 			isReorderingChannels = false;
 		}
@@ -269,9 +272,10 @@
 			await api.createCategory($activeCommunity.id, name);
 			await loadChannelsAndCategories();
 			addToast({ type: 'success', message: 'Folder created' });
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to create folder:', err);
-			addToast({ type: 'error', message: err?.error || 'Failed to create folder' });
+			addToast({ type: 'error', message: error.error || error.message || 'Failed to create folder' });
 		}
 	}
 
@@ -331,9 +335,10 @@
 
 			await loadChannelsAndCategories();
 			closeRenameModal();
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to rename item:', err);
-			renameError = err?.error || (isChannel ? 'Failed to rename channel' : 'Failed to rename folder');
+			renameError = error.error || error.message || (isChannel ? 'Failed to rename channel' : 'Failed to rename folder');
 			isRenaming = false;
 		}
 	}

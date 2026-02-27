@@ -22,6 +22,8 @@
 	import { api } from '$lib/api';	
 	import { updateMemberUser } from '$lib/stores/community';
 	import type { InstanceSelectorMode } from '$lib/types';
+
+	type ApiErrorLike = { error?: string; message?: string };
 	
 	let displayName = $state('');
 	let username = $state('');
@@ -283,9 +285,10 @@
 				message: 'Profile updated!'
 			});
 			handleClose();
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
 			console.error('Failed to update profile:', err);
-			errors = { submit: err.error || err.message || 'Failed to update profile. Please try again.' };
+			errors = { submit: error.error || error.message || 'Failed to update profile. Please try again.' };
 		} finally {
 			isSubmitting = false;
 		}

@@ -32,6 +32,13 @@
 	let textareaRef: HTMLTextAreaElement | null = $state(null);
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
+	// Map from lowercase name → emoji for fast :shortcode: lookup on send
+	let customEmojiByName = $derived.by(() => {
+		const map = new Map<string, (typeof $customEmojis)[number]>();
+		for (const e of $customEmojis) map.set(e.name.toLowerCase(), e);
+		return map;
+	});
+
 	// ---- Mention autocomplete ----
 	let mentionQuery = $state<string | null>(null); // null = not active
 	let mentionStartIndex = $state(-1); // index of @ in content
@@ -129,14 +136,14 @@
 		if (emojiQuery === null || emojiQuery.length < 2) return [];
 		const q = emojiQuery.toLowerCase();
 
-		// Custom emojis matching the query
+		// Custom emojis matching the query — insert as :name: shortcode (expanded on send)
 		const customs = $customEmojis
 			.filter((e) => e.name.toLowerCase().includes(q))
 			.slice(0, 8)
 			.map((e) => ({
 				id: `custom-${e.id}`,
 				label: `:${e.name}:`,
-				insert: `<:${e.name}:${e.id}>`,
+				insert: `:${e.name}:`,
 				imageUrl: e.imageUrl,
 				native: undefined as string | undefined,
 				type: 'custom' as const
@@ -217,16 +224,28 @@
 		return channelMsgs.find(m => m.id === $editingMessageId) || null;
 	});
 
-	// Load content when editing
+	// Load content when editing — convert stored <:name:UUID> tokens back to :name: for editing
 	$effect(() => {
 		if (editingMessage) {
-			content = editingMessage.content || '';
+			content = (editingMessage.content || '').replace(
+				/<:([a-zA-Z0-9_]{2,32}):([0-9a-f-]{36})>/gi,
+				(_, name) => `:${name}:`
+			);
 			textareaRef?.focus();
 		}
 	});
 
 	async function handleSubmit() {
-		const trimmedContent = content.trim();
+		// Expand :customEmojiName: shortcodes to their wire format <:name:UUID>
+		// This handles both autocomplete insertions and manually typed :name: tokens
+		const expandedContent = content.replace(
+			/:([a-zA-Z0-9_]{2,32}):/g,
+			(match, name) => {
+				const emoji = customEmojiByName.get(name.toLowerCase());
+				return emoji ? `<:${emoji.name}:${emoji.id}>` : match;
+			}
+		);
+		const trimmedContent = expandedContent.trim();
 		if (!trimmedContent && attachments.length === 0) return;
 		if (isSending) return;
 

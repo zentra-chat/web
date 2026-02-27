@@ -20,6 +20,7 @@ export interface MentionResolver {
 
 export interface EmojiResolver {
 	getCustomEmoji?: (id: string) => { name: string; imageUrl: string } | null | undefined;
+	getCustomEmojiByName?: (name: string) => { name: string; imageUrl: string } | null | undefined;
 }
 
 /**
@@ -73,13 +74,21 @@ function postProcessEmojis(html: string, emojiResolver?: EmojiResolver): string 
 		}
 	);
 
-	// Standard shortcodes like :smile: — only match 2+ word chars between colons
-	// Avoid matching things inside URLs or already-processed HTML attributes
+	// Standard shortcodes like :smile: — try custom emojis by name first, then native
 	html = html.replace(
-		/(?<!=["'])(?::([a-zA-Z0-9_+-]{2,})::skin-tone-(\d):|:([a-zA-Z0-9_+-]{2,}):)/g,
+		/(?<!=["\'\u2019])(?::([a-zA-Z0-9_+-]{2,})::skin-tone-(\d):|:([a-zA-Z0-9_+-]{2,}):)/g,
 		(match, _skinName, _skinTone, shortcode) => {
 			const code = shortcode || _skinName;
 			if (!code) return match;
+
+			// Custom emoji by name takes priority over native shortcodes
+			if (!_skinTone && emojiResolver?.getCustomEmojiByName) {
+				const customEmoji = emojiResolver.getCustomEmojiByName(code);
+				if (customEmoji) {
+					return `<img class="custom-emoji" src="${customEmoji.imageUrl}" alt=":${customEmoji.name}:" title=":${customEmoji.name}:" draggable="false" />`;
+				}
+			}
+
 			const native = resolveShortcode(code);
 			return native ?? match;
 		}

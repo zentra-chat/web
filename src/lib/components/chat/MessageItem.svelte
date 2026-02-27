@@ -92,9 +92,19 @@
 	// Custom emoji resolver for rendering <:name:id> tokens in messages
 	let emojiResolver = $derived.by((): EmojiResolver => {
 		const lookup = $customEmojiById;
+		// Build a name-based lookup for :shortcode: resolution too
+		const byName = new Map<string, typeof lookup extends Map<string, infer V> ? V : never>();
+		for (const [, emoji] of lookup) {
+			byName.set(emoji.name.toLowerCase(), emoji);
+		}
 		return {
 			getCustomEmoji: (id) => {
 				const emoji = lookup.get(id);
+				if (!emoji) return null;
+				return { name: emoji.name, imageUrl: emoji.imageUrl };
+			},
+			getCustomEmojiByName: (name) => {
+				const emoji = byName.get(name.toLowerCase());
 				if (!emoji) return null;
 				return { name: emoji.name, imageUrl: emoji.imageUrl };
 			}

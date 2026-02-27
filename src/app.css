@@ -263,4 +263,10 @@ body {
 	vertical-align: -0.3em;
 	object-fit: contain;
 	margin: 0 0.05em;
+	/* Override the generic .message-content img block styles */
+	border: none;
+	border-radius: 0;
+	background: none;
+	max-height: unset;
+	max-width: unset;
 }

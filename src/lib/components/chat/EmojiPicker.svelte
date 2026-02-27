@@ -130,8 +130,8 @@
 	}
 
 	function handleCustomEmojiClick(emoji: CustomEmojiWithCommunity) {
-		// Insert custom emoji token that the renderer will pick up: <:name:id>
-		onSelect(`<:${emoji.name}:${emoji.id}>`);
+		// Insert the shortcode — MessageInput will expand it to <:name:id> on send
+		onSelect(`:${emoji.name}:`);
 	}
 
 	function jumpToCategory(categoryId: string) {

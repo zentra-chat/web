@@ -11,7 +11,7 @@
 		FolderPlus,
 		Volume2
 	} from 'lucide-svelte';
-	import { Tooltip, Button } from '$lib/components/ui';
+	import { Tooltip, Button, Modal, Input } from '$lib/components/ui';
 	import VoiceChannelUsers from '$lib/components/chat/VoiceChannelUsers.svelte';
 	import VoiceCallOverlay from '$lib/components/chat/VoiceCallOverlay.svelte';
 	import {
@@ -41,6 +41,17 @@
 		| null
 	>(null);
 	let isLoading = $state(false);
+	let renameModal = $state<
+		| {
+			type: 'channel' | 'category';
+			id: string;
+			currentName: string;
+		}
+		| null
+	>(null);
+	let renameInput = $state('');
+	let renameError = $state('');
+	let isRenaming = $state(false);
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
 	let canManageChannels = $derived(isOwner || memberHasPermission(myMember, Permission.ManageChannels));
@@ -166,35 +177,17 @@
 		contextMenu = null;
 	}
 
-	async function handleRenameChannel(channelId: string) {
+	function openRenameChannelModal(channelId: string) {
 		const channel = $activeCommunityChannels.find((c) => c.id === channelId);
-		if (!channel || !$activeCommunity) {
+		if (!channel) {
 			contextMenu = null;
 			return;
 		}
 
-		const nextNameInput = window.prompt('Rename channel', channel.name);
-		if (nextNameInput === null) {
-			contextMenu = null;
-			return;
-		}
-
-		const formattedName = nextNameInput.trim().toLowerCase().replace(/\s+/g, '-');
-		if (!formattedName || formattedName === channel.name) {
-			contextMenu = null;
-			return;
-		}
-
-		try {
-			await api.updateChannel(channel.id, { name: formattedName });
-			await loadChannelsAndCategories();
-			addToast({ type: 'success', message: `Renamed to #${formattedName}` });
-		} catch (err: any) {
-			console.error('Failed to rename channel:', err);
-			addToast({ type: 'error', message: err?.error || 'Failed to rename channel' });
-		} finally {
-			contextMenu = null;
-		}
+		renameModal = { type: 'channel', id: channel.id, currentName: channel.name };
+		renameInput = channel.name;
+		renameError = '';
+		contextMenu = null;
 	}
 
 	async function handleCreateCategory() {
@@ -216,40 +209,72 @@
 		}
 	}
 
-	async function handleRenameCategory(categoryId: string) {
+	function openRenameCategoryModal(categoryId: string) {
 		const category = $activeCommunityCategories.find((c) => c.id === categoryId);
 		if (!category) {
 			contextMenu = null;
 			return;
 		}
 
-		const nextNameInput = window.prompt('Rename folder', category.name);
-		if (nextNameInput === null) {
-			contextMenu = null;
+		renameModal = { type: 'category', id: category.id, currentName: category.name };
+		renameInput = category.name;
+		renameError = '';
+		contextMenu = null;
+	}
+
+	function closeRenameModal() {
+		renameModal = null;
+		renameInput = '';
+		renameError = '';
+		isRenaming = false;
+	}
+
+	async function handleSubmitRename() {
+		if (!renameModal || isRenaming) return;
+
+		const trimmedName = renameInput.trim();
+		if (!trimmedName) {
+			renameError = renameModal.type === 'channel' ? 'Channel name is required' : 'Folder name is required';
 			return;
 		}
 
-		const nextName = nextNameInput.trim();
-		if (!nextName || nextName === category.name) {
-			contextMenu = null;
+		const isChannel = renameModal.type === 'channel';
+		const nextName = isChannel ? trimmedName.toLowerCase().replace(/\s+/g, '-') : trimmedName;
+
+		if (nextName === renameModal.currentName) {
+			closeRenameModal();
 			return;
 		}
+
+		if (isChannel && !/^[a-z0-9-]+$/.test(nextName)) {
+			renameError = 'Channel names can only use letters, numbers, and hyphens';
+			return;
+		}
+
+		isRenaming = true;
+		renameError = '';
 
 		try {
-			await api.updateCategory(category.id, nextName);
+			if (isChannel) {
+				await api.updateChannel(renameModal.id, { name: nextName });
+				addToast({ type: 'success', message: `Renamed to #${nextName}` });
+			} else {
+				await api.updateCategory(renameModal.id, nextName);
+				addToast({ type: 'success', message: 'Folder renamed' });
+			}
+
 			await loadChannelsAndCategories();
-			addToast({ type: 'success', message: 'Folder renamed' });
+			closeRenameModal();
 		} catch (err: any) {
-			console.error('Failed to rename folder:', err);
-			addToast({ type: 'error', message: err?.error || 'Failed to rename folder' });
-		} finally {
-			contextMenu = null;
+			console.error('Failed to rename item:', err);
+			renameError = err?.error || (isChannel ? 'Failed to rename channel' : 'Failed to rename folder');
+			isRenaming = false;
 		}
 	}
 
 	function handleContextRenameChannel() {
 		if (!contextMenu || contextMenu.type !== 'channel') return;
-		void handleRenameChannel(contextMenu.channelId);
+		openRenameChannelModal(contextMenu.channelId);
 	}
 
 	function handleContextCopyChannelId() {
@@ -259,7 +284,7 @@
 
 	function handleContextRenameCategory() {
 		if (!contextMenu || contextMenu.type !== 'category') return;
-		void handleRenameCategory(contextMenu.categoryId);
+		openRenameCategoryModal(contextMenu.categoryId);
 	}
 
 	function handleOpenCommunitySettings() {
@@ -484,6 +509,41 @@
 			{/if}
 		</div>
 	{/if}
+
+	<Modal
+		isOpen={renameModal !== null}
+		onclose={closeRenameModal}
+		title={renameModal?.type === 'channel' ? 'Rename Channel' : 'Rename Folder'}
+		size="sm"
+	>
+		<form
+			onsubmit={(event) => {
+				event.preventDefault();
+				void handleSubmitRename();
+			}}
+			class="space-y-4"
+		>
+			<Input
+				label={renameModal?.type === 'channel' ? 'Channel Name' : 'Folder Name'}
+				bind:value={renameInput}
+				error={renameError}
+				maxlength={100}
+				disabled={isRenaming}
+				required
+			/>
+			<p class="text-xs text-text-muted">
+				{renameModal?.type === 'channel'
+					? 'Spaces will be converted to hyphens.'
+					: 'Pick a clear name for this folder.'}
+			</p>
+			<div class="flex justify-end gap-2">
+				<Button variant="ghost" onclick={closeRenameModal} disabled={isRenaming}>Cancel</Button>
+				<Button variant="primary" type="submit" loading={isRenaming}>
+					Save
+				</Button>
+			</div>
+		</form>
+	</Modal>
 
 	<!-- Voice call controls -->
 	<VoiceCallOverlay />

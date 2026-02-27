@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Smile, Search } from 'lucide-svelte';
+	import {
+		EMOJI_CATEGORIES,
+		searchEmojis,
+		getEmojiById,
+		type EmojiCategory,
+		type EmojiEntry
+	} from '$lib/utils/emoji';
 
 	interface Props {
 		onSelect: (emoji: string) => void;
@@ -12,24 +19,94 @@
 
 	let searchQuery = $state('');
 	let containerRef: HTMLDivElement | null = $state(null);
+	let scrollRef: HTMLDivElement | null = $state(null);
+	let selectedCategoryId = $state<string>('people');
+	let sectionRefs = $state<Record<string, HTMLDivElement | null>>({});
+	let recentEmojiIds = $state<string[]>([]);
 
-	const categories = [
-		{ name: 'Recent', icon: '🕒', emojis: ['👍', '❤️', '🔥', '😂', '😮', '😢', '🎉', '💯'] },
-		{ name: 'Smileys', icon: '😀', emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'] },
-		{ name: 'Gestures', icon: '👋', emojis: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾'] },
-		{ name: 'Hearts', icon: '❤️', emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'] },
-		{ name: 'Animals', icon: '🐶', emojis: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🦍', '🦧', '🐶', '🐕', '🦮', '🐕‍🦺', '🐩', '🐺', '🦊', '🦝', '🐱', '🐈', '🐈‍⬛', '🦁', '🐯', '🐅', '🐆', '🐴', '🐎', '🦄', '🦓', '🦌', '🦬', '🐮', '🐂', '🐃', '🐄', '🐷', '🐖', '🐗', '🐽', '🐏', '🐑', '🐐', '🐪', '🐫', '🦙', '🦒', '🐘', '🦣', '🦏', '🦛', '🐭', '🖱️', '🐀', '🐹', '🐰', '🐇', '🐿️', '🦫', '🦔', '🦇', '🐻', '🐻‍❄️', '🐨', '🐼', '🦥', '🦦', '🦨', '🦘', '🦡', '🐾'] }
-	];
+	const RECENT_KEY = 'zentra.recent-emojis';
+	const RECENT_LIMIT = 24;
 
-	let filteredEmojis = $derived.by(() => {
-		if (!searchQuery) return null;
-		const query = searchQuery.toLowerCase();
-		const all = categories.flatMap(c => c.emojis);
-		return [...new Set(all)].filter(e => e.includes(query)); // Basic filtering, could be improved with emoji names
+	let recentCategory = $derived.by((): EmojiCategory => {
+		const emojis = recentEmojiIds
+			.map((emojiId) => getEmojiById(emojiId))
+			.filter((emoji): emoji is EmojiEntry => Boolean(emoji));
+
+		return {
+			id: 'recent',
+			label: 'Recent',
+			emojis
+		};
 	});
 
-	function handleEmojiClick(emoji: string) {
-		onSelect(emoji);
+	let categories = $derived.by(() => {
+		if (recentCategory.emojis.length > 0) {
+			return [recentCategory, ...EMOJI_CATEGORIES];
+		}
+		return EMOJI_CATEGORIES;
+	});
+
+	let filteredEmojis = $derived.by(() => {
+		if (!searchQuery.trim()) return [];
+		return searchEmojis(searchQuery);
+	});
+
+	function saveRecents() {
+		if (typeof localStorage === 'undefined') return;
+		localStorage.setItem(RECENT_KEY, JSON.stringify(recentEmojiIds));
+	}
+
+	function loadRecents() {
+		if (typeof localStorage === 'undefined') return;
+		const raw = localStorage.getItem(RECENT_KEY);
+		if (!raw) return;
+
+		try {
+			const parsed = JSON.parse(raw);
+			if (!Array.isArray(parsed)) return;
+			recentEmojiIds = parsed.filter((item): item is string => typeof item === 'string').slice(0, RECENT_LIMIT);
+		} catch {
+			recentEmojiIds = [];
+		}
+	}
+
+	function registerRecent(emoji: EmojiEntry) {
+		recentEmojiIds = [emoji.id, ...recentEmojiIds.filter((id) => id !== emoji.id)].slice(0, RECENT_LIMIT);
+		saveRecents();
+	}
+
+	function handleEmojiClick(emoji: EmojiEntry) {
+		registerRecent(emoji);
+		onSelect(emoji.native);
+	}
+
+	function jumpToCategory(categoryId: string) {
+		selectedCategoryId = categoryId;
+		const section = sectionRefs[categoryId];
+		if (section) {
+			section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+		}
+	}
+
+	function handleScroll() {
+		if (!scrollRef) return;
+		if (searchQuery.trim()) return;
+
+		const scrollTop = scrollRef.scrollTop;
+		let bestId = selectedCategoryId;
+		let bestDistance = Number.POSITIVE_INFINITY;
+
+		for (const category of categories) {
+			const section = sectionRefs[category.id];
+			if (!section) continue;
+			const distance = Math.abs(section.offsetTop - scrollTop - 4);
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				bestId = category.id;
+			}
+		}
+
+		selectedCategoryId = bestId;
 	}
 
 	function handleOutsideClick(e: MouseEvent) {
@@ -39,6 +116,7 @@
 	}
 
 	onMount(() => {
+		loadRecents();
 		document.addEventListener('mousedown', handleOutsideClick);
 		return () => document.removeEventListener('mousedown', handleOutsideClick);
 	});
@@ -64,15 +142,16 @@
 	</div>
 
 	<!-- Content -->
-	<div class="flex-1 overflow-y-auto max-h-64 p-2 custom-scrollbar">
-		{#if filteredEmojis}
+	<div bind:this={scrollRef} onscroll={handleScroll} class="flex-1 overflow-y-auto max-h-72 p-2 custom-scrollbar">
+		{#if searchQuery.trim()}
 			<div class="grid grid-cols-8 gap-1">
-				{#each filteredEmojis as emoji}
+				{#each filteredEmojis as emoji (emoji.id)}
 					<button
 						onclick={() => handleEmojiClick(emoji)}
+						title={emoji.name}
 						class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
 					>
-						{emoji}
+						{emoji.native}
 					</button>
 				{/each}
 			</div>
@@ -80,16 +159,17 @@
 				<p class="text-center py-4 text-sm text-text-muted">No emojis found</p>
 			{/if}
 		{:else}
-			{#each categories as category}
-				<div class="mb-3">
-					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">{category.name}</h3>
+			{#each categories as category (category.id)}
+				<div bind:this={sectionRefs[category.id]} class="mb-3 scroll-mt-1">
+					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">{category.label}</h3>
 					<div class="grid grid-cols-8 gap-1">
-						{#each category.emojis as emoji}
+						{#each category.emojis as emoji (emoji.id)}
 							<button
 								onclick={() => handleEmojiClick(emoji)}
+								title={emoji.name}
 								class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
 							>
-								{emoji}
+								{emoji.native}
 							</button>
 						{/each}
 					</div>
@@ -100,12 +180,17 @@
 
 	<!-- Bottom categories -->
 	<div class="flex border-t border-border p-1 bg-surface-hover/50">
-		{#each categories as category}
+		{#each categories as category (category.id)}
 			<button
-				class="flex-1 h-8 flex items-center justify-center grayscale hover:grayscale-0 transition-all opacity-60 hover:opacity-100"
-				title={category.name}
+				onclick={() => jumpToCategory(category.id)}
+				class="flex-1 h-8 flex items-center justify-center rounded transition-all {selectedCategoryId === category.id && !searchQuery.trim()
+					? 'bg-surface text-text-primary'
+					: 'text-text-muted hover:text-text-primary'}"
+				title={category.label}
 			>
-				{category.icon}
+				{category.id === 'recent'
+					? '🕒'
+					: category.emojis[0]?.native || '🙂'}
 			</button>
 		{/each}
 	</div>

@@ -235,7 +235,7 @@
 					<Avatar user={message.author} size="md" />
 				</button>
 			{:else if isHovered}
-				<span class="text-[10px] text-text-muted">
+				<span class="block text-right text-[10px] leading-none whitespace-nowrap text-text-muted">
 					{format(new Date(message.createdAt), 'h:mm a')}
 				</span>
 			{/if}

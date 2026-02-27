@@ -8,9 +8,12 @@
 		ChevronRight,
 		Plus,
 		Settings,
-		FolderPlus
+		FolderPlus,
+		Volume2
 	} from 'lucide-svelte';
 	import { Tooltip, Button } from '$lib/components/ui';
+	import VoiceChannelUsers from '$lib/components/chat/VoiceChannelUsers.svelte';
+	import VoiceCallOverlay from '$lib/components/chat/VoiceCallOverlay.svelte';
 	import {
 		activeCommunity,
 		activeCommunityMembers,
@@ -27,6 +30,7 @@
 	import { openModal, isMobileMenuOpen, addToast, userSettings } from '$lib/stores/ui';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
+	import { joinVoiceChannel, voiceChannelId, loadVoiceStates } from '$lib/stores/voice';
 	import type { Channel, ChannelCategory } from '$lib/types';
 
 	let collapsedCategories = $state<Set<string>>(new Set());
@@ -53,7 +57,7 @@
 		announcement: Megaphone,
 		gallery: Image,
 		forum: Hash,
-		voice: Megaphone
+		voice: Volume2
 	};
 
 	// Group channels by category
@@ -96,6 +100,10 @@
 			setChannels($activeCommunity.id, channels);
 			setCategories($activeCommunity.id, categories);
 
+			// Load voice states for voice channels
+			const voiceChannels = channels.filter((c) => c.type === 'voice');
+			voiceChannels.forEach((vc) => loadVoiceStates(vc.id));
+
 			// Select first channel if none selected
 			if (!$activeChannelId && channels.length > 0) {
 				selectChannel(channels[0].id);
@@ -117,6 +125,12 @@
 	}
 
 	function handleChannelClick(channel: Channel) {
+		if (channel.type === 'voice') {
+			// Select the channel to show the voice view, and join if not already in
+			selectChannel(channel.id);
+			joinVoiceChannel(channel.id);
+			return;
+		}
 		selectChannel(channel.id);
 	}
 
@@ -343,22 +357,29 @@
 					{#each channelsByCategory['uncategorized'] as channel (channel.id)}
 						{@const Icon = channelIcons[channel.type] || Hash}
 						{@const unreadCount = $unreadCounts[channel.id] || 0}
+						{@const isVoice = channel.type === 'voice'}
+						{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}
+						{@const isSelected = $activeChannelId === channel.id}
 						<button
 							onclick={() => handleChannelClick(channel)}
 							oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
-							class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {$activeChannelId ===
-							channel.id
-								? 'bg-surface-active text-text-primary'
-								: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
+							class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
+								? 'bg-success/10 text-success'
+								: isSelected
+									? 'bg-surface-active text-text-primary'
+									: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
 						>
-							<Icon size={18} class="shrink-0 opacity-70" />
+							<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
 							<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
-							{#if unreadCount > 0}
+							{#if unreadCount > 0 && !isVoice}
 								<span class="text-xs bg-danger text-white px-1.5 py-0.5 rounded-full">
 									{unreadCount > 99 ? '99+' : unreadCount}
 								</span>
 							{/if}
 						</button>
+						{#if isVoice}
+							<VoiceChannelUsers channelId={channel.id} />
+						{/if}
 					{/each}
 					{/if}
 				</div>
@@ -400,22 +421,29 @@
 							{#each categoryChannels as channel (channel.id)}
 								{@const Icon = channelIcons[channel.type] || Hash}
 								{@const unreadCount = $unreadCounts[channel.id] || 0}
+								{@const isVoice = channel.type === 'voice'}
+								{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}
+								{@const isSelected = $activeChannelId === channel.id}
 								<button
 									onclick={() => handleChannelClick(channel)}
 									oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
-									class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {$activeChannelId ===
-									channel.id
-										? 'bg-surface-active text-text-primary'
-										: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
+									class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
+										? 'bg-success/10 text-success'
+										: isSelected
+											? 'bg-surface-active text-text-primary'
+											: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
 								>
-									<Icon size={18} class="shrink-0 opacity-70" />
+									<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
 									<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
-									{#if unreadCount > 0}
+									{#if unreadCount > 0 && !isVoice}
 										<span class="text-xs bg-danger text-white px-1.5 py-0.5 rounded-full">
 											{unreadCount > 99 ? '99+' : unreadCount}
 										</span>
 									{/if}
 								</button>
+								{#if isVoice}
+									<VoiceChannelUsers channelId={channel.id} />
+								{/if}
 							{/each}
 						</div>
 					{/if}
@@ -456,6 +484,9 @@
 			{/if}
 		</div>
 	{/if}
+
+	<!-- Voice call controls -->
+	<VoiceCallOverlay />
 
 	<!-- User panel -->
 	<div class="h-14 px-2 bg-background-secondary border-t border-border flex items-center gap-2">

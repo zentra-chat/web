@@ -127,6 +127,46 @@ export interface ChannelCategory {
 	createdAt: string;
 }
 
+// Voice types
+export interface VoiceState {
+	id: string;
+	channelId: string;
+	userId: string;
+	isMuted: boolean;
+	isDeafened: boolean;
+	isSelfMuted: boolean;
+	isSelfDeafened: boolean;
+	joinedAt: string;
+	user?: User;
+}
+
+export interface VoiceJoinEvent {
+	channelId: string;
+	userId: string;
+	state: VoiceState;
+	user?: User;
+	participants?: VoiceState[];
+}
+
+export interface VoiceLeaveEvent {
+	channelId: string;
+	userId: string;
+}
+
+export interface VoiceStateUpdateEvent {
+	channelId: string;
+	userId: string;
+	state: VoiceState;
+}
+
+export interface VoiceSignalEvent {
+	channelId: string;
+	fromUserId: string;
+	targetUserId: string;
+	signalType: 'offer' | 'answer' | 'ice-candidate';
+	signal: unknown;
+}
+
 // Message types
 export interface Message {
 	id: string;
@@ -256,7 +296,12 @@ export type WebSocketEventType =
 	| 'REACTION_ADD'
 	| 'REACTION_REMOVE'
 	| 'NOTIFICATION'
-	| 'NOTIFICATION_READ';
+	| 'NOTIFICATION_READ'
+	| 'VOICE_JOIN'
+	| 'VOICE_LEAVE'
+	| 'VOICE_STATE_UPDATE'
+	| 'VOICE_SIGNAL'
+	| 'VOICE_ERROR';
 
 export interface WebSocketEvent<T = unknown> {
 	type: WebSocketEventType;

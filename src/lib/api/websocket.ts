@@ -97,11 +97,18 @@ class WebSocketManager {
 		};
 
 		this.ws.onmessage = (event) => {
-			try {
-				const message: WebSocketEvent = JSON.parse(event.data);
-				this.handleEvent(message);
-			} catch (error) {
-				console.error('Failed to parse WebSocket message:', error);
+			// Server may batch multiple JSON messages in one frame separated by newlines
+			// Split them and parse individually
+			// This allows us to handle multiple events in a single WebSocket message efficiently
+			const parts = (event.data as string).split('\n');
+			for (const part of parts) {
+				if (!part) continue;
+				try {
+					const message: WebSocketEvent = JSON.parse(part);
+					this.handleEvent(message);
+				} catch (error) {
+					console.error('Failed to parse WebSocket message:', error);
+				}
 			}
 		};
 

@@ -18,7 +18,11 @@ export const Permission = {
 	PinMessages: 1 << 12,
 	ManageWebhooks: 1 << 13,
 	ViewAuditLog: 1 << 14,
-	Administrator: 1 << 15
+	Administrator: 1 << 15,
+	VoiceConnect: 1 << 16,
+	VoiceSpeak: 1 << 17,
+	VoiceMuteOthers: 1 << 18,
+	VoiceDeafenOthers: 1 << 19
 } as const;
 
 export function getMemberPermissions(member: CommunityMember | null): number {

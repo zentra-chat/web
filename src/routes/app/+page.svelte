@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { AppLayout } from '$lib/components/layout';
-	import { MessageList, MessageInput } from '$lib/components/chat';
+	import { MessageList, MessageInput, VoiceChannelView } from '$lib/components/chat';
 	import DMHome from '$lib/components/dm/DMHome.svelte';
 	import { Spinner } from '$lib/components/ui';
 	import { Hash } from 'lucide-svelte';
@@ -150,6 +150,8 @@
 				Select a channel from the sidebar or create a new one to start chatting.
 			</p>
 		</div>
+	{:else if $activeChannel.type === 'voice'}
+		<VoiceChannelView />
 	{:else}
 		<div class="flex-1 flex flex-col min-h-0">
 			<MessageList channelId={$activeChannel.id} />

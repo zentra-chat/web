@@ -28,7 +28,8 @@ import type {
 	SendMessageRequest,
 	Attachment,
 	DMConversation,
-	Notification
+	Notification,
+	VoiceState
 } from '$lib/types';
 import { mapDmMessage } from '$lib/utils/dm';
 
@@ -566,6 +567,36 @@ class ApiClient {
 			method: 'PATCH',
 			body: JSON.stringify({ name })
 		});
+		return result.data;
+	}
+
+	// Voice endpoints
+	async getVoiceStates(channelId: string): Promise<VoiceState[]> {
+		const result = await this.request<ApiResponse<VoiceState[]>>(`/voice/channels/${channelId}/states`);
+		return result.data || [];
+	}
+
+	async joinVoiceChannel(channelId: string): Promise<VoiceState> {
+		const result = await this.request<ApiResponse<VoiceState>>(`/voice/channels/${channelId}/join`, {
+			method: 'POST'
+		});
+		return result.data;
+	}
+
+	async leaveVoiceChannel(channelId: string): Promise<void> {
+		await this.request(`/voice/channels/${channelId}/leave`, { method: 'POST' });
+	}
+
+	async updateVoiceState(channelId: string, data: { isSelfMuted?: boolean; isSelfDeafened?: boolean }): Promise<VoiceState> {
+		const result = await this.request<ApiResponse<VoiceState>>(`/voice/channels/${channelId}/state`, {
+			method: 'PATCH',
+			body: JSON.stringify(data)
+		});
+		return result.data;
+	}
+
+	async getMyVoiceState(): Promise<VoiceState | null> {
+		const result = await this.request<ApiResponse<VoiceState | null>>(`/voice/me`);
 		return result.data;
 	}
 

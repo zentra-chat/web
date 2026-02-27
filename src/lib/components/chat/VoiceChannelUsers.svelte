@@ -24,17 +24,13 @@
 				class="flex items-center gap-2 px-2 py-1 rounded text-xs group
 					{isMe ? 'text-text-primary' : 'text-text-secondary'}"
 			>
-				<div class="relative">
+				<div class="rounded-full transition-shadow duration-150 {isSpeaking ? 'ring-2 ring-success' : ''}">
 					<Avatar
 						src={participant.user?.avatarUrl || null}
 						alt={displayName}
 						size="xs"
+						status={!isSpeaking ? participant.user?.status : undefined}
 					/>
-					{#if isSpeaking}
-						<div class="absolute -inset-0.5 rounded-full ring-2 ring-success pointer-events-none"></div>
-					{:else if participant.user?.status === 'online'}
-						<div class="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-success border border-surface-hover"></div>
-					{/if}
 				</div>
 				<span class="truncate flex-1 {isSpeaking ? 'text-success font-medium' : ''}">{displayName}</span>
 				<div class="flex items-center gap-0.5">

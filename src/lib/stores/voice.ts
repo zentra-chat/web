@@ -131,8 +131,27 @@ function createPeerConnection(userId: string, channelId: string, initiator: bool
 	};
 
 	pc.oniceconnectionstatechange = () => {
-		if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-			console.warn(`ICE connection state: ${pc.iceConnectionState} for peer ${userId}`);
+		if (pc.iceConnectionState === 'failed') {
+			// Try to recover with an ICE restart if we're the initiator
+			if (initiator) {
+				console.warn(`ICE failed for peer ${userId}, attempting restart`);
+				pc.createOffer({ iceRestart: true })
+					.then((offer) => pc.setLocalDescription(offer))
+					.then(() => {
+						websocket.send({
+							type: 'VOICE_SIGNAL',
+							data: {
+								channelId,
+								targetUserId: userId,
+								signalType: 'offer',
+								signal: pc.localDescription?.toJSON()
+							}
+						});
+					})
+					.catch((err) => console.error('ICE restart failed:', err));
+			}
+		} else if (pc.iceConnectionState === 'disconnected') {
+			console.warn(`ICE disconnected for peer ${userId}`);
 		}
 	};
 

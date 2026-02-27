@@ -54,15 +54,12 @@
 						class="flex flex-col items-center gap-3 p-5 rounded-xl bg-surface transition-all duration-200
 							{isSpeaking ? 'ring-2 ring-success shadow-lg shadow-success/10' : 'ring-1 ring-border'}"
 					>
-						<div class="relative">
+						<div class="rounded-full transition-shadow duration-200 {isSpeaking ? 'ring-2 ring-success ring-offset-2 ring-offset-surface' : ''}">
 							<Avatar
 								src={participant.user?.avatarUrl || null}
 								alt={displayName}
 								size="xl"
 							/>
-							{#if isSpeaking}
-								<div class="absolute -inset-1 rounded-full ring-2 ring-success animate-pulse pointer-events-none"></div>
-							{/if}
 						</div>
 						<div class="text-center min-w-0 w-full">
 							<p class="text-sm font-medium text-text-primary truncate">

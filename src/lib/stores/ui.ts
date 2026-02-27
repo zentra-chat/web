@@ -16,10 +16,7 @@ export const isMobileMenuOpen = writable(false);
 // Modal states
 export const instanceModalOpen = writable(false);
 export const createCommunityModalOpen = writable(false);
-export const discoverCommunitiesModalOpen = writable(false);
 export const createChannelModalOpen = writable(false);
-export const settingsModalOpen = writable(false);
-export const communitySettingsModalOpen = writable(false);
 export const profileCardOpen = writable(false);
 export const profileCardUser = writable<User | null>(null);
 export const profileCardPosition = writable({ x: 0, y: 0 });
@@ -84,7 +81,6 @@ export function applyUserSettings(settings: UserSettings): void {
 export function openModal(type: string, data?: unknown): void {
 	// Map to specific stores for consistency
 	if (type === 'createCommunity') createCommunityModalOpen.set(true);
-	if (type === 'discoverCommunities') discoverCommunitiesModalOpen.set(true);
 	if (type === 'createChannel') {
 		const maybeCategoryId =
 			data && typeof data === 'object' && 'categoryId' in data
@@ -95,17 +91,12 @@ export function openModal(type: string, data?: unknown): void {
 		});
 		createChannelModalOpen.set(true);
 	}
-	if (type === 'settings' || type === 'profile') settingsModalOpen.set(true);
-	if (type === 'communitySettings') communitySettingsModalOpen.set(true);
 	if (type === 'instance') instanceModalOpen.set(true);
 }
 
 export function closeModal(): void {
 	createCommunityModalOpen.set(false);
-	discoverCommunitiesModalOpen.set(false);
 	createChannelModalOpen.set(false);
-	settingsModalOpen.set(false);
-	communitySettingsModalOpen.set(false);
 	instanceModalOpen.set(false);
 }
 
@@ -303,14 +294,6 @@ export function closeCreateCommunityModal(): void {
 	createCommunityModalOpen.set(false);
 }
 
-export function openDiscoverCommunitiesModal(): void {
-	discoverCommunitiesModalOpen.set(true);
-}
-
-export function closeDiscoverCommunitiesModal(): void {
-	discoverCommunitiesModalOpen.set(false);
-}
-
 export function openCreateChannelModal(): void {
 	createChannelModalOpen.set(true);
 }
@@ -319,18 +302,3 @@ export function closeCreateChannelModal(): void {
 	createChannelModalOpen.set(false);
 }
 
-export function openSettingsModal(): void {
-	settingsModalOpen.set(true);
-}
-
-export function closeSettingsModal(): void {
-	settingsModalOpen.set(false);
-}
-
-export function openCommunitySettingsModal(): void {
-	communitySettingsModalOpen.set(true);
-}
-
-export function closeCommunitySettingsModal(): void {
-	communitySettingsModalOpen.set(false);
-}

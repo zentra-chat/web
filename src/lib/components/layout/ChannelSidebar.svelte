@@ -28,6 +28,7 @@
 		unreadCounts
 	} from '$lib/stores/community';
 	import { openModal, isMobileMenuOpen, addToast, userSettings } from '$lib/stores/ui';
+	import { goto } from '$app/navigation';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
 	import { joinVoiceChannel, voiceChannelId, loadVoiceStates } from '$lib/stores/voice';
@@ -393,7 +394,7 @@
 			addToast({ type: 'error', message: 'Insufficient permissions' });
 			return;
 		}
-		openModal('communitySettings', { community: $activeCommunity });
+		goto('/app/community-settings');
 	}
 
 	function handleCreateChannel(categoryId: string | null) {

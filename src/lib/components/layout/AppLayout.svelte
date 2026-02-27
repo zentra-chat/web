@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import {
 		isLoggedIn,
@@ -17,6 +18,11 @@
 	import InstanceSelector from '../instance/InstanceSelector.svelte';
 
 	let { children }: { children: Snippet } = $props();
+	let isPaneRoute = $derived(
+		$page.url.pathname.startsWith('/app/discover') ||
+		$page.url.pathname.startsWith('/app/settings') ||
+		$page.url.pathname.startsWith('/app/community-settings')
+	);
 
 	onMount(() => {
 		// Redirect if not logged in
@@ -51,7 +57,7 @@
 	<CommunitySidebar />
 
 	<!-- Channel sidebar -->
-	{#if $activeCommunityId}
+	{#if $activeCommunityId && !isPaneRoute}
 		<ChannelSidebar />
 	{/if}
 
@@ -61,7 +67,7 @@
 	</main>
 
 	<!-- Member sidebar -->
-	{#if $activeChannelId && $showMemberSidebar}
+	{#if $activeChannelId && $showMemberSidebar && !isPaneRoute}
 		<MemberSidebar />
 	{/if}
 </div>

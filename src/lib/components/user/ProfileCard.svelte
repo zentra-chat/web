@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { fade, scale } from 'svelte/transition';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { Button, Avatar } from '$lib/components/ui';
@@ -8,7 +9,6 @@
 		profileCardUser,
 		profileCardPosition,
 		closeProfileCard,
-		openModal,
 		addToast,
 		userSettings
 	} from '$lib/stores/ui';
@@ -57,7 +57,7 @@
 
 	function handleEditProfile() {
 		closeProfileCard();
-		openModal('settings');
+		goto('/app/settings');
 	}
 
 	function toggleUserMenu() {

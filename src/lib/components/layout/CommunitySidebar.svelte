@@ -15,10 +15,7 @@
 	} from '$lib/stores/community';
 	import {
 		isMobileMenuOpen,
-		openModal,
 		openCreateCommunityModal,
-		openDiscoverCommunitiesModal,
-		openSettingsModal,
 		addToast,
 		userSettings
 	} from '$lib/stores/ui';
@@ -26,6 +23,7 @@
 	import { unreadDmConversations, totalDmUnread, setActiveDmConversationId } from '$lib/stores/dm';
 	import type { Community, User, DMConversation } from '$lib/types';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	let communities = $derived($communitiesCache[$activeInstance?.id || ''] || []);
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
@@ -73,6 +71,13 @@
 
 	function handleCommunityClick(community: Community) {
 		selectCommunity(community.id);
+		if (
+			$page.url.pathname.startsWith('/app/discover') ||
+			$page.url.pathname.startsWith('/app/settings') ||
+			$page.url.pathname.startsWith('/app/community-settings')
+		) {
+			goto('/app');
+		}
 	}
 
 	function handleCommunityContextMenu(event: MouseEvent, community: Community) {
@@ -96,6 +101,13 @@
 
 	function handleHomeClick() {
 		selectCommunity(null);
+		if (
+			$page.url.pathname.startsWith('/app/discover') ||
+			$page.url.pathname.startsWith('/app/settings') ||
+			$page.url.pathname.startsWith('/app/community-settings')
+		) {
+			goto('/app');
+		}
 	}
 
 	function makeMenuAvatarUser(account: {
@@ -289,7 +301,7 @@
 			></div>
 			<Tooltip text="Discover Communities" position="right">
 				<button
-					onclick={openDiscoverCommunitiesModal}
+					onclick={() => goto('/app/discover')}
 					class="w-12 h-12 rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-success text-success hover:text-white transition-all duration-200 flex items-center justify-center"
 				>
 					<Search size={20} />
@@ -306,7 +318,7 @@
 
 		<Tooltip text="Settings" position="right">
 			<button
-				onclick={openSettingsModal}
+				onclick={() => goto('/app/settings')}
 				class="w-12 h-12 rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-surface-active text-text-secondary hover:text-text-primary transition-all duration-200 flex items-center justify-center"
 			>
 				<Settings size={20} />
@@ -331,7 +343,7 @@
 			>
 					<button
 						onclick={() => {
-							openModal('profile');
+							goto('/app/settings');
 						}}
 						class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm text-text-primary hover:bg-surface-hover"
 						role="menuitem"

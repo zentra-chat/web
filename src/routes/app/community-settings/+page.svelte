@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
+	import { goto } from '$app/navigation';
+	import { Input, Textarea, Button, Spinner } from '$lib/components/ui';
 	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown } from 'lucide-svelte';
-	import { communitySettingsModalOpen, closeCommunitySettingsModal, addToast } from '$lib/stores/ui';
+	import { addToast } from '$lib/stores/ui';
 	import {
 		activeCommunity,
 		activeCommunityMembers,
@@ -55,13 +56,15 @@
 	let fileInputRef: HTMLInputElement | null = $state(null);
 	let isOwner = $derived($activeCommunity?.ownerId === $currentUserId);
 
-	// Load community data when modal opens
+	// Load community data when page is active
 	$effect(() => {
-		if ($communitySettingsModalOpen && $activeCommunity) {
+		if ($activeCommunity) {
 			name = $activeCommunity.name;
 			description = $activeCommunity.description || '';
 			iconPreview = $activeCommunity.iconUrl || null;
 			isPrivate = !$activeCommunity.isPublic;
+		} else {
+			goto('/app');
 		}
 	});
 
@@ -168,7 +171,7 @@
 	}
 
 	function handleClose() {
-		closeCommunitySettingsModal();
+		goto('/app');
 		resetForm();
 	}
 
@@ -558,8 +561,13 @@
 	}
 </script>
 
-<Modal isOpen={$communitySettingsModalOpen} onclose={handleClose} title="Community Settings" size="md">
-	<div class="flex gap-6">
+<div class="flex-1 min-h-0 overflow-y-auto bg-background">
+	<div class="max-w-7xl mx-auto px-6 py-6 md:px-8 md:py-8">
+		<div class="flex items-center justify-between mb-6">
+			<h1 class="text-2xl font-bold text-text-primary">Community Settings</h1>
+			<Button variant="ghost" onclick={handleClose}>Back</Button>
+		</div>
+		<div class="flex gap-6">
 		<!-- Tabs -->
 		<div class="w-40 space-y-1">
 			<button
@@ -1042,5 +1050,6 @@
 				</div>
 			{/if}
 		</div>
+		</div>
 	</div>
-</Modal>
+</div>

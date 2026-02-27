@@ -2,13 +2,11 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { ToastContainer, NotificationPreviewContainer } from '$lib/components/ui';
+	import { AppLayout } from '$lib/components/layout';
 	import { InstanceModal } from '$lib/components/instance';
 	import {
 		CreateCommunityModal,
-		DiscoverCommunitiesModal,
 		CreateChannelModal,
-		SettingsModal,
-		CommunitySettingsModal,
 		FilePreviewModal
 	} from '$lib/components/modals';
 	import { ProfileCard } from '$lib/components/user';
@@ -62,16 +60,15 @@
 		<div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
 	</div>
 {:else}
-	{@render children()}
+	<AppLayout>
+		{@render children()}
+	</AppLayout>
 {/if}
 
 <!-- Global modals -->
 <InstanceModal isOpen={$instanceModalOpen} onclose={() => instanceModalOpen.set(false)} />
 <CreateCommunityModal />
-<DiscoverCommunitiesModal />
 <CreateChannelModal />
-<SettingsModal />
-<CommunitySettingsModal />
 <FilePreviewModal />
 <ProfileCard />
 <ToastContainer />

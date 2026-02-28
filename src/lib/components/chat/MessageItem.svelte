@@ -216,11 +216,13 @@
 		}
 	}
 
-	async function handleReactionSelect(emoji: string) {
-		showActionBarPicker = false;
-		showReactionsPicker = false;
+	async function handleReactionSelect(emoji: string, options?: { keepOpen?: boolean }) {
+		if (!options?.keepOpen) {
+			showActionBarPicker = false;
+			showReactionsPicker = false;
+		}
 		const existingReaction = message.reactions?.find((r) => r.emoji === emoji);
-		handleToggleReaction(emoji, !!existingReaction?.reacted);
+		await handleToggleReaction(emoji, !!existingReaction?.reacted);
 	}
 
 	async function handleToggleReaction(emoji: string, reacted: boolean) {
@@ -453,6 +455,7 @@
 						{/if}
 						<button
 							onclick={() => (showReactionsPicker = !showReactionsPicker)}
+							data-emoji-picker-trigger="true"
 							class="flex items-center justify-center w-7 h-6 rounded-full border border-border bg-surface text-text-muted hover:border-text-muted transition-colors"
 						>
 							<Smile size={14} />
@@ -480,6 +483,7 @@
 			{#if enableReactions}
 				<button
 					onclick={() => (showActionBarPicker = !showActionBarPicker)}
+					data-emoji-picker-trigger="true"
 					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
 					aria-label="Add Reaction"
 				>

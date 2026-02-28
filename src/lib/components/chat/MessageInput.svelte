@@ -406,9 +406,11 @@
 		}
 	}
 
-	function handleEmojiSelect(emoji: string) {
+	function handleEmojiSelect(emoji: string, options?: { keepOpen?: boolean }) {
 		content += emoji;
-		showEmojiPicker = false;
+		if (!options?.keepOpen) {
+			showEmojiPicker = false;
+		}
 		textareaRef?.focus();
 	}
 
@@ -646,6 +648,7 @@
 				{/if}
 				<button
 					onclick={() => (showEmojiPicker = !showEmojiPicker)}
+					data-emoji-picker-trigger="true"
 					class="p-3 text-text-muted hover:text-text-primary transition-colors flex items-center justify-center {showEmojiPicker ? 'text-primary' : ''}"
 					aria-label="Add emoji"
 				>

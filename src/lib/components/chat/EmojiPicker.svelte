@@ -12,7 +12,7 @@
 	import type { CustomEmojiWithCommunity } from '$lib/types';
 
 	interface Props {
-		onSelect: (emoji: string) => void;
+		onSelect: (emoji: string, options?: { keepOpen?: boolean }) => void;
 		onClose?: () => void;
 		align?: 'left' | 'right';
 		customEmojiFormat?: 'shortcode' | 'reaction';
@@ -125,19 +125,20 @@
 		saveRecents();
 	}
 
-	function handleNativeEmojiClick(emoji: EmojiEntry) {
+	function handleNativeEmojiClick(emoji: EmojiEntry, event: MouseEvent) {
 		registerRecent(emoji);
-		onSelect(emoji.native);
+		onSelect(emoji.native, { keepOpen: event.shiftKey });
 	}
 
-	function handleCustomEmojiClick(emoji: CustomEmojiWithCommunity) {
+	function handleCustomEmojiClick(emoji: CustomEmojiWithCommunity, event: MouseEvent) {
+		const keepOpen = event.shiftKey;
 		if (customEmojiFormat === 'reaction') {
-			onSelect(`<:${emoji.name}:${emoji.id}>`);
+			onSelect(`<:${emoji.name}:${emoji.id}>`, { keepOpen });
 			return;
 		}
 
 		// Insert the shortcode — MessageInput will expand it to <:name:id> on send
-		onSelect(`:${emoji.name}:`);
+		onSelect(`:${emoji.name}:`, { keepOpen });
 	}
 
 	function jumpToCategory(categoryId: string) {
@@ -170,6 +171,10 @@
 	}
 
 	function handleOutsideClick(e: MouseEvent) {
+		const target = e.target;
+		if (target instanceof Element && target.closest('[data-emoji-picker-trigger="true"]')) {
+			return;
+		}
 		if (containerRef && !containerRef.contains(e.target as Node)) {
 			onClose?.();
 		}
@@ -211,7 +216,7 @@
 					<div class="grid grid-cols-8 gap-1">
 						{#each filteredCustomEmojis as emoji (emoji.id)}
 							<button
-								onclick={() => handleCustomEmojiClick(emoji)}
+								onclick={(event) => handleCustomEmojiClick(emoji, event)}
 								title={`:${emoji.name}: (${emoji.communityName})`}
 								class="w-8 h-8 flex items-center justify-center hover:bg-surface-hover rounded transition-colors"
 							>
@@ -236,7 +241,7 @@
 					<div class="grid grid-cols-8 gap-1">
 						{#each filteredNativeEmojis as emoji (emoji.id)}
 							<button
-								onclick={() => handleNativeEmojiClick(emoji)}
+								onclick={(event) => handleNativeEmojiClick(emoji, event)}
 								title={emoji.name}
 								class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
 							>
@@ -258,7 +263,7 @@
 						{#if section.type === 'custom' && section.customEmojis}
 							{#each section.customEmojis as emoji (emoji.id)}
 								<button
-									onclick={() => handleCustomEmojiClick(emoji)}
+									onclick={(event) => handleCustomEmojiClick(emoji, event)}
 									title={`:${emoji.name}:`}
 									class="w-8 h-8 flex items-center justify-center hover:bg-surface-hover rounded transition-colors"
 								>
@@ -273,7 +278,7 @@
 						{:else if section.nativeEmojis}
 							{#each section.nativeEmojis as emoji (emoji.id)}
 								<button
-									onclick={() => handleNativeEmojiClick(emoji)}
+									onclick={(event) => handleNativeEmojiClick(emoji, event)}
 									title={emoji.name}
 									class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
 								>

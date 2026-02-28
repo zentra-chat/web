@@ -19,6 +19,7 @@
 		filePreviewOpen,
 		filePreviewData,
 		openProfileCard,
+		openContextMenu,
 		addToast
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
@@ -316,6 +317,7 @@
 				<button 
 					class="block transition-transform active:scale-95" 
 					onclick={(e) => message.author && openProfileCard(message.author, e)}
+					oncontextmenu={(e) => message.author && openContextMenu(message.author, e)}
 				>
 					<Avatar user={message.author} size="md" />
 				</button>
@@ -334,6 +336,7 @@
 						class="font-medium text-text-primary hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
 						style={authorColor ? `color: ${authorColor}` : undefined}
 						onclick={(e) => message.author && openProfileCard(message.author, e)}
+						oncontextmenu={(e) => message.author && openContextMenu(message.author, e)}
 					>
 						{message.author?.displayName || message.author?.username || 'Unknown'}
 					</button>

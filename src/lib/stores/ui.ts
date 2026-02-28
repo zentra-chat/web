@@ -125,6 +125,37 @@ export function closeProfileCard(): void {
 	profileCardUser.set(null);
 }
 
+// User context menu state (right-click)
+export const contextMenuOpen = writable(false);
+export const contextMenuUser = writable<User | null>(null);
+export const contextMenuPosition = writable({ x: 0, y: 0 });
+
+export function openContextMenu(user: User, event: MouseEvent): void {
+	event.preventDefault();
+	contextMenuUser.set(user);
+	contextMenuPosition.set({ x: event.clientX, y: event.clientY });
+	contextMenuOpen.set(true);
+}
+
+export function closeContextMenu(): void {
+	contextMenuOpen.set(false);
+	contextMenuUser.set(null);
+}
+
+// Ban modal state (shared across the app)
+export const banModalOpen = writable(false);
+export const banModalTargetId = writable<string | null>(null);
+
+export function openBanModal(userId: string): void {
+	banModalTargetId.set(userId);
+	banModalOpen.set(true);
+}
+
+export function closeBanModal(): void {
+	banModalOpen.set(false);
+	banModalTargetId.set(null);
+}
+
 // Toast functions
 let toastIdCounter = 0;
 

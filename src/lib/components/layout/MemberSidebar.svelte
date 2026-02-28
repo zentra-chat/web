@@ -8,7 +8,7 @@
 		setMembers,
 		getMemberNameColor
 	} from '$lib/stores/community';
-	import { userPresence, toggleMemberSidebar, openProfileCard } from '$lib/stores/ui';
+	import { userPresence, toggleMemberSidebar, openProfileCard, openContextMenu } from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import type { CommunityMember, UserStatus } from '$lib/types';
 
@@ -121,6 +121,7 @@
 						<button
 							class="w-full flex items-center gap-2 p-1.5 rounded hover:bg-surface transition-colors group"
 							onclick={(e) => member.user && openProfileCard(member.user, e)}
+							oncontextmenu={(e) => member.user && openContextMenu(member.user, e)}
 						>
 							<Avatar
 								user={member.user}
@@ -153,6 +154,7 @@
 						<button
 							class="w-full flex items-center gap-2 p-1.5 rounded hover:bg-surface transition-colors group opacity-60"
 							onclick={(e) => member.user && openProfileCard(member.user, e)}
+							oncontextmenu={(e) => member.user && openContextMenu(member.user, e)}
 						>
 							<Avatar
 								user={member.user}

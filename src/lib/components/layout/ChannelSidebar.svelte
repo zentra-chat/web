@@ -7,7 +7,9 @@
 		ChevronDown,
 		ChevronRight,
 		Plus,
-		Settings,
+		Pencil,
+		Copy,
+		Trash2,
 		FolderPlus,
 		Volume2
 	} from 'lucide-svelte';
@@ -58,6 +60,15 @@
 	let renameInput = $state('');
 	let renameError = $state('');
 	let isRenaming = $state(false);
+	let deleteModal = $state<
+		| {
+			type: 'channel' | 'category';
+			id: string;
+			name: string;
+		}
+		| null
+	>(null);
+	let isDeleting = $state(false);
 	let subscribedVoiceChannelIds = new Set<string>();
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
@@ -390,11 +401,6 @@
 	}
 
 	async function handleDeleteChannel(channelId: string) {
-		const channel = $activeCommunityChannels.find((c) => c.id === channelId);
-		const label = channel ? `#${channel.name}` : 'this channel';
-		const confirmed = window.confirm(`Delete ${label}? This action cannot be undone.`);
-		if (!confirmed) return;
-
 		try {
 			await api.deleteChannel(channelId);
 			await loadChannelsAndCategories();
@@ -407,11 +413,6 @@
 	}
 
 	async function handleDeleteCategory(categoryId: string) {
-		const category = $activeCommunityCategories.find((c) => c.id === categoryId);
-		const label = category ? category.name : 'this folder';
-		const confirmed = window.confirm(`Delete folder "${label}"? Channels inside will become uncategorized.`);
-		if (!confirmed) return;
-
 		try {
 			await api.deleteCategory(categoryId);
 			await loadChannelsAndCategories();
@@ -424,17 +425,48 @@
 	}
 
 	function handleContextDeleteChannel() {
-		if (!contextMenu || contextMenu.type !== 'channel') return;
-		const channelId = contextMenu.channelId;
+		const menu = contextMenu;
+		if (!menu || menu.type !== 'channel') return;
+		const channel = $activeCommunityChannels.find((c) => c.id === menu.channelId);
+		deleteModal = {
+			type: 'channel',
+			id: menu.channelId,
+			name: channel ? `#${channel.name}` : 'this channel'
+		};
 		contextMenu = null;
-		void handleDeleteChannel(channelId);
 	}
 
 	function handleContextDeleteCategory() {
-		if (!contextMenu || contextMenu.type !== 'category') return;
-		const categoryId = contextMenu.categoryId;
+		const menu = contextMenu;
+		if (!menu || menu.type !== 'category') return;
+		const category = $activeCommunityCategories.find((c) => c.id === menu.categoryId);
+		deleteModal = {
+			type: 'category',
+			id: menu.categoryId,
+			name: category ? category.name : 'this folder'
+		};
 		contextMenu = null;
-		void handleDeleteCategory(categoryId);
+	}
+
+	async function confirmDelete() {
+		if (!deleteModal || isDeleting) return;
+
+		isDeleting = true;
+		try {
+			if (deleteModal.type === 'channel') {
+				await handleDeleteChannel(deleteModal.id);
+			} else {
+				await handleDeleteCategory(deleteModal.id);
+			}
+			deleteModal = null;
+		} finally {
+			isDeleting = false;
+		}
+	}
+
+	function closeDeleteModal() {
+		if (isDeleting) return;
+		deleteModal = null;
 	}
 
 	function handleOpenCommunitySettings() {
@@ -648,22 +680,25 @@
 				{#if canManageChannels}
 					<button
 						onclick={handleContextRenameChannel}
-						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover flex items-center gap-2"
 					>
+						<Pencil size={14} />
 						Rename Channel
 					</button>
 					<button
 						onclick={handleContextDeleteChannel}
-						class="w-full rounded px-3 py-2 text-left text-sm text-error hover:bg-surface-hover"
+						class="w-full rounded px-3 py-2 text-left text-sm text-error hover:bg-surface-hover flex items-center gap-2 text-red-400"
 					>
+						<Trash2 size={14} />
 						Delete Channel
 					</button>
 				{/if}
 				{#if developerModeEnabled}
 					<button
 						onclick={handleContextCopyChannelId}
-						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover flex items-center gap-2"
 					>
+						<Copy size={14}/>
 						Copy Channel ID
 					</button>
 				{/if}
@@ -671,14 +706,16 @@
 				{#if canManageChannels}
 					<button
 						onclick={handleContextRenameCategory}
-						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover flex items-center gap-2"
 					>
+						<Pencil size={14} />
 						Rename Folder
 					</button>
 					<button
 						onclick={handleContextDeleteCategory}
-						class="w-full rounded px-3 py-2 text-left text-sm text-error hover:bg-surface-hover"
+						class="w-full rounded px-3 py-2 text-left text-sm text-error hover:bg-surface-hover flex items-center gap-2"
 					>
+						<Trash2 size={14} />
 						Delete Folder
 					</button>
 				{/if}
@@ -719,6 +756,27 @@
 				</Button>
 			</div>
 		</form>
+	</Modal>
+
+	<Modal
+		isOpen={deleteModal !== null}
+		onclose={closeDeleteModal}
+		title={deleteModal?.type === 'channel' ? 'Delete Channel' : 'Delete Folder'}
+		size="sm"
+	>
+		<div class="space-y-4">
+			<p class="text-sm text-text-secondary">
+				{#if deleteModal?.type === 'channel'}
+					Delete {deleteModal.name}? This action cannot be undone.
+				{:else}
+					Delete folder "{deleteModal?.name}"? Channels inside will become uncategorized.
+				{/if}
+			</p>
+			<div class="flex justify-end gap-2">
+				<Button variant="ghost" onclick={closeDeleteModal} disabled={isDeleting}>Cancel</Button>
+				<Button variant="danger" onclick={() => void confirmDelete()} loading={isDeleting}>Delete</Button>
+			</div>
+		</div>
 	</Modal>
 
 	<!-- Voice call controls -->

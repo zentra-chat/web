@@ -230,11 +230,6 @@ export function switchActiveAccount(userId: string): boolean {
 	const selected = instanceAccounts.find((account) => account.userId === userId);
 	if (!selected) return false;
 
-	if (new Date(selected.auth.expiresAt) <= new Date()) {
-		removeSavedAccount(instanceId, userId);
-		return false;
-	}
-
 	setInstanceAuth(instanceId, selected.auth);
 	return true;
 }

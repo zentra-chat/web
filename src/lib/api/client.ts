@@ -3,7 +3,6 @@ import {
 	activeInstance,
 	activeAuth,
 	setInstanceAuth,
-	clearInstanceAuth,
 	logout as logoutFromStore
 } from '$lib/stores/instance';
 import { showToast } from '$lib/stores/ui';
@@ -43,6 +42,22 @@ interface RetryableApiError extends ApiError {
 
 class ApiClient {
 	private authFailureHandled = false;
+	private refreshInFlight: Promise<boolean> | null = null;
+	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+	constructor() {
+		if (typeof window === 'undefined') return;
+
+		activeAuth.subscribe(() => {
+			this.scheduleSessionRefresh();
+		});
+
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') {
+				void this.refreshSessionIfNeeded();
+			}
+		});
+	}
 
 	private withCacheBuster(url: string): string {
 		const separator = url.includes('?') ? '&' : '?';
@@ -57,6 +72,46 @@ class ApiClient {
 		}
 		logoutFromStore();
 		showToast('warning', 'Your session expired. Please sign in again.');
+	}
+
+	private getAuthExpiryMs(): number | null {
+		const auth = get(activeAuth);
+		if (!auth) return null;
+
+		const expiresAtMs = Date.parse(auth.expiresAt);
+		if (Number.isNaN(expiresAtMs)) return null;
+
+		return expiresAtMs;
+	}
+
+	private scheduleSessionRefresh(): void {
+		if (this.refreshTimer) {
+			clearTimeout(this.refreshTimer);
+			this.refreshTimer = null;
+		}
+
+		const expiresAtMs = this.getAuthExpiryMs();
+		if (!expiresAtMs) return;
+
+		const refreshLeadMs = 60_000;
+		const minDelayMs = 5_000;
+		const delayMs = Math.max(expiresAtMs - Date.now() - refreshLeadMs, minDelayMs);
+
+		this.refreshTimer = setTimeout(() => {
+			void this.refreshSessionIfNeeded();
+		}, delayMs);
+	}
+
+	async refreshSessionIfNeeded(): Promise<boolean> {
+		const expiresAtMs = this.getAuthExpiryMs();
+		if (!expiresAtMs) return false;
+
+		const refreshLeadMs = 60_000;
+		if (expiresAtMs > Date.now() + refreshLeadMs) {
+			return true;
+		}
+
+		return this.refreshToken();
 	}
 
 	private getBaseUrl(): string {
@@ -152,6 +207,18 @@ class ApiClient {
 	}
 
 	private async refreshToken(): Promise<boolean> {
+		if (this.refreshInFlight) {
+			return this.refreshInFlight;
+		}
+
+		this.refreshInFlight = this.performRefreshToken().finally(() => {
+			this.refreshInFlight = null;
+		});
+
+		return this.refreshInFlight;
+	}
+
+	private async performRefreshToken(): Promise<boolean> {
 		const auth = get(activeAuth);
 		const instance = get(activeInstance);
 		if (!auth || !instance) return false;
@@ -164,7 +231,9 @@ class ApiClient {
 			});
 
 			if (!response.ok) {
-				this.handleAuthFailure();
+				if (response.status === 401) {
+					this.handleAuthFailure();
+				}
 				return false;
 			}
 
@@ -178,11 +247,11 @@ class ApiClient {
 				user: result.data.user ?? auth.user
 			});
 			this.authFailureHandled = false;
+			this.scheduleSessionRefresh();
 
 			return true;
-		} catch {
-			clearInstanceAuth(instance.id);
-			this.handleAuthFailure();
+		} catch (error) {
+			console.warn('Token refresh request failed:', error);
 			return false;
 		}
 	}

@@ -256,17 +256,19 @@ body {
 }
 
 /* Custom emoji inline images */
-.custom-emoji {
+.message-content img.custom-emoji {
 	display: inline-block;
 	width: 1.375em;
 	height: 1.375em;
 	vertical-align: -0.3em;
 	object-fit: contain;
 	margin: 0 0.05em;
+	white-space: nowrap;
 	/* Override the generic .message-content img block styles */
 	border: none;
 	border-radius: 0;
 	background: none;
 	max-height: unset;
 	max-width: unset;
+	line-height: 1;
 }

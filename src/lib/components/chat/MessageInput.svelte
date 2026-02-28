@@ -228,7 +228,7 @@
 	$effect(() => {
 		if (editingMessage) {
 			content = (editingMessage.content || '').replace(
-				/<:([a-zA-Z0-9_]{2,32}):([0-9a-f-]{36})>/gi,
+				/<:([a-zA-Z0-9_+-]{2,32}):([0-9a-f-]{36})>/gi,
 				(_, name) => `:${name}:`
 			);
 			textareaRef?.focus();
@@ -239,7 +239,7 @@
 		// Expand :customEmojiName: shortcodes to their wire format <:name:UUID>
 		// This handles both autocomplete insertions and manually typed :name: tokens
 		const expandedContent = content.replace(
-			/:([a-zA-Z0-9_]{2,32}):/g,
+			/:([a-zA-Z0-9_+-]{2,32}):/g,
 			(match, name) => {
 				const emoji = customEmojiByName.get(name.toLowerCase());
 				return emoji ? `<:${emoji.name}:${emoji.id}>` : match;

@@ -63,7 +63,7 @@ function postProcessMentions(html: string, resolver?: MentionResolver): string {
 function postProcessEmojis(html: string, emojiResolver?: EmojiResolver): string {
 	// Custom emojis: <:name:UUID> (HTML-escaped by markdown-it)
 	html = html.replace(
-		new RegExp(`&lt;:([a-zA-Z0-9_]{2,32}):(${UUID_PATTERN})&gt;`, 'gi'),
+		new RegExp(`&lt;:([a-zA-Z0-9_+-]{2,32}):(${UUID_PATTERN})&gt;`, 'gi'),
 		(match, name, id) => {
 			const emoji = emojiResolver?.getCustomEmoji?.(id);
 			if (emoji) {

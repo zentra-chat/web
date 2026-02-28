@@ -102,6 +102,29 @@ export interface CommunityInvite {
 	createdAt: string;
 }
 
+export interface CommunityBan {
+	id: string;
+	communityId: string;
+	userId: string;
+	bannedBy: string;
+	reason: string | null;
+	createdAt: string;
+	user?: User;
+	bannedByUser?: User;
+}
+
+export interface AuditLogEntry {
+	id: string;
+	communityId: string | null;
+	actorId: string;
+	action: string;
+	targetType: string | null;
+	targetId: string | null;
+	details: Record<string, unknown> | null;
+	createdAt: string;
+	actor?: User;
+}
+
 // Channel types
 export interface Channel {
 	id: string;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Input, Textarea, Button, Spinner } from '$lib/components/ui';
-	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown, Smile, Pencil } from 'lucide-svelte';
+	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown, Smile, Pencil, Shield, ScrollText, Gavel, UserX } from 'lucide-svelte';
 	import { addToast } from '$lib/stores/ui';
 	import {
 		activeCommunity,
@@ -13,7 +13,8 @@
 	} from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
-	import type { CommunityInvite, Role, CommunityMember, CustomEmoji } from '$lib/types';
+	import type { CommunityInvite, Role, CommunityMember, CustomEmoji, CommunityBan, AuditLogEntry } from '$lib/types';
+	import { Permission, memberHasPermission } from '$lib/stores/community';
 	import { refreshCustomEmojis } from '$lib/stores/emoji';
 
 	type ApiErrorLike = { error?: string; message?: string; response?: { data?: { message?: string } } };
@@ -24,7 +25,7 @@
 	let iconPreview = $state<string | null>(null);
 	let isPrivate = $state(false);
 	let invites = $state<CommunityInvite[]>([]);
-	let activeTab = $state<'overview' | 'members' | 'roles' | 'invites' | 'emojis'>('overview');
+	let activeTab = $state<'overview' | 'members' | 'roles' | 'invites' | 'emojis' | 'moderation'>('overview');
 	let isSubmitting = $state(false);
 	let isGeneratingInvite = $state(false);
 	let isLoadingInvites = $state(false);
@@ -66,8 +67,32 @@
 	let editingEmojiId = $state<string | null>(null);
 	let editingEmojiName = $state('');
 
+	// Moderation state
+	let moderationSubTab = $state<'bans' | 'audit'>('bans');
+	let bans = $state<CommunityBan[]>([]);
+	let auditLogs = $state<AuditLogEntry[]>([]);
+	let auditLogTotal = $state(0);
+	let auditLogPage = $state(1);
+	let isLoadingBans = $state(false);
+	let isLoadingAuditLog = $state(false);
+	let hasAttemptedBansLoad = $state(false);
+	let hasAttemptedAuditLoad = $state(false);
+	let banReasonInput = $state('');
+	let banTargetId = $state<string | null>(null);
+	let showBanModal = $state(false);
+	let isProcessingBan = $state(false);
+
 	let fileInputRef: HTMLInputElement | null = $state(null);
 	let isOwner = $derived($activeCommunity?.ownerId === $currentUserId);
+
+	// Check if the current user has moderation permissions
+	let currentMember = $derived($activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
+	let canModerate = $derived(
+		isOwner ||
+		memberHasPermission(currentMember, Permission.BanMembers) ||
+		memberHasPermission(currentMember, Permission.KickMembers) ||
+		memberHasPermission(currentMember, Permission.ViewAuditLog)
+	);
 
 	// Load community data when page is active
 	$effect(() => {
@@ -128,6 +153,36 @@
 	$effect(() => {
 		if (activeTab !== 'emojis') {
 			hasAttemptedEmojiLoad = false;
+		}
+	});
+
+	// Load moderation data when switching to that tab
+	$effect(() => {
+		if (activeTab === 'moderation' && $activeCommunity) {
+			if (moderationSubTab === 'bans' && !hasAttemptedBansLoad && !isLoadingBans) {
+				loadBans();
+			}
+			if (moderationSubTab === 'audit' && !hasAttemptedAuditLoad && !isLoadingAuditLog) {
+				loadAuditLog();
+			}
+		}
+	});
+
+	$effect(() => {
+		if (activeTab !== 'moderation') {
+			hasAttemptedBansLoad = false;
+			hasAttemptedAuditLoad = false;
+		}
+	});
+
+	// Reload when switching sub-tabs within moderation
+	$effect(() => {
+		if (activeTab === 'moderation' && $activeCommunity) {
+			if (moderationSubTab === 'bans' && !hasAttemptedBansLoad) {
+				loadBans();
+			} else if (moderationSubTab === 'audit' && !hasAttemptedAuditLoad) {
+				loadAuditLog();
+			}
 		}
 	});
 
@@ -195,6 +250,140 @@
 		}
 	}
 
+	async function loadBans() {
+		if (!$activeCommunity || isLoadingBans) return;
+		isLoadingBans = true;
+		hasAttemptedBansLoad = true;
+		try {
+			bans = await api.getBans($activeCommunity.id);
+		} catch (err) {
+			console.error('Failed to load bans:', err);
+			addToast({ type: 'error', message: 'Failed to load ban list' });
+		} finally {
+			isLoadingBans = false;
+		}
+	}
+
+	async function loadAuditLog(page = 1) {
+		if (!$activeCommunity || isLoadingAuditLog) return;
+		isLoadingAuditLog = true;
+		hasAttemptedAuditLoad = true;
+		try {
+			const result = await api.getAuditLog($activeCommunity.id, page);
+			auditLogs = result.data;
+			auditLogTotal = result.total;
+			auditLogPage = page;
+		} catch (err) {
+			console.error('Failed to load audit log:', err);
+			addToast({ type: 'error', message: 'Failed to load audit log' });
+		} finally {
+			isLoadingAuditLog = false;
+		}
+	}
+
+	function openBanModal(userId: string) {
+		banTargetId = userId;
+		banReasonInput = '';
+		showBanModal = true;
+	}
+
+	function closeBanModal() {
+		showBanModal = false;
+		banTargetId = null;
+		banReasonInput = '';
+	}
+
+	async function confirmBan() {
+		if (!$activeCommunity || !banTargetId || isProcessingBan) return;
+		isProcessingBan = true;
+		try {
+			await api.banMember($activeCommunity.id, banTargetId, banReasonInput.trim() || undefined);
+			addToast({ type: 'success', message: 'Member banned' });
+			closeBanModal();
+
+			// Refresh the members list so the banned user disappears
+			const members = await api.getCommunityMembers($activeCommunity.id);
+			setMembers($activeCommunity.id, members);
+
+			// If we're on the moderation tab, refresh bans too
+			if (activeTab === 'moderation' && moderationSubTab === 'bans') {
+				await loadBans();
+			}
+		} catch (err) {
+			const msg = (err as ApiErrorLike)?.error || (err as ApiErrorLike)?.message || 'Failed to ban member';
+			addToast({ type: 'error', message: msg });
+		} finally {
+			isProcessingBan = false;
+		}
+	}
+
+	async function handleUnban(userId: string) {
+		if (!$activeCommunity) return;
+		try {
+			await api.unbanMember($activeCommunity.id, userId);
+			bans = bans.filter((b) => b.userId !== userId);
+			addToast({ type: 'success', message: 'User unbanned' });
+		} catch (err) {
+			const msg = (err as ApiErrorLike)?.error || (err as ApiErrorLike)?.message || 'Failed to unban user';
+			addToast({ type: 'error', message: msg });
+		}
+	}
+
+	async function handleKick(userId: string, displayName: string) {
+		if (!$activeCommunity) return;
+		if (!confirm(`Kick ${displayName} from the community?`)) return;
+		try {
+			await api.kickMember($activeCommunity.id, userId);
+			addToast({ type: 'success', message: `${displayName} has been kicked` });
+			const members = await api.getCommunityMembers($activeCommunity.id);
+			setMembers($activeCommunity.id, members);
+		} catch (err) {
+			const msg = (err as ApiErrorLike)?.error || (err as ApiErrorLike)?.message || 'Failed to kick member';
+			addToast({ type: 'error', message: msg });
+		}
+	}
+
+	function formatAuditAction(action: string): string {
+		const labels: Record<string, string> = {
+			'community.create': 'Created community',
+			'community.update': 'Updated community',
+			'community.delete': 'Deleted community',
+			'channel.create': 'Created channel',
+			'channel.update': 'Updated channel',
+			'channel.delete': 'Deleted channel',
+			'member.join': 'Member joined',
+			'member.leave': 'Member left',
+			'member.kick': 'Kicked member',
+			'member.ban': 'Banned member',
+			'member.unban': 'Unbanned member',
+			'role.create': 'Created role',
+			'role.update': 'Updated role',
+			'role.delete': 'Deleted role',
+			'invite.create': 'Created invite',
+			'invite.delete': 'Deleted invite',
+			'message.delete': 'Deleted message',
+			'message.pin': 'Pinned message',
+			'message.unpin': 'Unpinned message'
+		};
+		return labels[action] || action;
+	}
+
+	function formatRelativeTime(dateStr: string): string {
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffSec = Math.floor(diffMs / 1000);
+		const diffMin = Math.floor(diffSec / 60);
+		const diffHr = Math.floor(diffMin / 60);
+		const diffDay = Math.floor(diffHr / 24);
+
+		if (diffDay > 30) return date.toLocaleDateString();
+		if (diffDay > 0) return `${diffDay}d ago`;
+		if (diffHr > 0) return `${diffHr}h ago`;
+		if (diffMin > 0) return `${diffMin}m ago`;
+		return 'just now';
+	}
+
 	function handleClose() {
 		goto('/app');
 		resetForm();
@@ -218,6 +407,12 @@
 		newEmojiFile = null;
 		newEmojiPreview = null;
 		editingEmojiId = null;
+		bans = [];
+		auditLogs = [];
+		moderationSubTab = 'bans';
+		showBanModal = false;
+		banTargetId = null;
+		banReasonInput = '';
 	}
 
 	// --- Emoji management ---
@@ -730,6 +925,15 @@
 				<Smile size={16} class="inline-block mr-2" />
 				Emojis
 			</button>
+			{#if canModerate}
+				<button
+					onclick={() => activeTab = 'moderation'}
+					class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'moderation' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+				>
+					<Shield size={16} class="inline-block mr-2" />
+					Moderation
+				</button>
+			{/if}
 		</div>
 
 		<!-- Content -->
@@ -887,6 +1091,10 @@
 								{#if !selectedMemberId}
 									<p class="text-sm text-text-muted">Select a member to edit roles.</p>
 								{:else}
+									{@const selectedMember = $activeCommunityMembers.find((m) => m.userId === selectedMemberId)}
+									{@const memberDisplayName = getMemberLabel(selectedMember || { userId: '', communityId: '', nickname: null, joinedAt: '', roles: [] })}
+									{@const isTargetOwner = $activeCommunity?.ownerId === selectedMemberId}
+									{@const isSelf = selectedMemberId === $currentUserId}
 									<div class="flex items-center justify-between mb-3">
 										<div>
 											<p class="text-sm font-semibold text-text-primary">Roles</p>
@@ -930,6 +1138,35 @@
 											{/if}
 										{/each}
 									</div>
+
+									<!-- Moderation actions for this member -->
+									{#if !isTargetOwner && !isSelf && (isOwner || memberHasPermission(currentMember, Permission.KickMembers) || memberHasPermission(currentMember, Permission.BanMembers))}
+										<div class="mt-4 pt-4 border-t border-border space-y-2">
+											<p class="text-xs uppercase tracking-wide text-text-muted mb-2">Moderation</p>
+											<div class="flex gap-2">
+												{#if isOwner || memberHasPermission(currentMember, Permission.KickMembers)}
+													<Button
+														variant="ghost"
+														size="sm"
+														onclick={() => handleKick(selectedMemberId!, memberDisplayName)}
+													>
+														<UserX size={14} />
+														Kick
+													</Button>
+												{/if}
+												{#if isOwner || memberHasPermission(currentMember, Permission.BanMembers)}
+													<Button
+														variant="danger"
+														size="sm"
+														onclick={() => openBanModal(selectedMemberId!)}
+													>
+														<Gavel size={14} />
+														Ban
+													</Button>
+												{/if}
+											</div>
+										</div>
+									{/if}
 								{/if}
 							</div>
 						</div>
@@ -1287,8 +1524,187 @@
 						</div>
 					{/if}
 				</div>
+			{:else if activeTab === 'moderation'}
+				<div class="space-y-4">
+					<div>
+						<h3 class="text-lg font-semibold text-text-primary">Moderation</h3>
+						<p class="text-sm text-text-muted">Manage bans and review the audit log</p>
+					</div>
+
+					<!-- Sub-tabs -->
+					<div class="flex gap-1 border-b border-border">
+						<button
+							onclick={() => moderationSubTab = 'bans'}
+							class="px-4 py-2 text-sm font-medium transition-colors border-b-2 {moderationSubTab === 'bans' ? 'border-primary text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}"
+						>
+							<Gavel size={14} class="inline-block mr-1.5" />
+							Ban List
+						</button>
+						<button
+							onclick={() => moderationSubTab = 'audit'}
+							class="px-4 py-2 text-sm font-medium transition-colors border-b-2 {moderationSubTab === 'audit' ? 'border-primary text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}"
+						>
+							<ScrollText size={14} class="inline-block mr-1.5" />
+							Audit Log
+						</button>
+					</div>
+
+					{#if moderationSubTab === 'bans'}
+						<!-- Ban List -->
+						{#if isLoadingBans}
+							<div class="flex justify-center py-8">
+								<Spinner size="lg" />
+							</div>
+						{:else if !bans || bans.length === 0}
+							<div class="text-center py-8 text-text-muted">
+								<Shield size={32} class="mx-auto mb-2 opacity-50" />
+								<p>No banned users</p>
+								<p class="text-sm">Banned users will appear here</p>
+							</div>
+						{:else}
+							<div class="space-y-2">
+								{#each bans as ban (ban.id)}
+									<div class="flex items-center justify-between p-3 bg-surface-hover rounded-lg">
+										<div class="flex items-center gap-3 min-w-0">
+											{#if ban.user?.avatarUrl}
+												<img src={ban.user.avatarUrl} alt="" class="w-9 h-9 rounded-full object-cover shrink-0" />
+											{:else}
+												<div class="w-9 h-9 rounded-full bg-surface flex items-center justify-center shrink-0">
+													<UserX size={16} class="text-text-muted" />
+												</div>
+											{/if}
+											<div class="min-w-0">
+												<p class="text-sm font-medium text-text-primary truncate">
+													{ban.user?.displayName || ban.user?.username || 'Unknown User'}
+												</p>
+												<div class="flex items-center gap-2 text-xs text-text-muted">
+													{#if ban.reason}
+														<span class="truncate max-w-[200px]" title={ban.reason}>Reason: {ban.reason}</span>
+														<span>&middot;</span>
+													{/if}
+													<span>Banned by {ban.bannedByUser?.displayName || ban.bannedByUser?.username || 'Unknown'}</span>
+													<span>&middot;</span>
+													<span>{formatRelativeTime(ban.createdAt)}</span>
+												</div>
+											</div>
+										</div>
+										<Button
+											variant="ghost"
+											size="sm"
+											onclick={() => {
+												if (confirm(`Unban ${ban.user?.displayName || ban.user?.username || 'this user'}?`)) {
+													handleUnban(ban.userId);
+												}
+											}}
+										>
+											Unban
+										</Button>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					{:else if moderationSubTab === 'audit'}
+						<!-- Audit Log -->
+						{#if isLoadingAuditLog}
+							<div class="flex justify-center py-8">
+								<Spinner size="lg" />
+							</div>
+						{:else if !auditLogs || auditLogs.length === 0}
+							<div class="text-center py-8 text-text-muted">
+								<ScrollText size={32} class="mx-auto mb-2 opacity-50" />
+								<p>No audit log entries</p>
+								<p class="text-sm">Actions taken by moderators will appear here</p>
+							</div>
+						{:else}
+							<div class="space-y-1">
+								{#each auditLogs as entry (entry.id)}
+									<div class="flex items-start gap-3 p-3 bg-surface-hover rounded-lg">
+										{#if entry.actor?.avatarUrl}
+											<img src={entry.actor.avatarUrl} alt="" class="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
+										{:else}
+											<div class="w-8 h-8 rounded-full bg-surface flex items-center justify-center shrink-0 mt-0.5">
+												<Users size={14} class="text-text-muted" />
+											</div>
+										{/if}
+										<div class="min-w-0 flex-1">
+											<p class="text-sm text-text-primary">
+												<span class="font-medium">{entry.actor?.displayName || entry.actor?.username || 'Unknown'}</span>
+												<span class="text-text-muted ml-1">{formatAuditAction(entry.action)}</span>
+											</p>
+											{#if entry.details}
+												{@const details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details}
+												{#if details.reason}
+													<p class="text-xs text-text-muted mt-0.5">Reason: {details.reason}</p>
+												{/if}
+											{/if}
+										</div>
+										<span class="text-xs text-text-muted shrink-0">{formatRelativeTime(entry.createdAt)}</span>
+									</div>
+								{/each}
+							</div>
+
+							<!-- Pagination -->
+							{#if auditLogTotal > 50}
+								<div class="flex justify-center gap-2 pt-4">
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={auditLogPage <= 1}
+										onclick={() => loadAuditLog(auditLogPage - 1)}
+									>
+										Previous
+									</Button>
+									<span class="text-sm text-text-muted py-1.5 px-2">
+										Page {auditLogPage} of {Math.ceil(auditLogTotal / 50)}
+									</span>
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={auditLogPage >= Math.ceil(auditLogTotal / 50)}
+										onclick={() => loadAuditLog(auditLogPage + 1)}
+									>
+										Next
+									</Button>
+								</div>
+							{/if}
+						{/if}
+					{/if}
+				</div>
 			{/if}
 		</div>
 		</div>
 	</div>
 </div>
+
+<!-- Ban confirmation modal -->
+{#if showBanModal}
+	<div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" role="dialog">
+		<div class="bg-surface rounded-xl p-6 w-full max-w-md shadow-xl border border-border">
+			<h3 class="text-lg font-semibold text-text-primary mb-2">Ban Member</h3>
+			<p class="text-sm text-text-muted mb-4">This will remove the user from the community and prevent them from rejoining.</p>
+
+			<div class="mb-4">
+				<label for="ban-reason" class="block text-sm text-text-muted mb-1">Reason (optional)</label>
+				<Textarea
+					id="ban-reason"
+					bind:value={banReasonInput}
+					placeholder="Why is this user being banned?"
+					rows={3}
+					maxlength={512}
+				/>
+			</div>
+
+			<div class="flex justify-end gap-2">
+				<Button variant="ghost" onclick={closeBanModal}>Cancel</Button>
+				<Button variant="danger" onclick={confirmBan} disabled={isProcessingBan}>
+					{#if isProcessingBan}
+						<Spinner size="sm" />
+						Banning...
+					{:else}
+						Ban Member
+					{/if}
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}

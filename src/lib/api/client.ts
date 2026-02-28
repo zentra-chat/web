@@ -20,6 +20,8 @@ import type {
 	UserSettings,
 	Community,
 	CommunityInvite,
+	CommunityBan,
+	AuditLogEntry,
 	Channel,
 	ChannelCategory,
 	CommunityMember,
@@ -512,6 +514,39 @@ class ApiClient {
 			method: 'PUT',
 			body: JSON.stringify({ roleIds })
 		});
+	}
+
+	async kickMember(communityId: string, userId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/members/${userId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	// Ban management
+	async banMember(communityId: string, userId: string, reason?: string): Promise<void> {
+		await this.request(`/communities/${communityId}/bans/${userId}`, {
+			method: 'POST',
+			body: JSON.stringify({ reason: reason || null })
+		});
+	}
+
+	async unbanMember(communityId: string, userId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/bans/${userId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async getBans(communityId: string): Promise<CommunityBan[]> {
+		const result = await this.request<ApiResponse<CommunityBan[]>>(`/communities/${communityId}/bans`);
+		return result.data;
+	}
+
+	// Audit log
+	async getAuditLog(communityId: string, page = 1, pageSize = 50): Promise<{ data: AuditLogEntry[]; total: number }> {
+		const result = await this.request<PaginatedResponse<AuditLogEntry>>(
+			`/communities/${communityId}/audit-log?page=${page}&pageSize=${pageSize}`
+		);
+		return { data: result.data, total: result.total };
 	}
 
 	// Channel endpoints

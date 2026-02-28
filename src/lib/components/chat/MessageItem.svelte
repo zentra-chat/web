@@ -260,6 +260,16 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
+	function isVideoAttachment(attachment: Attachment): boolean {
+		const contentType = attachment.contentType?.toLowerCase() ?? '';
+		return contentType.startsWith('video/');
+	}
+
+	function isAudioAttachment(attachment: Attachment): boolean {
+		const contentType = attachment.contentType?.toLowerCase() ?? '';
+		return contentType.startsWith('audio/');
+	}
+
 	function getPreviewSite(url: string, siteName?: string | null): string {
 		if (siteName && siteName.trim().length > 0) return siteName;
 		try {
@@ -405,6 +415,36 @@
 									class="max-h-80 object-contain"
 								/>
 							</a>
+						{:else if isVideoAttachment(attachment)}
+							<div class="w-full max-w-xl rounded-lg overflow-hidden border border-border bg-surface/60">
+								<video
+									src={attachment.url}
+									controls
+									playsinline
+									preload="metadata"
+									class="w-full max-h-100 bg-background"
+								>
+									<track kind="captions" />
+									<a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+								</video>
+								<div class="px-3 py-2 border-t border-border">
+									<p class="text-sm text-text-primary truncate">{attachment.filename}</p>
+									<p class="text-xs text-text-muted">{formatFileSize(attachment.size)}</p>
+								</div>
+							</div>
+						{:else if isAudioAttachment(attachment)}
+							<div class="w-full max-w-xl p-3 bg-surface border border-border rounded-lg">
+								<p class="text-sm text-text-primary truncate mb-2">{attachment.filename}</p>
+								<audio
+									src={attachment.url}
+									controls
+									preload="metadata"
+									class="w-full"
+								>
+									<a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+								</audio>
+								<p class="text-xs text-text-muted mt-2">{formatFileSize(attachment.size)}</p>
+							</div>
 						{:else}
 							<a
 								href={attachment.url}

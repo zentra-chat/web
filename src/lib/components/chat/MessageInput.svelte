@@ -477,6 +477,14 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
+	function isVideoFile(file: File): boolean {
+		return file.type.toLowerCase().startsWith('video/');
+	}
+
+	function isAudioFile(file: File): boolean {
+		return file.type.toLowerCase().startsWith('audio/');
+	}
+
 	// Auto-focus message input when typing anywhere
 	$effect(() => {
 		resizeTextarea();
@@ -570,6 +578,26 @@
 								alt={file.name}
 								class="w-full h-full object-cover"
 							/>
+						</div>
+					{:else if isVideoFile(file)}
+						<div class="w-36 h-20 rounded bg-surface-hover overflow-hidden border border-border">
+							<video
+								src={URL.createObjectURL(file)}
+								class="w-full h-full object-cover"
+								muted
+								playsinline
+								preload="metadata"
+							>
+								<track kind="captions" />
+							</video>
+						</div>
+					{:else if isAudioFile(file)}
+						<div class="w-48 h-20 rounded bg-surface-hover border border-border px-2 py-1 flex flex-col justify-center gap-1">
+							<div class="flex items-center gap-2 min-w-0">
+								<Paperclip size={16} class="text-text-muted shrink-0" />
+								<span class="text-[10px] text-text-muted truncate">{file.name}</span>
+							</div>
+							<audio src={URL.createObjectURL(file)} controls preload="metadata" class="w-full h-7"></audio>
 						</div>
 					{:else}
 						<div class="w-20 h-20 rounded bg-surface-hover flex flex-col items-center justify-center p-2">

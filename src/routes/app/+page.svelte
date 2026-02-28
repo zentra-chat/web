@@ -18,6 +18,7 @@
 	import { api } from '$lib/api';
 	import { loadCustomEmojis } from '$lib/stores/emoji';
 	import { mergeServerDefinitions } from '$lib/channelTypes';
+	import { loadCommunityPluginFrontends, resetPluginRuntimeCache } from '$lib/pluginRuntime';
 
 	let isLoadingCommunities = $state(true);
 	let isLoadingChannels = $state(false);
@@ -32,6 +33,8 @@
 	$effect(() => {
 		const instance = $activeInstance;
 		if (!instance) return;
+
+		resetPluginRuntimeCache();
 
 		if (communitiesLoadedByInstance[instance.id]) {
 			isLoadingCommunities = false;
@@ -115,6 +118,9 @@
 	$effect(() => {
 		if ($activeCommunity) {
 			loadChannels($activeCommunity.id);
+			loadCommunityPluginFrontends($activeCommunity.id).catch((err) => {
+				console.warn('Could not load plugin frontend bundles:', err);
+			});
 		} else {
 			setActiveChannel(null);
 		}
@@ -129,10 +135,7 @@
 
 			// Select first channel if available
 			if (channels.length > 0 && !$activeChannel) {
-				const textChannels = channels.filter((c) => c.type === 'text');
-				if (textChannels.length > 0) {
-					setActiveChannel(textChannels[0]);
-				}
+				setActiveChannel(channels[0]);
 			}
 		} catch (err) {
 			console.error('Failed to load channels:', err);

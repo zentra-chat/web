@@ -445,3 +445,97 @@ export interface CustomEmoji {
 export interface CustomEmojiWithCommunity extends CustomEmoji {
 	communityName: string;
 }
+
+// Plugin types
+
+// What a plugin is allowed to do - matches backend bitmask exactly
+export const PluginPermission = {
+	ReadMessages: 1 << 0,
+	SendMessages: 1 << 1,
+	ManageMessages: 1 << 2,
+	ReadMembers: 1 << 3,
+	ManageMembers: 1 << 4,
+	ReadChannels: 1 << 5,
+	ManageChannels: 1 << 6,
+	AddChannelTypes: 1 << 7,
+	AddCommands: 1 << 8,
+	ServerInfo: 1 << 9,
+	Webhooks: 1 << 10,
+	ReactToMessages: 1 << 11
+} as const;
+
+// Human-readable labels for each permission
+export const PluginPermissionLabels: Record<number, { label: string; description: string; risky: boolean }> = {
+	[PluginPermission.ReadMessages]: { label: 'Read Messages', description: 'Can read messages in channels', risky: false },
+	[PluginPermission.SendMessages]: { label: 'Send Messages', description: 'Can send messages on behalf of the plugin', risky: false },
+	[PluginPermission.ManageMessages]: { label: 'Manage Messages', description: 'Can delete or edit messages', risky: true },
+	[PluginPermission.ReadMembers]: { label: 'Read Members', description: 'Can see member list and profiles', risky: false },
+	[PluginPermission.ManageMembers]: { label: 'Manage Members', description: 'Can kick or ban members', risky: true },
+	[PluginPermission.ReadChannels]: { label: 'Read Channels', description: 'Can see channel list and info', risky: false },
+	[PluginPermission.ManageChannels]: { label: 'Manage Channels', description: 'Can create, edit, or delete channels', risky: true },
+	[PluginPermission.AddChannelTypes]: { label: 'Custom Channel Types', description: 'Can register its own channel types', risky: false },
+	[PluginPermission.AddCommands]: { label: 'Commands', description: 'Can register slash commands', risky: false },
+	[PluginPermission.ServerInfo]: { label: 'Server Info', description: 'Can read community metadata', risky: false },
+	[PluginPermission.Webhooks]: { label: 'Webhooks', description: 'Can create and use webhooks', risky: true },
+	[PluginPermission.ReactToMessages]: { label: 'React to Messages', description: 'Can add emoji reactions', risky: false }
+};
+
+export interface PluginManifest {
+	channelTypes?: string[];
+	commands?: string[];
+	triggers?: string[];
+	hooks?: string[];
+	frontendBundle?: string;
+}
+
+export interface Plugin {
+	id: string;
+	slug: string;
+	name: string;
+	description: string;
+	author: string;
+	version: string;
+	homepageUrl?: string;
+	sourceUrl?: string;
+	iconUrl?: string;
+	requestedPermissions: number;
+	manifest: PluginManifest;
+	builtIn: boolean;
+	source: string;
+	isVerified: boolean;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface CommunityPlugin {
+	id: string;
+	communityId: string;
+	pluginId: string;
+	enabled: boolean;
+	grantedPermissions: number;
+	config: Record<string, unknown>;
+	installedBy: string;
+	installedAt: string;
+	updatedAt: string;
+	plugin?: Plugin;
+}
+
+export interface PluginSource {
+	id: string;
+	communityId: string;
+	name: string;
+	url: string;
+	enabled: boolean;
+	addedBy: string;
+	createdAt: string;
+}
+
+export interface PluginAuditEntry {
+	id: string;
+	communityId: string;
+	pluginId: string;
+	actorId: string;
+	action: string;
+	details: Record<string, unknown>;
+	createdAt: string;
+}

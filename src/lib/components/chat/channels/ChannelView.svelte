@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { activeChannel } from '$lib/stores/community';
-	import { getChannelTypeRegistration } from '$lib/channelTypes';
+	import { channelRegistryEpoch, getChannelTypeRegistration } from '$lib/channelTypes';
 	import { Spinner } from '$lib/components/ui';
 	import type { Component } from 'svelte';
 
@@ -11,6 +11,8 @@
 	let loadError = $state(false);
 
 	$effect(() => {
+		$channelRegistryEpoch;
+
 		const channelType = $activeChannel?.type;
 		if (!channelType) {
 			viewComponent = null;
@@ -49,7 +51,8 @@
 		<p class="text-xs text-text-muted mt-1">Type: {$activeChannel.type}</p>
 	</div>
 {:else if viewComponent}
-	<svelte:component this={viewComponent} />
+	{@const ActiveView = viewComponent}
+	<ActiveView />
 {:else}
 	<div class="flex-1 flex items-center justify-center">
 		<Spinner size="lg" />

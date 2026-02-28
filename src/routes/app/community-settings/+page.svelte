@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Input, Textarea, Button, Spinner } from '$lib/components/ui';
-	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown, Smile, Pencil, ScrollText, Gavel, UserX } from 'lucide-svelte';
+	import { Image, X, Trash, Copy, RefreshCw, Users, Settings as SettingsIcon, Link, Clock, Plus, Crown, Smile, Pencil, ScrollText, Gavel, UserX, Puzzle } from 'lucide-svelte';
+	import PluginSettings from '$lib/components/community/PluginSettings.svelte';
 	import { addToast } from '$lib/stores/ui';
 	import {
 		activeCommunity,
@@ -25,7 +26,7 @@
 	let iconPreview = $state<string | null>(null);
 	let isPrivate = $state(false);
 	let invites = $state<CommunityInvite[]>([]);
-	let activeTab = $state<'overview' | 'members' | 'roles' | 'invites' | 'emojis' | 'bans' | 'audit-log'>('overview');
+	let activeTab = $state<'overview' | 'members' | 'roles' | 'invites' | 'emojis' | 'plugins' | 'bans' | 'audit-log'>('overview');
 	let isSubmitting = $state(false);
 	let isGeneratingInvite = $state(false);
 	let isLoadingInvites = $state(false);
@@ -935,6 +936,13 @@
 				<Smile size={16} class="inline-block mr-2" />
 				Emojis
 			</button>
+			<button
+				onclick={() => activeTab = 'plugins'}
+				class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'plugins' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}"
+			>
+				<Puzzle size={16} class="inline-block mr-2" />
+				Plugins
+			</button>
 			{#if canModerate}
 				<div class="pt-3 mt-3 border-t border-border">
 					<p class="px-3 pb-1.5 text-[11px] font-semibold text-text-muted uppercase tracking-wider">Moderation</p>
@@ -1544,6 +1552,11 @@
 						</div>
 					{/if}
 				</div>
+			{:else if activeTab === 'plugins'}
+				{#if $activeCommunity}
+					<PluginSettings communityId={$activeCommunity.id} />
+				{/if}
+
 			{:else if activeTab === 'bans'}
 				<div class="space-y-4">
 					<div>

@@ -1,17 +1,12 @@
 // Channel type registry - maps type IDs to their frontend components and display info.
-// Plugins can register new types by calling registerChannelType() and they'll
-// show up everywhere: sidebar icons, create modal, and the main content area.
+// Plugins register new types by calling registerChannelType() through the SDK
+// and they show up everywhere: sidebar icons, create modal, and the main content area.
 
 import type { ChannelTypeDefinition } from '$lib/types';
+import { writable } from 'svelte/store';
 import {
 	Hash,
-	Megaphone,
-	Image,
-	MessagesSquare,
-	Volume2,
-	HelpCircle,
-	Pin,
-	Users
+	HelpCircle
 } from 'lucide-svelte';
 
 // Use the lucide icon type as the baseline for icon components -
@@ -53,90 +48,32 @@ export interface ChannelHeaderActionRegistration {
 // Private map of registered types
 const registry = new Map<string, ChannelTypeRegistration>();
 const headerActionRegistry = new Map<string, ChannelHeaderActionRegistration>();
+export const channelRegistryEpoch = writable(0);
 
-// Built-in types registered at module load
-function registerDefaults() {
-	register('text', {
-		icon: Hash,
-		viewComponent: () => import('$lib/components/chat/channels/TextChannelView.svelte'),
-		label: 'Text',
-		description: 'Send messages, images, and files',
-		showHash: true,
-		headerActionIds: ['pinned', 'members']
-	});
-
-	register('announcement', {
-		icon: Megaphone,
-		viewComponent: () => import('$lib/components/chat/channels/AnnouncementChannelView.svelte'),
-		label: 'Announcement',
-		description: 'Important updates - only moderators can post',
-		showHash: true,
-		headerActionIds: ['pinned', 'members']
-	});
-
-	register('gallery', {
-		icon: Image,
-		viewComponent: () => import('$lib/components/chat/channels/GalleryChannelView.svelte'),
-		label: 'Gallery',
-		description: 'Share and browse images and media',
-		showHash: false,
-		headerActionIds: ['pinned', 'members']
-	});
-
-	register('forum', {
-		icon: MessagesSquare,
-		viewComponent: () => import('$lib/components/chat/channels/ForumChannelView.svelte'),
-		label: 'Forum',
-		description: 'Organized discussions with topics and threads',
-		showHash: true,
-		headerActionIds: ['pinned', 'members']
-	});
-
-	register('voice', {
-		icon: Volume2,
-		viewComponent: () => import('$lib/components/chat/channels/VoiceChannelViewWrapper.svelte'),
-		label: 'Voice',
-		description: 'Hang out with real-time voice chat',
-		showHash: false
-	});
+function bumpRegistryEpoch() {
+	channelRegistryEpoch.update((n) => n + 1);
 }
 
-function registerDefaultHeaderActions() {
-	registerHeaderAction({
-		id: 'pinned',
-		title: 'Pinned Messages',
-		icon: Pin,
-		onClick: async (context) => {
-			await context.togglePinnedDropdown();
-		}
-	});
-
-	registerHeaderAction({
-		id: 'members',
-		title: 'Toggle Member List',
-		icon: Users,
-		onClick: (context) => {
-			context.toggleMemberSidebar();
-		}
-	});
-}
-
-// Register a channel type. Plugins call this to add their own types.
+// Register a channel type. Plugins call this through the SDK to add their own types.
 export function register(typeId: string, registration: ChannelTypeRegistration): void {
 	registry.set(typeId, registration);
+	bumpRegistryEpoch();
 }
 
 // Unregister a channel type (for plugin cleanup)
 export function unregister(typeId: string): void {
 	registry.delete(typeId);
+	bumpRegistryEpoch();
 }
 
 export function registerHeaderAction(action: ChannelHeaderActionRegistration): void {
 	headerActionRegistry.set(action.id, action);
+	bumpRegistryEpoch();
 }
 
 export function unregisterHeaderAction(actionId: string): void {
 	headerActionRegistry.delete(actionId);
+	bumpRegistryEpoch();
 }
 
 export function getChannelHeaderActions(typeId: string): ChannelHeaderActionRegistration[] {
@@ -200,7 +137,3 @@ const fallbackRegistration: ChannelTypeRegistration = {
 	showHash: false,
 	headerActionIds: ['pinned', 'members']
 };
-
-// Run on import
-registerDefaults();
-registerDefaultHeaderActions();

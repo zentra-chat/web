@@ -33,7 +33,11 @@ import type {
 	Notification,
 	VoiceState,
 	CustomEmoji,
-	CustomEmojiWithCommunity
+	CustomEmojiWithCommunity,
+	Plugin,
+	CommunityPlugin,
+	PluginSource,
+	PluginAuditEntry
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
 
@@ -60,7 +64,8 @@ class ApiClient {
 		});
 	}
 
-	private withCacheBuster(url: string): string {
+	private withCacheBuster(url?: string | null): string {
+		if (!url) return '';
 		const separator = url.includes('?') ? '&' : '?';
 		return `${url}${separator}v=${Date.now()}`;
 	}
@@ -486,12 +491,12 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('icon', file);
 
-		const result = await this.request<ApiResponse<{ iconUrl: string }>>(`/media/communities/${communityId}/icon`, {
+		const result = await this.request<ApiResponse<{ iconUrl?: string; url?: string }>>(`/media/communities/${communityId}/icon`, {
 			method: 'POST',
 			body: formData
 		});
 
-		return this.withCacheBuster(result.data.iconUrl);
+		return this.withCacheBuster(result.data.iconUrl ?? result.data.url);
 	}
 
 	async removeCommunityIcon(communityId: string): Promise<void> {
@@ -1004,6 +1009,140 @@ class ApiClient {
 
 	async deleteEmoji(emojiId: string): Promise<void> {
 		await this.request(`/emojis/${emojiId}`, { method: 'DELETE' });
+	}
+
+	// Plugin endpoints
+
+	async listPlugins(source?: string): Promise<Plugin[]> {
+		const params = source ? `?source=${encodeURIComponent(source)}` : '';
+		const result = await this.request<ApiResponse<Plugin[]>>(`/plugins${params}`);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async searchPlugins(query: string): Promise<Plugin[]> {
+		const result = await this.request<ApiResponse<Plugin[]>>(
+			`/plugins/search?q=${encodeURIComponent(query)}`
+		);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async getPlugin(pluginId: string): Promise<Plugin> {
+		const result = await this.request<ApiResponse<Plugin>>(`/plugins/${pluginId}`);
+		return result.data;
+	}
+
+	// Per-community plugin management
+
+	async getCommunityPlugins(communityId: string): Promise<CommunityPlugin[]> {
+		const result = await this.request<ApiResponse<CommunityPlugin[]>>(
+			`/plugins/communities/${communityId}`
+		);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async getCommunityPlugin(communityId: string, pluginId: string): Promise<CommunityPlugin> {
+		const result = await this.request<ApiResponse<CommunityPlugin>>(
+			`/plugins/communities/${communityId}/${pluginId}`
+		);
+		return result.data;
+	}
+
+	async installPlugin(
+		communityId: string,
+		pluginId: string,
+		grantedPermissions: number
+	): Promise<CommunityPlugin> {
+		const result = await this.request<ApiResponse<CommunityPlugin>>(
+			`/plugins/communities/${communityId}/install`,
+			{
+				method: 'POST',
+				body: JSON.stringify({
+					pluginId,
+					grantedPermissions
+				})
+			}
+		);
+		return result.data;
+	}
+
+	async uninstallPlugin(communityId: string, pluginId: string): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async togglePlugin(communityId: string, pluginId: string, enabled: boolean): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}/toggle`, {
+			method: 'PATCH',
+			body: JSON.stringify({ enabled })
+		});
+	}
+
+	async updatePluginConfig(
+		communityId: string,
+		pluginId: string,
+		config: Record<string, unknown>
+	): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}/config`, {
+			method: 'PATCH',
+			body: JSON.stringify({ config })
+		});
+	}
+
+	async updatePluginPermissions(
+		communityId: string,
+		pluginId: string,
+		grantedPermissions: number
+	): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}/permissions`, {
+			method: 'PATCH',
+			body: JSON.stringify({ grantedPermissions })
+		});
+	}
+
+	// Plugin sources (apt-like repos)
+
+	async getPluginSources(communityId: string): Promise<PluginSource[]> {
+		const result = await this.request<ApiResponse<PluginSource[]>>(
+			`/plugins/communities/${communityId}/sources`
+		);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async addPluginSource(
+		communityId: string,
+		name: string,
+		url: string
+	): Promise<PluginSource> {
+		const result = await this.request<ApiResponse<PluginSource>>(
+			`/plugins/communities/${communityId}/sources`,
+			{
+				method: 'POST',
+				body: JSON.stringify({ name, url })
+			}
+		);
+		return result.data;
+	}
+
+	async removePluginSource(communityId: string, sourceId: string): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/sources/${sourceId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async syncPluginSource(communityId: string, sourceId: string): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/sources/${sourceId}/sync`, {
+			method: 'POST'
+		});
+	}
+
+	// Plugin audit log
+
+	async getPluginAuditLog(communityId: string): Promise<PluginAuditEntry[]> {
+		const result = await this.request<ApiResponse<PluginAuditEntry[]>>(
+			`/plugins/communities/${communityId}/audit-log`
+		);
+		return Array.isArray(result.data) ? result.data : [];
 	}
 }
 

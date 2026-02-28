@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Image, Upload, Grid3x3, LayoutGrid, Maximize2 } from 'lucide-svelte';
-	import { MessageInput } from '$lib/components/chat';
+	import { Image, Upload, Maximize2, Send, X } from 'lucide-svelte';
 	import { Spinner } from '$lib/components/ui';
-	import { activeChannel, activeChannelMessages } from '$lib/stores/community';
+	import { activeChannel, activeChannelMessages, addMessage } from '$lib/stores/community';
+	import { addToast } from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import type { Message } from '$lib/types';
 
@@ -14,6 +14,10 @@
 
 	let isLoading = $state(true);
 	let selectedImage = $state<string | null>(null);
+	let imageFiles = $state<File[]>([]);
+	let description = $state('');
+	let isSubmitting = $state(false);
+	let imageInputRef: HTMLInputElement | null = $state(null);
 
 	// Filter messages to only ones with image attachments
 	let mediaMessages = $derived(
@@ -52,6 +56,85 @@
 
 	function closeImage() {
 		selectedImage = null;
+	}
+
+	function openImagePicker() {
+		imageInputRef?.click();
+	}
+
+	function removeImage(index: number) {
+		imageFiles = imageFiles.filter((_, currentIndex) => currentIndex !== index);
+	}
+
+	function handleImageSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		if (!input.files) return;
+
+		const files = Array.from(input.files);
+		const validImages = files.filter((file) => file.type.startsWith('image/'));
+
+		if (validImages.length !== files.length) {
+			addToast({
+				type: 'warning',
+				message: 'Only image files are allowed in gallery channels.'
+			});
+		}
+
+		const remainingSlots = Math.max(0, 10 - imageFiles.length);
+		imageFiles = [...imageFiles, ...validImages.slice(0, remainingSlots)];
+
+		if (validImages.length > remainingSlots) {
+			addToast({
+				type: 'warning',
+				message: 'Gallery posts are limited to 10 images at a time.'
+			});
+		}
+
+		input.value = '';
+	}
+
+	async function submitGalleryPost() {
+		if (isSubmitting || !$activeChannel?.id) return;
+		if (imageFiles.length === 0) {
+			addToast({
+				type: 'warning',
+				message: 'Add at least one image before posting.'
+			});
+			return;
+		}
+
+		isSubmitting = true;
+		try {
+			const attachments = [] as string[];
+			for (const file of imageFiles) {
+				const uploaded = await api.uploadAttachment(file, $activeChannel.id);
+				attachments.push(uploaded.id);
+			}
+
+			const message = await api.sendMessage($activeChannel.id, {
+				content: description.trim(),
+				attachments
+			});
+
+			addMessage($activeChannel.id, message);
+			description = '';
+			imageFiles = [];
+		} catch (error) {
+			console.error('Failed to post gallery message:', error);
+			addToast({
+				type: 'error',
+				message: 'Failed to post to gallery channel.'
+			});
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
+	function handleDescriptionKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			void submitGalleryPost();
+		}
 	}
 </script>
 
@@ -111,8 +194,66 @@
 		{/if}
 	</div>
 
-	<!-- Upload area -->
-	<MessageInput channelId={$activeChannel?.id ?? ''} />
+	<!-- Gallery composer -->
+	<div class="px-4 pb-4 pt-3 border-t border-border bg-background space-y-3">
+		<input
+			bind:this={imageInputRef}
+			type="file"
+			accept="image/*"
+			multiple
+			onchange={handleImageSelect}
+			class="hidden"
+		/>
+
+		{#if imageFiles.length > 0}
+			<div class="flex gap-2 overflow-x-auto pb-1">
+				{#each imageFiles as file, index (`${file.name}-${index}`)}
+					<div class="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-border bg-surface">
+						<img src={URL.createObjectURL(file)} alt={file.name} class="w-full h-full object-cover" />
+						<button
+							onclick={() => removeImage(index)}
+							class="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/70 text-white flex items-center justify-center"
+							aria-label="Remove image"
+						>
+							<X size={12} />
+						</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		<div class="flex items-end gap-2 bg-surface border border-border rounded-lg px-2 py-2">
+			<button
+				onclick={openImagePicker}
+				class="p-2 text-text-muted hover:text-text-primary transition-colors"
+				title="Add images"
+				disabled={isSubmitting}
+			>
+				<Upload size={18} />
+			</button>
+
+			<textarea
+				bind:value={description}
+				onkeydown={handleDescriptionKeydown}
+				placeholder="Add a description for this image post..."
+				class="flex-1 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none"
+				disabled={isSubmitting}
+			></textarea>
+
+			<button
+				onclick={submitGalleryPost}
+				class="p-2 text-primary hover:text-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+				disabled={isSubmitting || imageFiles.length === 0}
+				title="Post to gallery"
+			>
+				{#if isSubmitting}
+					<Spinner size="sm" />
+				{:else}
+					<Send size={18} />
+				{/if}
+			</button>
+		</div>
+	</div>
 </div>
 
 <!-- Lightbox -->

@@ -2,7 +2,8 @@
 	import { onMount } from 'svelte';
 	import { tick } from 'svelte';
 	import { Spinner, Avatar } from '$lib/components/ui';
-	import { Hash, Megaphone, Lock, Users, Pin } from 'lucide-svelte';
+	import { Hash, Megaphone, Lock, Users } from 'lucide-svelte';
+	import { getChannelHeaderActions, getChannelIcon as getRegistryChannelIcon } from '$lib/channelTypes';
 	import MessageItem from './MessageItem.svelte';
 	import {
 		activeChannel,
@@ -297,6 +298,10 @@
 
 	function getChannelIcon(type: Channel['type']) {
 		switch (type) {
+			case 'text':
+			case 'forum':
+			case 'gallery':
+				return getRegistryChannelIcon(type);
 			case 'announcement':
 				return Megaphone;
 			case 'private':
@@ -304,6 +309,26 @@
 			default:
 				return Hash;
 		}
+	}
+
+	let headerActions = $derived(
+		$activeChannel && !isDm
+			? getChannelHeaderActions($activeChannel.type)
+			: []
+	);
+
+	async function runHeaderAction(actionId: string) {
+		if (!channelId || isDm) return;
+		const action = headerActions.find((entry) => entry.id === actionId);
+		if (!action) return;
+
+		await action.onClick({
+			channelId,
+			isPinnedOpen: showPinnedDropdown,
+			isMemberSidebarOpen: $showMemberSidebar,
+			togglePinnedDropdown,
+			toggleMemberSidebar
+		});
 	}
 
 	function getDmHeaderName(): string {
@@ -329,26 +354,37 @@
 				<p class="text-sm text-text-muted truncate">{$activeChannel.topic}</p>
 			{/if}
 
-			<div class="ml-auto flex items-center gap-2">
-				<div class="relative" bind:this={pinnedPanelRef}>
-					<button
-						onclick={togglePinnedDropdown}
-						class="p-2 text-text-muted hover:text-text-primary transition-colors"
-						title="Pinned Messages"
-					>
-						<Pin size={20} />
-					</button>
-
-					{#if showPinnedDropdown}
-						<div
-							class="absolute right-0 top-full mt-2 w-96 max-h-104 flex flex-col bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
-							role="dialog"
-							aria-label="Pinned messages"
+			<div class="ml-auto relative" bind:this={pinnedPanelRef}>
+				<div class="flex items-center gap-2">
+					{#each headerActions as action (action.id)}
+						{@const ActionIcon = action.icon}
+						{@const isMembersAction = action.id === 'members'}
+						<button
+							onclick={() => runHeaderAction(action.id)}
+							class="p-2 {isMembersAction && $showMemberSidebar
+								? 'text-text-primary'
+								: 'text-text-muted'} hover:text-text-primary transition-colors"
+							title={isMembersAction
+								? $showMemberSidebar
+									? 'Hide Member List'
+									: 'Show Member List'
+								: action.title}
 						>
-							<div class="px-4 py-3 border-b border-border flex items-center justify-between">
-								<h3 class="text-sm font-semibold text-text-primary">Pinned Messages</h3>
-								<span class="text-xs text-text-muted">{pinnedMessages.length}</span>
-							</div>
+							<ActionIcon size={20} />
+						</button>
+					{/each}
+				</div>
+
+				{#if showPinnedDropdown}
+					<div
+						class="absolute right-0 top-full mt-2 w-96 max-h-104 flex flex-col bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
+						role="dialog"
+						aria-label="Pinned messages"
+					>
+						<div class="px-4 py-3 border-b border-border flex items-center justify-between">
+							<h3 class="text-sm font-semibold text-text-primary">Pinned Messages</h3>
+							<span class="text-xs text-text-muted">{pinnedMessages.length}</span>
+						</div>
 
 							<div class="flex-1 overflow-y-auto p-2 space-y-2">
 								{#if isLoadingPinned}
@@ -385,18 +421,8 @@
 									{/each}
 								{/if}
 							</div>
-						</div>
-					{/if}
-				</div>
-				<button
-					onclick={toggleMemberSidebar}
-					class="p-2 {$showMemberSidebar
-						? 'text-text-primary'
-						: 'text-text-muted'} hover:text-text-primary transition-colors"
-					title={$showMemberSidebar ? 'Hide Member List' : 'Show Member List'}
-				>
-					<Users size={20} />
-				</button>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

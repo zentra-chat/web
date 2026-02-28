@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { MessageList, MessageInput, VoiceChannelView } from '$lib/components/chat';
+	import ChannelView from '$lib/components/chat/channels/ChannelView.svelte';
 	import DMHome from '$lib/components/dm/DMHome.svelte';
 	import { Spinner } from '$lib/components/ui';
 	import { Hash } from 'lucide-svelte';
@@ -17,6 +17,7 @@
 	import { activeInstance } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 	import { loadCustomEmojis } from '$lib/stores/emoji';
+	import { mergeServerDefinitions } from '$lib/channelTypes';
 
 	let isLoadingCommunities = $state(true);
 	let isLoadingChannels = $state(false);
@@ -69,6 +70,12 @@
 				};
 				// Load custom emojis once communities are fetched
 				loadCustomEmojis();
+
+				// Fetch channel type definitions and merge with the frontend registry.
+				// This picks up any plugin-registered types that only exist server-side.
+				api.getChannelTypes()
+					.then((defs) => mergeServerDefinitions(defs))
+					.catch((err) => console.warn('Could not load channel type definitions:', err));
 			})
 			.catch((err) => {
 				console.error('Failed to load communities:', err);
@@ -151,11 +158,6 @@
 			Select a channel from the sidebar or create a new one to start chatting.
 		</p>
 	</div>
-{:else if $activeChannel.type === 'voice'}
-	<VoiceChannelView />
 {:else}
-	<div class="flex-1 flex flex-col min-h-0">
-		<MessageList channelId={$activeChannel.id} />
-		<MessageInput channelId={$activeChannel.id} />
-	</div>
+	<ChannelView />
 {/if}

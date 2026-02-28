@@ -136,11 +136,40 @@ export interface Channel {
 	position: number;
 	isNsfw: boolean;
 	slowmodeSeconds: number;
+	metadata: Record<string, unknown>;
 	createdAt: string;
 	updatedAt: string;
 }
 
-export type ChannelType = 'text' | 'voice' | 'announcement' | 'gallery' | 'forum' | 'private';
+export type ChannelType = string;
+
+// Capability flags - mirrors the backend bitmask
+export const ChannelCapability = {
+	Messages:  1,
+	Threads:   2,
+	Media:     4,
+	Voice:     8,
+	Video:     16,
+	Embeds:    32,
+	Pins:      64,
+	Reactions: 128,
+	Slowmode:  256,
+	ReadOnly:  512,
+	Topics:    1024,
+} as const;
+
+// A registered channel type definition from the backend
+export interface ChannelTypeDefinition {
+	id: string;
+	name: string;
+	description: string;
+	icon: string;
+	capabilities: number;
+	defaultMetadata: Record<string, unknown>;
+	builtIn: boolean;
+	pluginId: string | null;
+	createdAt: string;
+}
 
 export interface ChannelCategory {
 	id: string;

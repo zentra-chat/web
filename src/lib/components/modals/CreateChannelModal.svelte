@@ -5,13 +5,14 @@
 	import { activeCommunity, activeCommunityMembers, addChannel, memberHasPermission, Permission } from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
+	import { getAllRegisteredTypes } from '$lib/channelTypes';
 	import type { Channel } from '$lib/types';
 
 	type ApiErrorLike = { error?: string; message?: string };
 
 	let name = $state('');
 	let description = $state('');
-	let type = $state<Channel['type']>('text');
+	let type = $state<string>('text');
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 
@@ -19,6 +20,16 @@
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
 	let canManageChannels = $derived(isOwner || memberHasPermission(myMember, Permission.ManageChannels));
+
+	// Pull channel types from the registry so new types show up automatically
+	let channelTypes = $derived(
+		getAllRegisteredTypes().map(({ id, registration }) => ({
+			value: id,
+			label: registration.label,
+			icon: registration.icon,
+			description: registration.description
+		}))
+	);
 
 	function handleClose() {
 		closeCreateChannelModal();
@@ -73,7 +84,7 @@
 			addChannel($activeCommunity.id, channel);
 			addToast({
 				type: 'success',
-				message: `Channel ${type === 'voice' ? '' : '#'}${channel.name} created!`
+				message: `Channel ${channel.name} created!`
 			});
 			handleClose();
 		} catch (err: unknown) {
@@ -84,39 +95,6 @@
 			isSubmitting = false;
 		}
 	}
-
-	const channelTypes: { value: Channel['type']; label: string; icon: typeof Hash; description: string }[] = [
-		{
-			value: 'text',
-			label: 'Text',
-			icon: Hash,
-			description: 'Send messages, images, and files'
-		},
-		{
-			value: 'announcement',
-			label: 'Announcement',
-			icon: Megaphone,
-			description: 'Only admins can send messages'
-		},
-		{
-			value: 'gallery',
-			label: 'Gallery',
-			icon: Image,
-			description: 'Specialized for media sharing'
-		},
-		{
-			value: 'forum',
-			label: 'Forum',
-			icon: Hash,
-			description: 'Structured discussion threads'
-		},
-		{
-			value: 'voice',
-			label: 'Voice',
-			icon: Volume2,
-			description: 'Hang out with voice and audio'
-		}
-	];
 </script>
 
 <Modal isOpen={$createChannelModalOpen} onclose={handleClose} title="Create Channel" size="sm">

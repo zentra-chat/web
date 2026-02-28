@@ -16,6 +16,7 @@
 	import { Tooltip, Button, Modal, Input } from '$lib/components/ui';
 	import VoiceChannelUsers from '$lib/components/chat/VoiceChannelUsers.svelte';
 	import VoiceCallOverlay from '$lib/components/chat/VoiceCallOverlay.svelte';
+	import { getChannelIcon, getChannelTypeRegistration } from '$lib/channelTypes';
 	import {
 		activeCommunity,
 		activeCommunityMembers,
@@ -80,14 +81,6 @@
 			memberHasPermission(myMember, Permission.CreateInvites) ||
 			memberHasPermission(myMember, Permission.ManageChannels)
 	);
-
-	const channelIcons: Record<string, typeof Hash> = {
-		text: Hash,
-		announcement: Megaphone,
-		gallery: Image,
-		forum: Hash,
-		voice: Volume2
-	};
 
 	// Group channels by category
 	let channelsByCategory = $derived.by(() => {
@@ -562,7 +555,7 @@
 				</div>
 				{#if channelsByCategory['uncategorized']}
 					{#each channelsByCategory['uncategorized'] as channel (channel.id)}
-						{@const Icon = channelIcons[channel.type] || Hash}
+						{@const Icon = getChannelIcon(channel.type)}
 						{@const unreadCount = $unreadCounts[channel.id] || 0}
 						{@const isVoice = channel.type === 'voice'}
 						{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}
@@ -632,7 +625,7 @@
 					{#if !isCollapsed}
 						<div class="px-2">
 							{#each categoryChannels as channel (channel.id)}
-								{@const Icon = channelIcons[channel.type] || Hash}
+								{@const Icon = getChannelIcon(channel.type)}
 								{@const unreadCount = $unreadCounts[channel.id] || 0}
 								{@const isVoice = channel.type === 'voice'}
 								{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}

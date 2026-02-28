@@ -23,6 +23,7 @@ import type {
 	AuditLogEntry,
 	Channel,
 	ChannelCategory,
+	ChannelTypeDefinition,
 	CommunityMember,
 	Role,
 	Message,
@@ -629,7 +630,7 @@ class ApiClient {
 		return result.data;
 	}
 
-	async createChannel(communityId: string, data: { name: string; type?: string; topic?: string; categoryId?: string; isNsfw?: boolean }): Promise<Channel> {
+	async createChannel(communityId: string, data: { name: string; type?: string; topic?: string; categoryId?: string; isNsfw?: boolean; metadata?: Record<string, unknown> }): Promise<Channel> {
 		const result = await this.request<ApiResponse<Channel>>(`/channels/communities/${communityId}/channels`, {
 			method: 'POST',
 			body: JSON.stringify({
@@ -638,7 +639,8 @@ class ApiClient {
 				topic: data.topic,
 				categoryId: data.categoryId,
 				isNsfw: !!data.isNsfw,
-				slowmodeSeconds: 0
+				slowmodeSeconds: 0,
+				metadata: data.metadata || {}
 			})
 		});
 		return result.data;
@@ -694,6 +696,17 @@ class ApiClient {
 
 	async deleteCategory(categoryId: string): Promise<void> {
 		await this.request(`/channels/categories/${categoryId}`, { method: 'DELETE' });
+	}
+
+	// Channel type definition endpoints
+	async getChannelTypes(): Promise<ChannelTypeDefinition[]> {
+		const result = await this.request<ApiResponse<ChannelTypeDefinition[]>>('/channel-types');
+		return result.data || [];
+	}
+
+	async getChannelType(typeId: string): Promise<ChannelTypeDefinition> {
+		const result = await this.request<ApiResponse<ChannelTypeDefinition>>(`/channel-types/${typeId}`);
+		return result.data;
 	}
 
 	// Voice endpoints

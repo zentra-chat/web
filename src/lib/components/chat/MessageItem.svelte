@@ -299,9 +299,9 @@
 		</div>
 	{/if}
 
-	<div class="flex gap-4">
+	<div class="flex items-start gap-4">
 		<!-- Avatar or timestamp -->
-		<div class="w-10 shrink-0 flex items-center justify-end">
+		<div class="w-10 shrink-0 flex justify-end {showHeader ? 'items-start pt-0.5' : 'items-center'}">
 			{#if showHeader}
 				<button 
 					class="block transition-transform active:scale-95" 

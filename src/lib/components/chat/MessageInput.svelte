@@ -31,6 +31,17 @@
 	let showEmojiPicker = $state(false);
 	let textareaRef: HTMLTextAreaElement | null = $state(null);
 	let fileInputRef: HTMLInputElement | null = $state(null);
+	const MESSAGE_INPUT_MAX_HEIGHT = 192;
+
+	function resizeTextarea() {
+		const textarea = textareaRef;
+		if (!textarea) return;
+
+		textarea.style.height = 'auto';
+		const nextHeight = Math.min(textarea.scrollHeight, MESSAGE_INPUT_MAX_HEIGHT);
+		textarea.style.height = `${nextHeight}px`;
+		textarea.style.overflowY = textarea.scrollHeight > MESSAGE_INPUT_MAX_HEIGHT ? 'auto' : 'hidden';
+	}
 
 	// Map from lowercase name → emoji for fast :shortcode: lookup on send
 	let customEmojiByName = $derived.by(() => {
@@ -118,6 +129,7 @@
 		const before = content.slice(0, mentionStartIndex);
 		const after = content.slice(cursor);
 		content = before + insert + ' ' + after;
+		resizeTextarea();
 		closeMention();
 		// Re-focus and position
 		const newCursor = before.length + insert.length + 1;
@@ -194,6 +206,7 @@
 		const before = content.slice(0, emojiStartIndex);
 		const after = content.slice(cursor);
 		content = before + insert + ' ' + after;
+		resizeTextarea();
 		closeEmoji();
 		const newCursor = before.length + insert.length + 1;
 		requestAnimationFrame(() => {
@@ -203,6 +216,7 @@
 	}
 
 	function handleAutoComplete() {
+		resizeTextarea();
 		detectMention();
 		detectEmoji();
 	}
@@ -231,6 +245,7 @@
 				/<:([a-zA-Z0-9_+-]{2,32}):([0-9a-f-]{36})>/gi,
 				(_, name) => `:${name}:`
 			);
+			resizeTextarea();
 			textareaRef?.focus();
 		}
 	});
@@ -323,6 +338,7 @@
 			}
 
 			content = '';
+			resizeTextarea();
 			attachments = [];
 		} catch (err) {
 			console.error('Failed to send message:', err);
@@ -394,6 +410,7 @@
 			if ($editingMessageId) {
 				setEditingMessage(null);
 				content = '';
+				resizeTextarea();
 			} else if ($replyingToMessage) {
 				setReplyingTo(null);
 			}
@@ -408,6 +425,7 @@
 
 	function handleEmojiSelect(emoji: string, options?: { keepOpen?: boolean }) {
 		content += emoji;
+		resizeTextarea();
 		if (!options?.keepOpen) {
 			showEmojiPicker = false;
 		}
@@ -441,6 +459,7 @@
 	function cancelEdit() {
 		setEditingMessage(null);
 		content = '';
+		resizeTextarea();
 	}
 
 	function formatFileSize(bytes: number): string {
@@ -451,6 +470,8 @@
 
 	// Auto-focus message input when typing anywhere
 	$effect(() => {
+		resizeTextarea();
+
 		function handleGlobalKeydown(e: KeyboardEvent) {
 			// Don't focus if we're already in an input, textarea, or contenteditable
 			const target = e.target as HTMLElement;
@@ -635,7 +656,7 @@
 			oninput={handleAutoComplete}
 			placeholder={$editingMessageId ? 'Edit message...' : 'Message...'}
 			rows={1}
-			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none focus-visible:outline-none max-h-48 min-h-[48px] flex items-center message-send-field"
+			class="flex-1 py-3 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none focus-visible:outline-none max-h-48 min-h-12 message-send-field"
 			disabled={isSending}
 		></textarea>
 

@@ -233,34 +233,58 @@ button:disabled,
 .message-content .hljs-keyword,
 .message-content .hljs-selector-tag,
 .message-content .hljs-literal,
-.message-content .hljs-section,
-.message-content .hljs-link {
+.message-content .hljs-section {
 	color: var(--color-primary);
 }
 
 .message-content .hljs-string,
-.message-content .hljs-title,
-.message-content .hljs-name,
-.message-content .hljs-type,
-.message-content .hljs-attribute,
 .message-content .hljs-symbol,
 .message-content .hljs-bullet,
-.message-content .hljs-addition,
-.message-content .hljs-template-tag,
-.message-content .hljs-template-variable {
-	color: var(--color-success);
+.message-content .hljs-template-variable,
+.message-content .hljs-link {
+	color: var(--color-warning);
 }
 
 .message-content .hljs-number,
+.message-content .hljs-type,
+.message-content .hljs-built_in,
+.message-content .hljs-class .hljs-title,
+.message-content .hljs-attribute,
+.message-content .hljs-selector-class,
+.message-content .hljs-selector-attr,
+.message-content .hljs-selector-pseudo,
 .message-content .hljs-regexp,
 .message-content .hljs-meta .hljs-string {
 	color: var(--color-info);
+}
+
+.message-content .hljs-title.function_,
+.message-content .hljs-title.function,
+.message-content .hljs-title,
+.message-content .hljs-function .hljs-title,
+.message-content .hljs-variable,
+.message-content .hljs-variable.language_ {
+	color: var(--color-text-primary);
+}
+
+.message-content .hljs-meta,
+.message-content .hljs-doctag,
+.message-content .hljs-template-tag {
+	color: var(--color-secondary);
 }
 
 .message-content .hljs-comment,
 .message-content .hljs-quote,
 .message-content .hljs-deletion {
 	color: var(--color-text-muted);
+}
+
+.message-content .hljs-deletion {
+	color: var(--color-danger);
+}
+
+.message-content .hljs-addition {
+	color: var(--color-success);
 }
 
 .message-content .hljs-emphasis {

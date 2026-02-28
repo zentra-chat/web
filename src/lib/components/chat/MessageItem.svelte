@@ -301,7 +301,7 @@
 
 	<div class="flex items-start gap-4">
 		<!-- Avatar or timestamp -->
-		<div class="w-10 shrink-0 flex justify-end {showHeader ? 'items-start pt-0.5' : 'items-center'}">
+		<div class="w-10 shrink-0 flex justify-end {showHeader ? 'items-start pt-0.5' : 'self-stretch items-center'}">
 			{#if showHeader}
 				<button 
 					class="block transition-transform active:scale-95" 

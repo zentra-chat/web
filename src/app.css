@@ -227,7 +227,7 @@ button:disabled,
 	background: transparent;
 	padding: 0;
 	display: block;
-	color: var(--color-text-primary);
+	color: var(--color-text-secondary);
 }
 
 .message-content .hljs-keyword,
@@ -242,7 +242,7 @@ button:disabled,
 .message-content .hljs-bullet,
 .message-content .hljs-template-variable,
 .message-content .hljs-link {
-	color: var(--color-warning);
+	color: var(--color-success);
 }
 
 .message-content .hljs-number,
@@ -264,12 +264,27 @@ button:disabled,
 .message-content .hljs-function .hljs-title,
 .message-content .hljs-variable,
 .message-content .hljs-variable.language_ {
-	color: var(--color-text-primary);
+	color: var(--color-warning);
 }
 
 .message-content .hljs-meta,
 .message-content .hljs-doctag,
 .message-content .hljs-template-tag {
+	color: var(--color-secondary);
+}
+
+.message-content .hljs-property,
+.message-content .hljs-params,
+.message-content .hljs-punctuation,
+.message-content .hljs-operator,
+.message-content .hljs-subst {
+	color: var(--color-primary-hover);
+}
+
+.message-content .hljs-attr,
+.message-content .hljs-selector-id,
+.message-content .hljs-selector-attr,
+.message-content .hljs-selector-pseudo {
 	color: var(--color-secondary);
 }
 

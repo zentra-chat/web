@@ -43,6 +43,15 @@
 		textarea.style.overflowY = textarea.scrollHeight > MESSAGE_INPUT_MAX_HEIGHT ? 'auto' : 'hidden';
 	}
 
+	function resetTextareaSize() {
+		const textarea = textareaRef;
+		if (!textarea) return;
+
+		textarea.style.height = '';
+		textarea.style.overflowY = 'hidden';
+		requestAnimationFrame(() => resizeTextarea());
+	}
+
 	// Map from lowercase name → emoji for fast :shortcode: lookup on send
 	let customEmojiByName = $derived.by(() => {
 		const map = new Map<string, (typeof $customEmojis)[number]>();
@@ -338,7 +347,7 @@
 			}
 
 			content = '';
-			resizeTextarea();
+			resetTextareaSize();
 			attachments = [];
 		} catch (err) {
 			console.error('Failed to send message:', err);
@@ -410,7 +419,7 @@
 			if ($editingMessageId) {
 				setEditingMessage(null);
 				content = '';
-				resizeTextarea();
+				resetTextareaSize();
 			} else if ($replyingToMessage) {
 				setReplyingTo(null);
 			}
@@ -459,7 +468,7 @@
 	function cancelEdit() {
 		setEditingMessage(null);
 		content = '';
-		resizeTextarea();
+		resetTextareaSize();
 	}
 
 	function formatFileSize(bytes: number): string {

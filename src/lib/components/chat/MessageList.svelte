@@ -277,7 +277,7 @@
 
 	async function jumpToMessage(messageId: string) {
 		await tick();
-		const target = document.getElementById(`message-${messageId}`);
+		const target = document.getElementById(`message-container-${messageId}`);
 		if (!target) {
 			addToast({
 				type: 'warning',
@@ -288,9 +288,10 @@
 
 		showPinnedDropdown = false;
 		target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-		target.classList.add('ring-1', 'ring-primary', 'rounded-md');
+		
+		target.classList.add('bg-surface/90', 'ring-1', 'ring-primary/30');
 		setTimeout(() => {
-			target.classList.remove('ring-1', 'ring-primary', 'rounded-md');
+			target.classList.remove('bg-surface/90', 'ring-1', 'ring-primary/30');
 		}, 1600);
 	}
 

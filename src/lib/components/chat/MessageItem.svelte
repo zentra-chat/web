@@ -269,7 +269,7 @@
 </script>
 
 {#if showDateDivider}
-	<div class="flex items-center gap-4 py-2 px-4">
+	<div class="flex items-center gap-4 py-2 px-4 select-none">
 		<div class="flex-1 h-px bg-border"></div>
 		<span class="text-xs font-medium text-text-muted">
 			{formatDateDivider(new Date(message.createdAt))}
@@ -279,6 +279,7 @@
 {/if}
 
 <div
+	id="message-container-{message.id}"
 	class="group relative px-4 py-0.5 hover:bg-surface/50 transition-colors {showHeader ? 'mt-4' : ''}"
 	onmouseenter={() => (isHovered = true)}
 	onmouseleave={() => (isHovered = false)}

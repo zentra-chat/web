@@ -45,6 +45,9 @@ const audioAnalysers = new Map<string, { analyser: AnalyserNode; interval: Retur
 // Local media stream
 let localStream: MediaStream | null = null;
 
+// Monotonic join attempt counter used to cancel stale join operations
+let joinAttemptCounter = 0;
+
 // Local audio context for speaking detection
 let localAudioContext: AudioContext | null = null;
 
@@ -339,21 +342,46 @@ function cleanupVoiceListeners() {
 	listenersInitialized = false;
 }
 
+function removeUserFromChannelParticipants(channelId: string, userId: string) {
+	voiceParticipants.update((participants) => {
+		const existing = participants[channelId] || [];
+		return {
+			...participants,
+			[channelId]: existing.filter((state) => state.userId !== userId)
+		};
+	});
+}
+
+function removeUserFromAllOtherChannels(targetChannelId: string, userId: string) {
+	voiceParticipants.update((participants) => {
+		const next = { ...participants };
+		for (const [channelId, states] of Object.entries(next)) {
+			if (channelId === targetChannelId) {
+				continue;
+			}
+			next[channelId] = states.filter((state) => state.userId !== userId);
+		}
+		return next;
+	});
+}
+
 // Join a voice channel
 export async function joinVoiceChannel(channelId: string) {
 	const currentChannel = get(voiceChannelId);
-	if (currentChannel === channelId) return;
+	if (currentChannel === channelId && get(voiceConnectionState) === 'connected') return;
 
 	// Leave current channel first
 	if (currentChannel) {
 		await leaveVoiceChannel();
 	}
 
+	const attemptId = ++joinAttemptCounter;
+
 	voiceConnectionState.set('connecting');
 
 	try {
 		// Get microphone access
-		localStream = await navigator.mediaDevices.getUserMedia({
+		const stream = await navigator.mediaDevices.getUserMedia({
 			audio: {
 				echoCancellation: true,
 				noiseSuppression: true,
@@ -361,6 +389,13 @@ export async function joinVoiceChannel(channelId: string) {
 			},
 			video: false
 		});
+
+		if (attemptId != joinAttemptCounter) {
+			stream.getTracks().forEach((track) => track.stop());
+			return;
+		}
+
+		localStream = stream;
 
 		// Set up listeners before sending join so we catch the server's response
 		setupVoiceListeners();
@@ -378,9 +413,17 @@ export async function joinVoiceChannel(channelId: string) {
 		isSelfDeafened.set(false);
 		voiceConnectionState.set('connected');
 
+		const myId = get(currentUserId);
+		if (myId) {
+			removeUserFromAllOtherChannels(channelId, myId);
+		}
+
 		// Start detecting when we're speaking
 		startLocalSpeakingDetection();
 	} catch (err: unknown) {
+		if (attemptId != joinAttemptCounter) {
+			return;
+		}
 		console.error('Failed to join voice channel:', err);
 		voiceConnectionState.set('disconnected');
 		voiceChannelId.set(null);
@@ -395,8 +438,15 @@ export async function joinVoiceChannel(channelId: string) {
 
 // Leave the current voice channel
 export async function leaveVoiceChannel() {
+	joinAttemptCounter++;
+
 	const channelId = get(voiceChannelId);
 	if (!channelId) return;
+
+	const myId = get(currentUserId);
+	if (myId) {
+		removeUserFromChannelParticipants(channelId, myId);
+	}
 
 	// Send leave via WebSocket
 	websocket.send({

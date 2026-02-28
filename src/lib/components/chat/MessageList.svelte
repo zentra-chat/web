@@ -1,10 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { tick } from 'svelte';
-	import { Spinner } from '$lib/components/ui';
-	import { Hash, Megaphone, Lock, Users } from 'lucide-svelte';
+	import { Spinner, Avatar } from '$lib/components/ui';
+	import { Hash, Megaphone, Lock, Users, Pin } from 'lucide-svelte';
 	import MessageItem from './MessageItem.svelte';
-	import { activeChannel, messages, setMessages, removeMessage } from '$lib/stores/community';
-	import { showMemberSidebar, toggleMemberSidebar } from '$lib/stores/ui';
+	import {
+		activeChannel,
+		messages,
+		setMessages,
+		removeMessage
+	} from '$lib/stores/community';
+	import { showMemberSidebar, toggleMemberSidebar, addToast } from '$lib/stores/ui';
 	import {
 		activeDmConversation,
 		dmMessagesCache,
@@ -30,6 +36,11 @@
 	let error = $state<string | null>(null);
 	let isFirstLoad = $state(true);
 	let stickToBottomUntil = $state(0);
+	let showPinnedDropdown = $state(false);
+	let pinnedMessages = $state<Message[]>([]);
+	let isLoadingPinned = $state(false);
+	let pinnedError = $state<string | null>(null);
+	let pinnedPanelRef: HTMLDivElement | null = $state(null);
 
 	let isDm = $derived(!!dmConversationId);
 	let channelMessages = $derived(
@@ -39,6 +50,18 @@
 				? $messages[channelId] || []
 				: []
 	);
+
+	onMount(() => {
+		function handleOutsideClick(event: MouseEvent) {
+			if (!showPinnedDropdown || !pinnedPanelRef) return;
+			if (!pinnedPanelRef.contains(event.target as Node)) {
+				showPinnedDropdown = false;
+			}
+		}
+
+		document.addEventListener('mousedown', handleOutsideClick);
+		return () => document.removeEventListener('mousedown', handleOutsideClick);
+	});
 
 	$effect(() => {
 		const streamId = dmConversationId || channelId;
@@ -223,6 +246,54 @@
 		await api.addDmReaction(messageId, emoji);
 	}
 
+	async function togglePinnedDropdown() {
+		if (!channelId || isDm) return;
+
+		if (showPinnedDropdown) {
+			showPinnedDropdown = false;
+			return;
+		}
+
+		showPinnedDropdown = true;
+		isLoadingPinned = true;
+		pinnedError = null;
+
+		try {
+			pinnedMessages = await api.getPinnedMessages(channelId) || [];
+		} catch (err) {
+			console.error('Failed to load pinned messages:', err);
+			pinnedError = 'Failed to load pinned messages';
+		} finally {
+			isLoadingPinned = false;
+		}
+	}
+
+	function previewMessage(message: Message): string {
+		const content = message.content?.trim();
+		if (content) return content;
+		if (message.attachments?.length) return '[Attachment message]';
+		return '[No text content]';
+	}
+
+	async function jumpToMessage(messageId: string) {
+		await tick();
+		const target = document.getElementById(`message-${messageId}`);
+		if (!target) {
+			addToast({
+				type: 'warning',
+				message: 'Message is not in the currently loaded history yet. Load older messages first.'
+			});
+			return;
+		}
+
+		showPinnedDropdown = false;
+		target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		target.classList.add('ring-1', 'ring-primary', 'rounded-md');
+		setTimeout(() => {
+			target.classList.remove('ring-1', 'ring-primary', 'rounded-md');
+		}, 1600);
+	}
+
 	function getChannelIcon(type: Channel['type']) {
 		switch (type) {
 			case 'announcement':
@@ -258,6 +329,64 @@
 			{/if}
 
 			<div class="ml-auto flex items-center gap-2">
+				<div class="relative" bind:this={pinnedPanelRef}>
+					<button
+						onclick={togglePinnedDropdown}
+						class="p-2 text-text-muted hover:text-text-primary transition-colors"
+						title="Pinned Messages"
+					>
+						<Pin size={20} />
+					</button>
+
+					{#if showPinnedDropdown}
+						<div
+							class="absolute right-0 top-full mt-2 w-96 max-h-104 flex flex-col bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
+							role="dialog"
+							aria-label="Pinned messages"
+						>
+							<div class="px-4 py-3 border-b border-border flex items-center justify-between">
+								<h3 class="text-sm font-semibold text-text-primary">Pinned Messages</h3>
+								<span class="text-xs text-text-muted">{pinnedMessages.length}</span>
+							</div>
+
+							<div class="flex-1 overflow-y-auto p-2 space-y-2">
+								{#if isLoadingPinned}
+									<div class="flex items-center justify-center py-8">
+										<Spinner size="md" />
+									</div>
+								{:else if pinnedError}
+									<div class="p-3 text-sm text-error">{pinnedError}</div>
+								{:else if pinnedMessages.length === 0}
+									<div class="p-3 text-sm text-text-muted">No pinned messages in this channel.</div>
+								{:else}
+									{#each pinnedMessages as pinned (pinned.id)}
+										<button
+											onclick={() => jumpToMessage(pinned.id)}
+											class="w-full text-left p-3 border border-border rounded-lg bg-surface/40 hover:bg-surface-hover transition-colors"
+										>
+											<div class="flex items-start gap-2">
+												<Avatar user={pinned.author} size="sm" />
+												<div class="min-w-0 flex-1">
+													<div class="flex items-center gap-2">
+														<p class="text-sm font-medium text-text-primary truncate">
+															{pinned.author?.displayName || pinned.author?.username || 'Unknown user'}
+														</p>
+														<p class="text-[11px] text-text-muted shrink-0">
+															{new Date(pinned.createdAt).toLocaleString()}
+														</p>
+													</div>
+													<p class="text-sm text-text-secondary mt-0.5 line-clamp-3 whitespace-pre-wrap wrap-break-word">
+														{previewMessage(pinned)}
+													</p>
+												</div>
+											</div>
+										</button>
+									{/each}
+								{/if}
+							</div>
+						</div>
+					{/if}
+				</div>
 				<button
 					onclick={toggleMemberSidebar}
 					class="p-2 {$showMemberSidebar
@@ -360,16 +489,18 @@
 
 			<!-- Messages -->
 			{#each channelMessages as message, index (message.id)}
-				<MessageItem
-					{message}
-					previousMessage={index > 0 ? channelMessages[index - 1] : undefined}
-					onDelete={handleMessageDelete}
-					onDeleteRequest={isDm ? handleDeleteRequest : undefined}
-					onReactionToggle={isDm ? handleReactionToggle : undefined}
-					enableReactions={true}
-					enableReply={true}
-					isDm={isDm}
-				/>
+				<div id={`message-${message.id}`}>
+					<MessageItem
+						{message}
+						previousMessage={index > 0 ? channelMessages[index - 1] : undefined}
+						onDelete={handleMessageDelete}
+						onDeleteRequest={isDm ? handleDeleteRequest : undefined}
+						onReactionToggle={isDm ? handleReactionToggle : undefined}
+						enableReactions={true}
+						enableReply={true}
+						isDm={isDm}
+					/>
+				</div>
 			{/each}
 
 			<!-- Bottom padding -->

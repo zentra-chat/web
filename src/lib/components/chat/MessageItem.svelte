@@ -4,14 +4,22 @@
 	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from 'lucide-svelte';
 	import type { Attachment, Message } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
-	import { activeCommunityMembers, getMemberNameColor, memberHasPermission, Permission } from '$lib/stores/community';
+	import {
+		activeCommunityMembers,
+		activeChannelId,
+		getMemberNameColor,
+		memberHasPermission,
+		Permission,
+		updateMessage
+	} from '$lib/stores/community';
 	import { activeDmConversation } from '$lib/stores/dm';
 	import {
 		setEditingMessage,
 		setReplyingTo,
 		filePreviewOpen,
 		filePreviewData,
-		openProfileCard
+		openProfileCard,
+		addToast
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import EmojiPicker from './EmojiPicker.svelte';
@@ -42,6 +50,7 @@
 
 	let isHovered = $state(false);
 	let isDeleting = $state(false);
+	let isPinning = $state(false);
 	let showActionBarPicker = $state(false);
 	let showReactionsPicker = $state(false);
 	let showDeleteConfirm = $state(false);
@@ -50,6 +59,7 @@
 	let hasContent = $derived(!!message.content && message.content.trim().length > 0);
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let canModerateMessages = $derived(!isDm && memberHasPermission(myMember, Permission.ManageMessages));
+	let canPinMessages = $derived(!isDm && memberHasPermission(myMember, Permission.PinMessages));
 	let canDeleteMessage = $derived(isOwnMessage || canModerateMessages);
 	let authorMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === message.authorId) || null);
 	let authorColor = $derived(getMemberNameColor(authorMember));
@@ -179,6 +189,33 @@
 		setReplyingTo(message);
 	}
 
+	async function handlePinToggle() {
+		if (isDm || !canPinMessages || isPinning) return;
+
+		isPinning = true;
+		const nextPinnedState = !message.isPinned;
+
+		try {
+			if (nextPinnedState) {
+				await api.pinMessage(message.id);
+			} else {
+				await api.unpinMessage(message.id);
+			}
+
+			if ($activeChannelId) {
+				updateMessage($activeChannelId, message.id, { isPinned: nextPinnedState });
+			}
+		} catch (err) {
+			console.error('Failed to toggle pin state:', err);
+			addToast({
+				type: 'error',
+				message: nextPinnedState ? 'Failed to pin message' : 'Failed to unpin message'
+			});
+		} finally {
+			isPinning = false;
+		}
+	}
+
 	async function handleReactionSelect(emoji: string) {
 		showActionBarPicker = false;
 		showReactionsPicker = false;
@@ -261,7 +298,7 @@
 
 	<div class="flex gap-4">
 		<!-- Avatar or timestamp -->
-		<div class="w-10 shrink-0">
+		<div class="w-10 shrink-0 flex items-center justify-end">
 			{#if showHeader}
 				<button 
 					class="block transition-transform active:scale-95" 
@@ -270,7 +307,7 @@
 					<Avatar user={message.author} size="md" />
 				</button>
 			{:else if isHovered}
-				<span class="block text-right text-[10px] leading-none whitespace-nowrap text-text-muted">
+				<span class="text-[10px] leading-none whitespace-nowrap text-text-muted">
 					{format(new Date(message.createdAt), 'h:mm a')}
 				</span>
 			{/if}
@@ -464,6 +501,19 @@
 					aria-label="Edit"
 				>
 					<Edit size={16} />
+				</button>
+			{/if}
+			{#if canPinMessages}
+				<button
+					onclick={handlePinToggle}
+					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors {message.isPinned
+						? 'text-primary'
+						: ''}"
+					aria-label={message.isPinned ? 'Unpin Message' : 'Pin Message'}
+					title={message.isPinned ? 'Unpin Message' : 'Pin Message'}
+					disabled={isPinning}
+				>
+					<Pin size={16} />
 				</button>
 			{/if}
 			{#if canDeleteMessage}

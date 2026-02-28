@@ -654,6 +654,25 @@ class ApiClient {
 		await this.request(`/messages/${messageId}`, { method: 'DELETE' });
 	}
 
+	async pinMessage(messageId: string): Promise<void> {
+		await this.request(`/messages/${messageId}/pin`, {
+			method: 'POST'
+		});
+	}
+
+	async unpinMessage(messageId: string): Promise<void> {
+		await this.request(`/messages/${messageId}/pin`, {
+			method: 'DELETE'
+		});
+	}
+
+	async getPinnedMessages(channelId: string): Promise<Message[]> {
+		const result = await this.request<ApiResponse<Message[]>>(
+			`/messages/channels/${channelId}/messages/pinned`
+		);
+		return result.data;
+	}
+
 	async addReaction(messageId: string, emoji: string): Promise<void> {
 		await this.request(`/messages/${messageId}/reactions`, {
 			method: 'POST',

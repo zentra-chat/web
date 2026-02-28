@@ -149,7 +149,7 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		cursor: default;
+		cursor: pointer;
 		transition: background-color var(--transition-fast), color var(--transition-fast);
 	}
 

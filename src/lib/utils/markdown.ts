@@ -1,12 +1,32 @@
 import MarkdownIt from 'markdown-it';
 import markdownItIns from 'markdown-it-ins';
+import hljs from 'highlight.js/lib/common';
 import { resolveShortcode } from './emoji';
+
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
 
 const markdown = new MarkdownIt({
 	html: false,
 	linkify: true,
 	breaks: true,
-	typographer: true
+	typographer: true,
+	highlight: (code: string, language: string) => {
+		try {
+			if (language && hljs.getLanguage(language)) {
+				return hljs.highlight(code, { language, ignoreIllegals: true }).value;
+			}
+			return hljs.highlightAuto(code).value;
+		} catch {
+			return escapeHtml(code);
+		}
+	}
 });
 
 markdown.use(markdownItIns);

@@ -207,7 +207,7 @@ button:disabled,
 }
 
 .message-content code {
-	background: var(--color-background);
+	background: var(--color-background-tertiary);
 	padding: 0.125rem 0.375rem;
 	border-radius: 0.25rem;
 	font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
@@ -215,7 +215,8 @@ button:disabled,
 }
 
 .message-content pre {
-	background: var(--color-background);
+	background: var(--color-background-secondary);
+	border: 1px solid var(--color-border-light);
 	padding: 0.75rem;
 	border-radius: 0.5rem;
 	overflow-x: auto;
@@ -225,6 +226,49 @@ button:disabled,
 .message-content pre code {
 	background: transparent;
 	padding: 0;
+	display: block;
+	color: var(--color-text-primary);
+}
+
+.message-content .hljs-keyword,
+.message-content .hljs-selector-tag,
+.message-content .hljs-literal,
+.message-content .hljs-section,
+.message-content .hljs-link {
+	color: var(--color-primary);
+}
+
+.message-content .hljs-string,
+.message-content .hljs-title,
+.message-content .hljs-name,
+.message-content .hljs-type,
+.message-content .hljs-attribute,
+.message-content .hljs-symbol,
+.message-content .hljs-bullet,
+.message-content .hljs-addition,
+.message-content .hljs-template-tag,
+.message-content .hljs-template-variable {
+	color: var(--color-success);
+}
+
+.message-content .hljs-number,
+.message-content .hljs-regexp,
+.message-content .hljs-meta .hljs-string {
+	color: var(--color-info);
+}
+
+.message-content .hljs-comment,
+.message-content .hljs-quote,
+.message-content .hljs-deletion {
+	color: var(--color-text-muted);
+}
+
+.message-content .hljs-emphasis {
+	font-style: italic;
+}
+
+.message-content .hljs-strong {
+	font-weight: 700;
 }
 
 .message-content a {

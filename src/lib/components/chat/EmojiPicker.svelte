@@ -15,9 +15,10 @@
 		onSelect: (emoji: string) => void;
 		onClose?: () => void;
 		align?: 'left' | 'right';
+		customEmojiFormat?: 'shortcode' | 'reaction';
 	}
 
-	let { onSelect, onClose, align = 'right' }: Props = $props();
+	let { onSelect, onClose, align = 'right', customEmojiFormat = 'shortcode' }: Props = $props();
 
 	let searchQuery = $state('');
 	let containerRef: HTMLDivElement | null = $state(null);
@@ -130,6 +131,11 @@
 	}
 
 	function handleCustomEmojiClick(emoji: CustomEmojiWithCommunity) {
+		if (customEmojiFormat === 'reaction') {
+			onSelect(`<:${emoji.name}:${emoji.id}>`);
+			return;
+		}
+
 		// Insert the shortcode — MessageInput will expand it to <:name:id> on send
 		onSelect(`:${emoji.name}:`);
 	}

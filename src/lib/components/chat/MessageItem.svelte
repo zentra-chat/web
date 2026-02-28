@@ -407,6 +407,7 @@
 							<div class="absolute bottom-full left-0 mb-4 z-50">
 								<EmojiPicker
 									align="left"
+									customEmojiFormat="reaction"
 									onSelect={handleReactionSelect}
 									onClose={() => (showReactionsPicker = false)}
 								/>
@@ -432,6 +433,7 @@
 			{#if showActionBarPicker}
 				<div class="absolute bottom-full right-0 mb-2">
 					<EmojiPicker
+						customEmojiFormat="reaction"
 						onSelect={handleReactionSelect}
 						onClose={() => (showActionBarPicker = false)}
 					/>

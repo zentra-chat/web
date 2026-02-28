@@ -389,6 +389,54 @@
 		openRenameCategoryModal(contextMenu.categoryId);
 	}
 
+	async function handleDeleteChannel(channelId: string) {
+		const channel = $activeCommunityChannels.find((c) => c.id === channelId);
+		const label = channel ? `#${channel.name}` : 'this channel';
+		const confirmed = window.confirm(`Delete ${label}? This action cannot be undone.`);
+		if (!confirmed) return;
+
+		try {
+			await api.deleteChannel(channelId);
+			await loadChannelsAndCategories();
+			addToast({ type: 'success', message: 'Channel deleted' });
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
+			console.error('Failed to delete channel:', err);
+			addToast({ type: 'error', message: error.error || error.message || 'Failed to delete channel' });
+		}
+	}
+
+	async function handleDeleteCategory(categoryId: string) {
+		const category = $activeCommunityCategories.find((c) => c.id === categoryId);
+		const label = category ? category.name : 'this folder';
+		const confirmed = window.confirm(`Delete folder "${label}"? Channels inside will become uncategorized.`);
+		if (!confirmed) return;
+
+		try {
+			await api.deleteCategory(categoryId);
+			await loadChannelsAndCategories();
+			addToast({ type: 'success', message: 'Folder deleted' });
+		} catch (err: unknown) {
+			const error = err as ApiErrorLike;
+			console.error('Failed to delete folder:', err);
+			addToast({ type: 'error', message: error.error || error.message || 'Failed to delete folder' });
+		}
+	}
+
+	function handleContextDeleteChannel() {
+		if (!contextMenu || contextMenu.type !== 'channel') return;
+		const channelId = contextMenu.channelId;
+		contextMenu = null;
+		void handleDeleteChannel(channelId);
+	}
+
+	function handleContextDeleteCategory() {
+		if (!contextMenu || contextMenu.type !== 'category') return;
+		const categoryId = contextMenu.categoryId;
+		contextMenu = null;
+		void handleDeleteCategory(categoryId);
+	}
+
 	function handleOpenCommunitySettings() {
 		if (!canOpenCommunitySettings) {
 			addToast({ type: 'error', message: 'Insufficient permissions' });
@@ -604,6 +652,12 @@
 					>
 						Rename Channel
 					</button>
+					<button
+						onclick={handleContextDeleteChannel}
+						class="w-full rounded px-3 py-2 text-left text-sm text-error hover:bg-surface-hover"
+					>
+						Delete Channel
+					</button>
 				{/if}
 				{#if developerModeEnabled}
 					<button
@@ -614,12 +668,20 @@
 					</button>
 				{/if}
 			{:else if contextMenu.type === 'category'}
-				<button
-					onclick={handleContextRenameCategory}
-					class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
-				>
-					Rename Folder
-				</button>
+				{#if canManageChannels}
+					<button
+						onclick={handleContextRenameCategory}
+						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover"
+					>
+						Rename Folder
+					</button>
+					<button
+						onclick={handleContextDeleteCategory}
+						class="w-full rounded px-3 py-2 text-left text-sm text-error hover:bg-surface-hover"
+					>
+						Delete Folder
+					</button>
+				{/if}
 			{/if}
 		</div>
 	{/if}

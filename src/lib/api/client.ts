@@ -588,6 +588,10 @@ class ApiClient {
 		return result.data;
 	}
 
+	async deleteCategory(categoryId: string): Promise<void> {
+		await this.request(`/channels/categories/${categoryId}`, { method: 'DELETE' });
+	}
+
 	// Voice endpoints
 	async getVoiceStates(channelId: string): Promise<VoiceState[]> {
 		const result = await this.request<ApiResponse<VoiceState[]>>(`/voice/channels/${channelId}/states`);

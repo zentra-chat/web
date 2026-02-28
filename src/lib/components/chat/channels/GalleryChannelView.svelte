@@ -222,7 +222,7 @@
 			</div>
 		{/if}
 
-		<div class="flex items-end gap-2 bg-surface border border-border rounded-lg px-2 py-2">
+		<div class="flex items-center gap-2 bg-surface border border-border rounded-lg px-2 py-2">
 			<button
 				onclick={openImagePicker}
 				class="p-2 text-text-muted hover:text-text-primary transition-colors"
@@ -235,6 +235,7 @@
 			<textarea
 				bind:value={description}
 				onkeydown={handleDescriptionKeydown}
+                rows={1}
 				placeholder="Add a description for this image post..."
 				class="flex-1 bg-transparent text-text-primary placeholder-text-muted resize-none focus:outline-none"
 				disabled={isSubmitting}

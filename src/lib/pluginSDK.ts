@@ -323,6 +323,7 @@ export const ZentraSDK = {
 	components: {
 		MessageList: () => import('$lib/components/chat/MessageList.svelte'),
 		MessageInput: () => import('$lib/components/chat/MessageInput.svelte'),
+		MessageItem: () => import('$lib/components/chat/MessageItem.svelte'),
 		Avatar: () => import('$lib/components/ui/Avatar.svelte'),
 		Spinner: () => import('$lib/components/ui/Spinner.svelte'),
 		Button: () => import('$lib/components/ui/Button.svelte'),

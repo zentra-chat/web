@@ -30,7 +30,14 @@
 		Permission,
 		unreadCounts
 	} from '$lib/stores/community';
-	import { openModal, isMobileMenuOpen, addToast, userSettings } from '$lib/stores/ui';
+	import {
+		openModal,
+		isMobileMenuOpen,
+		addToast,
+		userSettings,
+		devTextChannelOverrides,
+		toggleDevTextChannelOverride
+	} from '$lib/stores/ui';
 	import { goto } from '$app/navigation';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
@@ -388,6 +395,41 @@
 		void handleCopyChannelId(contextMenu.channelId);
 	}
 
+	function getChannelById(channelId: string): Channel | undefined {
+		return $activeCommunityChannels.find((channel) => channel.id === channelId);
+	}
+
+	function canContextChannelViewAsText(channelId: string): boolean {
+		const channel = getChannelById(channelId);
+		if (!channel) return false;
+		return channel.type !== 'text' && channel.type !== 'voice';
+	}
+
+	function isContextChannelViewingAsText(channelId: string): boolean {
+		return Boolean($devTextChannelOverrides[channelId]);
+	}
+
+	function handleContextToggleViewAsText() {
+		if (!contextMenu || contextMenu.type !== 'channel') return;
+		if (!developerModeEnabled || !canContextChannelViewAsText(contextMenu.channelId)) return;
+
+		const channel = getChannelById(contextMenu.channelId);
+		if (!channel) {
+			contextMenu = null;
+			return;
+		}
+
+		const currentlyText = isContextChannelViewingAsText(contextMenu.channelId);
+		toggleDevTextChannelOverride(contextMenu.channelId);
+		addToast({
+			type: 'info',
+			message: currentlyText
+				? `Showing normal view for #${channel.name}`
+				: `Showing text view for #${channel.name}`
+		});
+		contextMenu = null;
+	}
+
 	function handleContextRenameCategory() {
 		if (!contextMenu || contextMenu.type !== 'category') return;
 		openRenameCategoryModal(contextMenu.categoryId);
@@ -694,6 +736,15 @@
 						<Copy size={14}/>
 						Copy Channel ID
 					</button>
+					{#if canContextChannelViewAsText(contextMenu.channelId)}
+						<button
+							onclick={handleContextToggleViewAsText}
+							class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover flex items-center gap-2"
+						>
+							<Hash size={14} />
+							{isContextChannelViewingAsText(contextMenu.channelId) ? 'View as Normal Channel' : 'View as Text'}
+						</button>
+					{/if}
 				{/if}
 			{:else if contextMenu.type === 'category'}
 				{#if canManageChannels}

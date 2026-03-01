@@ -11,7 +11,11 @@
 		setMessages,
 		removeMessage
 	} from '$lib/stores/community';
-	import { showMemberSidebar, toggleMemberSidebar, addToast } from '$lib/stores/ui';
+	import {
+		showMemberSidebar,
+		toggleMemberSidebar,
+		addToast
+	} from '$lib/stores/ui';
 	import {
 		activeDmConversation,
 		dmMessagesCache,

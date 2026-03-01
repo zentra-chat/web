@@ -65,6 +65,42 @@ export const instanceSelectorMode = writable<InstanceSelectorMode>('disabled');
 // User settings cache
 export const userSettings = writable<UserSettings | null>(null);
 
+// Developer-mode channel view overrides
+// channelId -> true means force render with text channel view
+export const devTextChannelOverrides = writable<Record<string, boolean>>({});
+
+export function setDevTextChannelOverride(channelId: string, enabled: boolean): void {
+	devTextChannelOverrides.update((current) => {
+		if (!enabled && !current[channelId]) {
+			return current;
+		}
+
+		if (!enabled) {
+			const { [channelId]: _removed, ...rest } = current;
+			return rest;
+		}
+
+		return {
+			...current,
+			[channelId]: true
+		};
+	});
+}
+
+export function toggleDevTextChannelOverride(channelId: string): void {
+	devTextChannelOverrides.update((current) => {
+		if (current[channelId]) {
+			const { [channelId]: _removed, ...rest } = current;
+			return rest;
+		}
+
+		return {
+			...current,
+			[channelId]: true
+		};
+	});
+}
+
 function normalizeInstanceSelectorMode(value: unknown): InstanceSelectorMode {
 	if (value === 'auto' || value === 'show' || value === 'disabled') {
 		return value;

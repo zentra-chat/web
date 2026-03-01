@@ -7,6 +7,7 @@
 	// Resolve the right view component for whatever channel type is active.
 	// Uses dynamic imports so we only load the component code we actually need.
 	let viewComponent = $state<Component | null>(null);
+	let viewElementTag = $state<string | null>(null);
 	let loadingType = $state<string | null>(null);
 	let loadError = $state(false);
 
@@ -25,11 +26,38 @@
 		loadingType = channelType;
 		loadError = false;
 		viewComponent = null;
+		viewElementTag = null;
 
 		const reg = getChannelTypeRegistration(channelType);
+
+		if (reg.viewElement) {
+			const tagName = reg.viewElement.tagName;
+			reg.viewElement.module()
+				.then(() => {
+					if (!customElements.get(tagName)) {
+						throw new Error(`Custom element \"${tagName}\" was not defined by plugin module`);
+					}
+					if (loadingType === channelType) {
+						viewElementTag = tagName;
+					}
+				})
+				.catch((err) => {
+					console.error(`Failed to load custom element view for channel type "${channelType}":`, err);
+					if (loadingType === channelType) {
+						loadError = true;
+					}
+				});
+			return;
+		}
+
+		if (!reg.viewComponent) {
+			console.error(`Channel type "${channelType}" does not have a valid view renderer`);
+			loadError = true;
+			return;
+		}
+
 		reg.viewComponent()
 			.then((mod) => {
-				// Only apply if the channel type hasn't changed while we were loading
 				if (loadingType === channelType) {
 					viewComponent = mod.default;
 				}
@@ -50,6 +78,10 @@
 		<p class="text-text-muted">Failed to load the view for this channel type.</p>
 		<p class="text-xs text-text-muted mt-1">Type: {$activeChannel.type}</p>
 	</div>
+{:else if viewElementTag}
+	{#key `${$activeChannel?.id || ''}:${viewElementTag}`}
+		<svelte:element this={viewElementTag} class="flex-1 flex flex-col min-h-0" />
+	{/key}
 {:else if viewComponent}
 	{@const ActiveView = viewComponent}
 	<ActiveView />

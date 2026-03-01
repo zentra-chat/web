@@ -192,6 +192,11 @@ function resolveIcon(icon: IconComponent | string): IconComponent | undefined {
 	return icon;
 }
 
+function isValidPluginElementTag(tagName: string): boolean {
+	return /^zentra-plugin-[a-z0-9-]+$/.test(tagName) || /^zentra-[a-z0-9-]+$/.test(tagName);
+}
+
+
 // The SDK object passed to plugins. Every plugin gets the same interface
 // regardless of whether it's built-in or loaded at runtime.
 export const ZentraSDK = {
@@ -202,7 +207,11 @@ export const ZentraSDK = {
 	registerChannelType(def: {
 		id: string;
 		icon: IconComponent | string;
-		viewComponent: () => Promise<{ default: Component }>;
+		viewComponent?: () => Promise<{ default: Component }>;
+		viewElement?: {
+			tagName: string;
+			module: () => Promise<unknown>;
+		};
 		label: string;
 		description: string;
 		showHash: boolean;
@@ -214,9 +223,22 @@ export const ZentraSDK = {
 			return;
 		}
 
+		if (!def.viewComponent && !def.viewElement) {
+			console.warn(`[Zentra SDK] Channel type "${def.id}" must provide viewComponent or viewElement`);
+			return;
+		}
+
+		if (def.viewElement && !isValidPluginElementTag(def.viewElement.tagName)) {
+			console.warn(
+				`[Zentra SDK] Invalid viewElement tag "${def.viewElement.tagName}" for "${def.id}". Expected format: zentra-plugin-... (or legacy zentra-...)`
+			);
+			return;
+		}
+
 		register(def.id, {
 			icon,
 			viewComponent: def.viewComponent as ChannelTypeRegistration['viewComponent'],
+			viewElement: def.viewElement,
 			label: def.label,
 			description: def.description,
 			showHash: def.showHash,

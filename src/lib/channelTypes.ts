@@ -18,7 +18,13 @@ export interface ChannelTypeRegistration {
 	icon: IconComponent;
 	// The view component rendered in the main content area (lazy loaded)
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	viewComponent: () => Promise<{ default: any }>;
+	viewComponent?: () => Promise<{ default: any }>;
+	// Runtime-isolated custom element view for third-party plugins.
+	// The module loader should define/register the custom element.
+	viewElement?: {
+		tagName: string;
+		module: () => Promise<unknown>;
+	};
 	// Nice display name (fallback if server definition isn't loaded yet)
 	label: string;
 	// Short description for the create modal
@@ -50,12 +56,35 @@ const registry = new Map<string, ChannelTypeRegistration>();
 const headerActionRegistry = new Map<string, ChannelHeaderActionRegistration>();
 export const channelRegistryEpoch = writable(0);
 
+function isValidPluginElementTag(tagName: string): boolean {
+	return /^zentra-plugin-[a-z0-9-]+$/.test(tagName) || /^zentra-[a-z0-9-]+$/.test(tagName);
+}
+
+
 function bumpRegistryEpoch() {
 	channelRegistryEpoch.update((n) => n + 1);
 }
 
 // Register a channel type. Plugins call this through the SDK to add their own types.
 export function register(typeId: string, registration: ChannelTypeRegistration): void {
+	if (registration.viewElement && !isValidPluginElementTag(registration.viewElement.tagName)) {
+		console.warn(
+			`[ChannelTypes] Invalid viewElement tag "${registration.viewElement.tagName}" for "${typeId}". Falling back to component view.`
+		);
+		registration = {
+			...registration,
+			viewElement: undefined
+		};
+	}
+
+	if (!registration.viewComponent && !registration.viewElement) {
+		console.warn(`[ChannelTypes] Registration for "${typeId}" is missing a view renderer`);
+		registration = {
+			...registration,
+			viewComponent: fallbackRegistration.viewComponent
+		};
+	}
+
 	registry.set(typeId, registration);
 	bumpRegistryEpoch();
 }

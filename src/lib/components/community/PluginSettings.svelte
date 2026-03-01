@@ -131,6 +131,24 @@
 		loadCatalog();
 	}
 
+	async function switchView(nextView: 'installed' | 'browse' | 'sources') {
+		view = nextView;
+
+		if (nextView === 'installed') {
+			await loadInstalled();
+			return;
+		}
+
+		if (nextView === 'browse') {
+			hasAttemptedCatalogLoad = false;
+			await loadCatalog();
+			return;
+		}
+
+		hasAttemptedSourcesLoad = false;
+		await loadSources();
+	}
+
 	// Opens the permission review modal before installing
 	function startInstall(plugin: Plugin) {
 		if (plugin.builtIn || plugin.slug === 'core') {
@@ -229,10 +247,8 @@
 		try {
 			await api.syncPluginSource(communityId, sourceId);
 			addToast({ type: 'success', message: 'Source synced - new plugins should appear in the catalog' });
-			// Refresh catalog if we're on that tab
-			if (view === 'browse') {
-				await loadCatalog();
-			}
+			hasAttemptedCatalogLoad = false;
+			await loadCatalog();
 		} catch (err) {
 			console.error('Failed to sync source:', err);
 			addToast({ type: 'error', message: 'Failed to sync source' });
@@ -295,7 +311,7 @@
 	<!-- Sub-tabs -->
 	<div class="flex gap-1 border-b border-border pb-px">
 		<button
-			onclick={() => view = 'installed'}
+			onclick={() => switchView('installed')}
 			class="px-3 py-1.5 text-sm rounded-t-lg transition-colors {view === 'installed'
 				? 'bg-surface-hover text-text-primary border-b-2 border-accent-primary'
 				: 'text-text-muted hover:text-text-primary'}"
@@ -303,7 +319,7 @@
 			Installed
 		</button>
 		<button
-			onclick={() => view = 'browse'}
+			onclick={() => switchView('browse')}
 			class="px-3 py-1.5 text-sm rounded-t-lg transition-colors {view === 'browse'
 				? 'bg-surface-hover text-text-primary border-b-2 border-accent-primary'
 				: 'text-text-muted hover:text-text-primary'}"
@@ -311,7 +327,7 @@
 			Browse
 		</button>
 		<button
-			onclick={() => view = 'sources'}
+			onclick={() => switchView('sources')}
 			class="px-3 py-1.5 text-sm rounded-t-lg transition-colors {view === 'sources'
 				? 'bg-surface-hover text-text-primary border-b-2 border-accent-primary'
 				: 'text-text-muted hover:text-text-primary'}"

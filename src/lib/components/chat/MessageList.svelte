@@ -282,11 +282,20 @@
 
 	async function jumpToMessage(messageId: string) {
 		await tick();
-		const target = document.getElementById(`message-container-${messageId}`);
+		let target = document.getElementById(`message-container-${messageId}`);
+
+		let attempts = 0;
+		while (!target && hasMore && attempts < 20) {
+			await loadMoreMessages();
+			await tick();
+			target = document.getElementById(`message-container-${messageId}`);
+			attempts += 1;
+		}
+
 		if (!target) {
 			addToast({
 				type: 'warning',
-				message: 'Message is not in the currently loaded history yet. Load older messages first.'
+				message: 'Original message could not be found in loaded history.'
 			});
 			return;
 		}
@@ -527,6 +536,7 @@
 						onDelete={handleMessageDelete}
 						onDeleteRequest={isDm ? handleDeleteRequest : undefined}
 						onReactionToggle={isDm ? handleReactionToggle : undefined}
+						onJumpToMessage={jumpToMessage}
 						enableReactions={true}
 						enableReply={true}
 						isDm={isDm}

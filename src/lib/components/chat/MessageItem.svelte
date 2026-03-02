@@ -33,6 +33,7 @@
 		onDelete?: (messageId: string) => void;
 		onDeleteRequest?: (messageId: string) => Promise<void>;
 		onReactionToggle?: (messageId: string, emoji: string, reacted: boolean) => Promise<void>;
+		onJumpToMessage?: (messageId: string) => Promise<void> | void;
 		enableReactions?: boolean;
 		enableReply?: boolean;
 		isDm?: boolean;
@@ -44,6 +45,7 @@
 		onDelete,
 		onDeleteRequest,
 		onReactionToggle,
+		onJumpToMessage,
 		enableReactions = true,
 		enableReply = true,
 		isDm = false
@@ -69,6 +71,7 @@
 		const replyMember = $activeCommunityMembers.find((m) => m.userId === message.replyTo?.authorId) || null;
 		return getMemberNameColor(replyMember);
 	});
+	let replyTargetId = $derived(message.replyTo?.id || message.replyToId || null);
 
 	// Mention resolver for markdown rendering
 	let mentionResolver = $derived.by((): MentionResolver => {
@@ -190,6 +193,19 @@
 		setReplyingTo(message);
 	}
 
+	async function handleReplyJump() {
+		if (!replyTargetId || !onJumpToMessage) return;
+		await onJumpToMessage(replyTargetId);
+	}
+
+	function getReplyPreview(messageRef: Message): string {
+		const content = messageRef.content?.trim();
+		if (content) return content;
+		if (messageRef.attachments?.length) return '[Attachment message]';
+		if (messageRef.linkPreviews?.length) return '[Link preview]';
+		return '[Message unavailable]';
+	}
+
 	async function handlePinToggle() {
 		if (isDm || !canPinMessages || isPinning) return;
 
@@ -300,14 +316,24 @@
 >
 	<!-- Reply reference -->
 	{#if message.replyTo}
-		<div class="flex items-center gap-2 ml-12 mb-1 text-xs text-text-muted">
-			<Reply size={12} class="rotate-180" />
+		<button
+			type="button"
+			onclick={handleReplyJump}
+			disabled={!replyTargetId || !onJumpToMessage}
+			class="group/reply flex items-center gap-2 ml-12 mb-1 max-w-xl px-2 py-1 rounded-md border border-transparent text-xs text-text-muted transition-colors {!replyTargetId || !onJumpToMessage
+				? 'opacity-70 cursor-default'
+				: 'hover:bg-surface/70 hover:border-border cursor-pointer'}"
+			aria-label="Jump to replied message"
+			title={replyTargetId && onJumpToMessage ? 'Jump to replied message' : 'Original message is unavailable'}
+		>
+			<div class="h-4 w-0.5 rounded-full bg-border shrink-0"></div>
+			<Reply size={12} class="rotate-180 shrink-0" />
 			<Avatar user={message.replyTo.author} size="xs" />
-			<span class="font-medium" style={replyColor ? `color: ${replyColor}` : undefined}>
+			<span class="font-medium shrink-0" style={replyColor ? `color: ${replyColor}` : undefined}>
 				{message.replyTo.author?.displayName || message.replyTo.author?.username}
 			</span>
-			<span class="truncate max-w-md">{message.replyTo.content}</span>
-		</div>
+			<span class="truncate min-w-0 text-left">{getReplyPreview(message.replyTo)}</span>
+		</button>
 	{/if}
 
 	<div class="flex items-start gap-4">

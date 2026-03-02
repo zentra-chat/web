@@ -3,6 +3,7 @@
 	import { channelRegistryEpoch, getChannelTypeRegistration } from '$lib/channelTypes';
 	import { devTextChannelOverrides, userSettings } from '$lib/stores/ui';
 	import { Spinner } from '$lib/components/ui';
+	import PluginFrame from '$lib/components/chat/PluginFrame.svelte';
 	import type { Component } from 'svelte';
 
 	const TEXT_VIEW_DISABLED_TYPES = new Set(['text', 'voice']);
@@ -11,6 +12,7 @@
 	// Uses dynamic imports so we only load the component code we actually need.
 	let viewComponent = $state<Component | null>(null);
 	let viewElementTag = $state<string | null>(null);
+	let viewFramePluginId = $state<string | null>(null);
 	let loadingType = $state<string | null>(null);
 	let loadError = $state(false);
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
@@ -30,14 +32,22 @@
 		const renderType = forcedTextView ? 'text' : channelType;
 
 		// Don't re-import if we're already showing this type
-		if (loadingType === renderType && (viewComponent || viewElementTag)) return;
+		if (loadingType === renderType && (viewComponent || viewElementTag || viewFramePluginId)) return;
 
 		loadingType = renderType;
 		loadError = false;
 		viewComponent = null;
 		viewElementTag = null;
+		viewFramePluginId = null;
 
 		const reg = getChannelTypeRegistration(renderType);
+
+		// Sandboxed iframe view — the plugin already has its iframe running,
+		// we just need to mount it via PluginFrame
+		if (reg.viewFrame) {
+			viewFramePluginId = reg.viewFrame.pluginId;
+			return;
+		}
 
 		if (reg.viewElement) {
 			const tagName = reg.viewElement.tagName;
@@ -87,6 +97,8 @@
 		<p class="text-text-muted">Failed to load the view for this channel type.</p>
 		<p class="text-xs text-text-muted mt-1">Type: {$activeChannel.type}</p>
 	</div>
+{:else if viewFramePluginId}
+	<PluginFrame pluginId={viewFramePluginId} />
 {:else if viewElementTag}
 	{#key `${$activeChannel?.id || ''}:${viewElementTag}`}
 		<svelte:element this={viewElementTag} class="flex-1 flex flex-col min-h-0" />

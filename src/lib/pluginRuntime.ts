@@ -7,9 +7,10 @@
 // grantedPermissions bitmask on CommunityPlugin - it never gets the full SDK.
 
 import { api } from '$lib/api';
-import { ZentraSDK, createScopedSDK } from '$lib/pluginSDK';
+import { ZentraSDK } from '$lib/pluginSDK';
 import type { ZentraPluginSDK } from '@zentra/plugin-sdk';
 import { register as registerDefaultPlugin } from '@zentra/default-plugin';
+import { createPluginSandbox, destroyAllPluginSandboxes } from '$lib/pluginSandbox';
 import type { CommunityPlugin } from '$lib/types';
 
 const loadedBundleUrls = new Set<string>();
@@ -42,11 +43,13 @@ function normalizeBundleUrl(bundlePath: string): string {
 	return `/${bundlePath.replace(/^\/+/, '')}`;
 }
 
-// Load a third-party plugin's frontend bundle. The plugin receives a
-// capability-scoped SDK built from grantedPermissions - it does NOT get the
-// full SDK and is NOT added to window. The scoped SDK only exposes the API
-// methods and stores that match the permissions granted to this plugin.
+// Load a third-party plugin inside a sandboxed iframe. The plugin's bundle
+// is fetched, inlined into a srcdoc, and runs in complete isolation — no
+// access to the parent document, localStorage, cookies, or any same-origin
+// APIs. All SDK communication goes through a postMessage bridge that
+// validates every call against the plugin's granted permissions.
 async function loadPluginBundle(
+	pluginId: string,
 	bundleUrl: string,
 	cacheKey: string,
 	grantedPermissions: number
@@ -57,16 +60,8 @@ async function loadPluginBundle(
 
 	loadedBundleUrls.add(cacheKey);
 
-	// Build a scoped SDK for this specific plugin based on what it was granted.
-	// Third-party plugins never receive the full SDK or the global window object.
-	const scopedSdk = createScopedSDK(grantedPermissions) as unknown as ZentraPluginSDK;
-
 	try {
-		const mod = await import(/* @vite-ignore */ bundleUrl);
-		const registerFn = (mod as { register?: (sdk: ZentraPluginSDK) => void }).register;
-		if (typeof registerFn === 'function') {
-			registerFn(scopedSdk);
-		}
+		await createPluginSandbox(pluginId, bundleUrl, grantedPermissions);
 	} catch (err) {
 		loadedBundleUrls.delete(cacheKey);
 		throw err;
@@ -170,7 +165,7 @@ export async function loadCommunityPluginFrontends(communityId: string): Promise
 
 		const cacheTag = `${cp.pluginId}:${cp.plugin?.updatedAt || cp.updatedAt || ''}`;
 		const cacheBustedUrl = withCacheBuster(bundleUrl, cacheTag);
-		await loadPluginBundle(cacheBustedUrl, cacheTag, cp.grantedPermissions);
+		await loadPluginBundle(cp.pluginId, cacheBustedUrl, cacheTag, cp.grantedPermissions);
 
 		seenSlugs.add(slug);
 		for (const typeId of types) {
@@ -184,5 +179,7 @@ export async function loadCommunityPluginFrontends(communityId: string): Promise
 export function resetPluginRuntimeCache(): void {
 	loadedBundleUrls.clear();
 	loadedCommunityIds.clear();
+	// Tear down all sandboxed plugin iframes
+	destroyAllPluginSandboxes();
 	// Don't reset defaultPluginLoaded - it stays loaded across communities
 }

@@ -25,6 +25,12 @@ export interface ChannelTypeRegistration {
 		tagName: string;
 		module: () => Promise<unknown>;
 	};
+	// Sandboxed iframe view for third-party plugins. When set, ChannelView
+	// renders a PluginFrame that shows the plugin's iframe instead of
+	// mounting a component directly. The pluginId maps to the sandbox.
+	viewFrame?: {
+		pluginId: string;
+	};
 	// Nice display name (fallback if server definition isn't loaded yet)
 	label: string;
 	// Short description for the create modal
@@ -77,7 +83,7 @@ export function register(typeId: string, registration: ChannelTypeRegistration):
 		};
 	}
 
-	if (!registration.viewComponent && !registration.viewElement) {
+	if (!registration.viewComponent && !registration.viewElement && !registration.viewFrame) {
 		console.warn(`[ChannelTypes] Registration for "${typeId}" is missing a view renderer`);
 		registration = {
 			...registration,

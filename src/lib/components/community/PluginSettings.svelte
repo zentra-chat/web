@@ -42,7 +42,9 @@
 	let searchQuery = $state('');
 	let expandedPluginId = $state<string | null>(null);
 	let showPermissionModal = $state(false);
+	let permissionModalMode = $state<'install' | 'edit'>('install');
 	let permissionModalPlugin = $state<Plugin | null>(null);
+	let permissionModalCommunityPlugin = $state<CommunityPlugin | null>(null);
 	let pendingPermissions = $state(0);
 
 	// Source form state
@@ -156,28 +158,63 @@
 			return;
 		}
 
+		permissionModalMode = 'install';
 		permissionModalPlugin = plugin;
+		permissionModalCommunityPlugin = null;
 		pendingPermissions = plugin.requestedPermissions;
 		showPermissionModal = true;
 	}
 
-	async function confirmInstall() {
+	function startEditPermissions(cp: CommunityPlugin) {
+		if (!cp.plugin || cp.plugin.builtIn) return;
+
+		permissionModalMode = 'edit';
+		permissionModalPlugin = cp.plugin;
+		permissionModalCommunityPlugin = cp;
+		pendingPermissions = cp.grantedPermissions;
+		showPermissionModal = true;
+	}
+
+	async function confirmPermissions() {
 		if (!permissionModalPlugin) return;
 
 		const plugin = permissionModalPlugin;
 		showPermissionModal = false;
-		isInstallingId = plugin.id;
+
+		if (permissionModalMode === 'install') {
+			isInstallingId = plugin.id;
+
+			try {
+				const installed = await api.installPlugin(communityId, plugin.id, pendingPermissions);
+				installedPlugins = [...installedPlugins, installed];
+				addToast({ type: 'success', message: `Installed ${plugin.name}` });
+			} catch (err) {
+				console.error('Failed to install plugin:', err);
+				addToast({ type: 'error', message: `Failed to install ${plugin.name}` });
+			} finally {
+				isInstallingId = null;
+				permissionModalPlugin = null;
+				permissionModalCommunityPlugin = null;
+			}
+
+			return;
+		}
+
+		const installedPlugin = permissionModalCommunityPlugin;
+		if (!installedPlugin) return;
 
 		try {
-			const installed = await api.installPlugin(communityId, plugin.id, pendingPermissions);
-			installedPlugins = [...installedPlugins, installed];
-			addToast({ type: 'success', message: `Installed ${plugin.name}` });
+			await api.updatePluginPermissions(communityId, installedPlugin.pluginId, pendingPermissions);
+			installedPlugins = installedPlugins.map((p) =>
+				p.pluginId === installedPlugin.pluginId ? { ...p, grantedPermissions: pendingPermissions } : p
+			);
+			addToast({ type: 'success', message: `Updated permissions for ${plugin.name}` });
 		} catch (err) {
-			console.error('Failed to install plugin:', err);
-			addToast({ type: 'error', message: `Failed to install ${plugin.name}` });
+			console.error('Failed to update plugin permissions:', err);
+			addToast({ type: 'error', message: `Failed to update permissions for ${plugin.name}` });
 		} finally {
-			isInstallingId = null;
 			permissionModalPlugin = null;
+			permissionModalCommunityPlugin = null;
 		}
 	}
 
@@ -296,6 +333,12 @@
 			day: 'numeric',
 			year: 'numeric'
 		});
+	}
+
+	function closePermissionModal() {
+		showPermissionModal = false;
+		permissionModalPlugin = null;
+		permissionModalCommunityPlugin = null;
 	}
 </script>
 
@@ -484,20 +527,26 @@
 								<!-- Uninstall (only for non-built-in) -->
 								{#if !plugin.builtIn}
 									<div class="pt-2 border-t border-border">
-										<Button
-											variant="danger"
-											size="sm"
-											onclick={() => uninstallPlugin(cp)}
-											disabled={isUninstallingId === cp.pluginId}
-										>
-											{#if isUninstallingId === cp.pluginId}
-												<Spinner size="sm" />
-												Removing...
-											{:else}
-												<Trash size={14} class="mr-1" />
-												Uninstall
-											{/if}
-										</Button>
+										<div class="flex items-center gap-2">
+											<Button variant="ghost" size="sm" onclick={() => startEditPermissions(cp)}>
+												<Shield size={14} class="mr-1" />
+												Permissions
+											</Button>
+											<Button
+												variant="danger"
+												size="sm"
+												onclick={() => uninstallPlugin(cp)}
+												disabled={isUninstallingId === cp.pluginId}
+											>
+												{#if isUninstallingId === cp.pluginId}
+													<Spinner size="sm" />
+													Removing...
+												{:else}
+													<Trash size={14} class="mr-1" />
+													Uninstall
+												{/if}
+											</Button>
+										</div>
 									</div>
 								{/if}
 							</div>
@@ -676,6 +725,7 @@
 {#if showPermissionModal && permissionModalPlugin}
 	{@const perms = getPermissionList(permissionModalPlugin.requestedPermissions)}
 	{@const riskyCount = perms.filter(p => p.risky && (pendingPermissions & p.bit) !== 0).length}
+	{@const isInstallMode = permissionModalMode === 'install'}
 	<div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" role="dialog">
 		<div class="bg-surface rounded-xl p-5 w-full max-w-md shadow-xl border border-border">
 			<div class="flex items-center gap-3 mb-4">
@@ -687,12 +737,18 @@
 					{/if}
 				</div>
 				<div>
-					<h3 class="text-base font-semibold text-text-primary">Install {permissionModalPlugin.name}?</h3>
+					<h3 class="text-base font-semibold text-text-primary">
+						{isInstallMode ? `Install ${permissionModalPlugin.name}?` : `Update ${permissionModalPlugin.name} permissions?`}
+					</h3>
 					<p class="text-xs text-text-muted">by {permissionModalPlugin.author} - v{permissionModalPlugin.version}</p>
 				</div>
 			</div>
 
-			<p class="text-sm text-text-muted mb-3">This plugin is requesting the following permissions:</p>
+			<p class="text-sm text-text-muted mb-3">
+				{isInstallMode
+					? 'This plugin is requesting the following permissions:'
+					: 'Choose which of the requested permissions should stay granted:'}
+			</p>
 
 			<div class="space-y-2 max-h-64 overflow-y-auto">
 				{#each perms as perm}
@@ -728,12 +784,17 @@
 			{/if}
 
 			<div class="flex justify-end gap-2 mt-4">
-				<Button variant="ghost" onclick={() => { showPermissionModal = false; permissionModalPlugin = null; }}>
+				<Button variant="ghost" onclick={closePermissionModal}>
 					Cancel
 				</Button>
-				<Button variant="primary" onclick={confirmInstall}>
-					<Download size={14} class="mr-1" />
-					Install
+				<Button variant="primary" onclick={confirmPermissions}>
+					{#if isInstallMode}
+						<Download size={14} class="mr-1" />
+						Install
+					{:else}
+						<Shield size={14} class="mr-1" />
+						Save
+					{/if}
 				</Button>
 			</div>
 		</div>

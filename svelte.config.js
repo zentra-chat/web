@@ -9,7 +9,7 @@ const config = {
 
 	kit: {
 		alias: {
-			'@zentra/default-plugin': '../default-plugin/src',
+			'@zentra/default-plugin': './default-plugin/src',
 			'@zentra/plugin-sdk/runtime': '../plugin-sdk/src/runtime.ts',
 			'@zentra/plugin-sdk': '../plugin-sdk/src'
 		},

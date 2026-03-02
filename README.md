@@ -1,14 +1,14 @@
 # Selenite
 The frontend web-ui made in svelte for the Zentra App
 
-## Docs submodule setup
+## Submodule setup
 
-The frontend serves docs from `frontend/docs`.
+The frontend uses submodules for docs (`frontend/docs`) and the built-in default plugin (`frontend/default-plugin`).
 
-Initialize/update the docs submodule:
+Initialize/update both submodules:
 
 ```bash
-git submodule update --init --recursive docs
+git submodule update --init --recursive docs default-plugin
 ```
 
 ## Deploy build + host binary

@@ -430,9 +430,9 @@
 				},
 				{
 					icon: Shield,
-					title: 'Sandboxed & Safe',
+					title: 'Permission-Based Access',
 					description:
-						'Plugins run in a sandboxed environment. Community review and manifests keep your server secure.',
+						'Plugins declare what they need in a manifest. The SDK only grants those specific capabilities. API calls, stores, and actions outside the declared permissions are blocked.',
 					delay: 160
 				}
 			] as card}

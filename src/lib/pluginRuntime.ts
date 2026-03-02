@@ -3,10 +3,11 @@
 //
 // The default plugin is loaded at build time via direct import.
 // Third-party plugins are loaded dynamically from their bundle URLs.
-// All plugins interact with Zentra through the same SDK API.
+// Each third-party plugin only receives a capability-scoped SDK built from the
+// grantedPermissions bitmask on CommunityPlugin - it never gets the full SDK.
 
 import { api } from '$lib/api';
-import { ZentraSDK } from '$lib/pluginSDK';
+import { ZentraSDK, createScopedSDK } from '$lib/pluginSDK';
 import type { ZentraPluginSDK } from '@zentra/plugin-sdk';
 import { register as registerDefaultPlugin } from '@zentra/default-plugin';
 import type { CommunityPlugin } from '$lib/types';
@@ -22,6 +23,8 @@ export function loadDefaultPlugin(): void {
 	if (defaultPluginLoaded) return;
 	defaultPluginLoaded = true;
 	const sdk = ZentraSDK as unknown as ZentraPluginSDK;
+	// Built-in plugins are compiled into the app and trusted, so they get the
+	// full SDK. The window assignment here is only for the built-in plugin.
 	const win = window as Window & { ZentraSDK?: ZentraPluginSDK; ZentraPluginAPI?: ZentraPluginSDK };
 	win.ZentraSDK = sdk;
 	win.ZentraPluginAPI = sdk;
@@ -39,26 +42,30 @@ function normalizeBundleUrl(bundlePath: string): string {
 	return `/${bundlePath.replace(/^\/+/, '')}`;
 }
 
-// Load a third-party plugin's frontend bundle. The SDK is exposed both
-// as a function argument and on window for IIFE-style plugin bundles.
-async function loadPluginBundle(bundleUrl: string, cacheKey: string): Promise<void> {
+// Load a third-party plugin's frontend bundle. The plugin receives a
+// capability-scoped SDK built from grantedPermissions - it does NOT get the
+// full SDK and is NOT added to window. The scoped SDK only exposes the API
+// methods and stores that match the permissions granted to this plugin.
+async function loadPluginBundle(
+	bundleUrl: string,
+	cacheKey: string,
+	grantedPermissions: number
+): Promise<void> {
 	if (!bundleUrl || loadedBundleUrls.has(cacheKey)) {
 		return;
 	}
 
 	loadedBundleUrls.add(cacheKey);
 
-	// Expose SDK globally so IIFE plugins can grab it
-	const sdk = ZentraSDK as unknown as ZentraPluginSDK;
-	const win = window as Window & { ZentraSDK?: ZentraPluginSDK; ZentraPluginAPI?: ZentraPluginSDK };
-	win.ZentraSDK = sdk;
-	win.ZentraPluginAPI = sdk; // backwards compat
+	// Build a scoped SDK for this specific plugin based on what it was granted.
+	// Third-party plugins never receive the full SDK or the global window object.
+	const scopedSdk = createScopedSDK(grantedPermissions) as unknown as ZentraPluginSDK;
 
 	try {
 		const mod = await import(/* @vite-ignore */ bundleUrl);
 		const registerFn = (mod as { register?: (sdk: ZentraPluginSDK) => void }).register;
 		if (typeof registerFn === 'function') {
-			registerFn(sdk);
+			registerFn(scopedSdk);
 		}
 	} catch (err) {
 		loadedBundleUrls.delete(cacheKey);
@@ -163,7 +170,7 @@ export async function loadCommunityPluginFrontends(communityId: string): Promise
 
 		const cacheTag = `${cp.pluginId}:${cp.plugin?.updatedAt || cp.updatedAt || ''}`;
 		const cacheBustedUrl = withCacheBuster(bundleUrl, cacheTag);
-		await loadPluginBundle(cacheBustedUrl, cacheTag);
+		await loadPluginBundle(cacheBustedUrl, cacheTag, cp.grantedPermissions);
 
 		seenSlugs.add(slug);
 		for (const typeId of types) {

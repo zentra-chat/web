@@ -1,7 +1,7 @@
 // Plugin SDK - the interface all plugins use to interact with Zentra.
 // Built-in plugins (like the default plugin) import this directly.
-// Third-party plugins receive it as an argument to their register() function
-// and can also access it via window.ZentraSDK.
+// Third-party plugins receive a capability-scoped SDK as an argument to their
+// register() function - they do NOT get it via window.
 
 import {
 	register,
@@ -9,6 +9,7 @@ import {
 	registerHeaderAction,
 	unregisterHeaderAction
 } from '$lib/channelTypes';
+import { PluginPermission } from '$lib/types';
 import type { ChannelHeaderActionContext, ChannelTypeRegistration } from '$lib/channelTypes';
 import { api } from '$lib/api';
 import {
@@ -334,3 +335,123 @@ export const ZentraSDK = {
 };
 
 export type ZentraPluginSDK = typeof ZentraSDK;
+
+// Creates a capability-limited SDK for a third-party plugin.
+// Only the methods matching grantedPermissions (the bitmask stored on CommunityPlugin)
+// are handed to the plugin. Dangerous account/auth methods are never included.
+// Methods outside the granted permissions throw with a clear message so plugin
+// developers know exactly what they need to declare.
+export function createScopedSDK(grantedPermissions: number): ZentraPluginSDK {
+	const has = (perm: number) => (grantedPermissions & perm) !== 0;
+
+	function deny(capability: string, requiredPerm: string): never {
+		throw new Error(
+			`[Zentra Plugin] "${capability}" is not available. ` +
+				`The plugin was not granted the "${requiredPerm}" permission. ` +
+				`Check the plugin manifest's requestedPermissions value.`
+		);
+	}
+
+	// Build a permission-scoped API object. Only specific, safe methods are
+	// included per permission - nothing from the auth/account surface.
+	const scopedApi = {
+		...(has(PluginPermission.ReadMessages) && {
+			getMessages: api.getMessages.bind(api),
+			getPinnedMessages: api.getPinnedMessages.bind(api)
+		}),
+		...(has(PluginPermission.SendMessages) && {
+			sendMessage: api.sendMessage.bind(api),
+			sendTypingIndicator: api.sendTypingIndicator.bind(api)
+		}),
+		...(has(PluginPermission.ManageMessages) && {
+			editMessage: api.editMessage.bind(api),
+			deleteMessage: api.deleteMessage.bind(api),
+			pinMessage: api.pinMessage.bind(api),
+			unpinMessage: api.unpinMessage.bind(api)
+		}),
+		...(has(PluginPermission.ReadMembers) && {
+			getCommunityMembers: api.getCommunityMembers.bind(api),
+			getUser: api.getUser.bind(api)
+		}),
+		...(has(PluginPermission.ManageMembers) && {
+			kickMember: api.kickMember.bind(api),
+			banMember: api.banMember.bind(api),
+			unbanMember: api.unbanMember.bind(api)
+		}),
+		...(has(PluginPermission.ReadChannels) && {
+			getChannels: api.getChannels.bind(api),
+			getChannel: api.getChannel.bind(api)
+		}),
+		...(has(PluginPermission.ManageChannels) && {
+			createChannel: api.createChannel.bind(api),
+			updateChannel: api.updateChannel.bind(api),
+			deleteChannel: api.deleteChannel.bind(api)
+		}),
+		...(has(PluginPermission.ServerInfo) && {
+			getCommunity: api.getCommunity.bind(api)
+		}),
+		...(has(PluginPermission.ReactToMessages) && {
+			addReaction: api.addReaction.bind(api),
+			removeReaction: api.removeReaction.bind(api)
+		})
+	};
+
+	return {
+		// Channel type registration - requires AddChannelTypes permission
+		registerChannelType: has(PluginPermission.AddChannelTypes)
+			? ZentraSDK.registerChannelType
+			: () => deny('registerChannelType', 'AddChannelTypes'),
+		unregisterChannelType: has(PluginPermission.AddChannelTypes)
+			? ZentraSDK.unregisterChannelType
+			: () => deny('unregisterChannelType', 'AddChannelTypes'),
+
+		// Header actions - requires AddCommands permission
+		registerHeaderAction: has(PluginPermission.AddCommands)
+			? ZentraSDK.registerHeaderAction
+			: () => deny('registerHeaderAction', 'AddCommands'),
+		unregisterHeaderAction: has(PluginPermission.AddCommands)
+			? ZentraSDK.unregisterHeaderAction
+			: () => deny('unregisterHeaderAction', 'AddCommands'),
+
+		// Icons are static data - always safe to expose
+		getIcon: ZentraSDK.getIcon,
+		icons: ZentraSDK.icons,
+
+		// Scoped API - only the methods that match granted permissions.
+		// Auth, account management, and admin methods are never included.
+		api: scopedApi as typeof api,
+
+		// Svelte stores - gated by read permissions
+		stores: {
+			activeChannel: has(PluginPermission.ReadChannels)
+				? ZentraSDK.stores.activeChannel
+				: (undefined as never),
+			activeCommunity: has(PluginPermission.ServerInfo)
+				? ZentraSDK.stores.activeCommunity
+				: (undefined as never),
+			activeCommunityMembers: has(PluginPermission.ReadMembers)
+				? ZentraSDK.stores.activeCommunityMembers
+				: (undefined as never),
+			activeChannelMessages: has(PluginPermission.ReadMessages)
+				? ZentraSDK.stores.activeChannelMessages
+				: (undefined as never),
+			// Always expose your own user ID - it's not sensitive
+			currentUserId: ZentraSDK.stores.currentUserId
+		},
+
+		// Permission helpers - always allowed
+		permissions: ZentraSDK.permissions,
+
+		ui: {
+			// Toasts are always safe
+			addToast: ZentraSDK.ui.addToast,
+			// Injecting messages requires SendMessages
+			addMessage: has(PluginPermission.SendMessages)
+				? ZentraSDK.ui.addMessage
+				: () => deny('ui.addMessage', 'SendMessages')
+		},
+
+		// Shared components - always allowed
+		components: ZentraSDK.components
+	} as ZentraPluginSDK;
+}

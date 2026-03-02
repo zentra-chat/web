@@ -23,34 +23,6 @@
 
 		return;
 	});
-
-	const features = [
-		{
-			icon: MessageSquare,
-			title: 'Real-time Messaging',
-			description: 'Instant communication with WebSocket-powered real-time updates'
-		},
-		{
-			icon: Lock,
-			title: 'End-to-End Encryption',
-			description: 'Your private conversations stay private with robust encryption'
-		},
-		{
-			icon: Users,
-			title: 'Communities',
-			description: 'Create and join communities with channels, roles, and permissions'
-		},
-		{
-			icon: Server,
-			title: 'Self-Hostable',
-			description: 'Run your own instance with full control over your data'
-		},
-		{
-			icon: Globe,
-			title: 'Multi-Instance',
-			description: 'Connect to multiple servers from a single app interface'
-		}
-	];
 </script>
 
 <svelte:head>
@@ -142,19 +114,6 @@
 				</Button>
 			</a>
 		</div>
-
-		<!-- Features -->
-		<!-- <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl">
-			{#each features as feature}
-				<div class="p-6 bg-surface/50 backdrop-blur-sm border border-border rounded-xl hover:border-primary/30 transition-colors">
-					<div class="w-12 h-12 mb-4 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-						<feature.icon size={24} />
-					</div>
-					<h3 class="text-lg font-semibold text-text-primary mb-2">{feature.title}</h3>
-					<p class="text-text-secondary">{feature.description}</p>
-				</div>
-			{/each}
-		</div> -->
 	</main>
 
 	<footer class="relative z-10 border-t border-border/60 mt-auto">

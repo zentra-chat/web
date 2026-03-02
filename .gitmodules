@@ -1,3 +1,6 @@
 [submodule "docs"]
 	path = docs
 	url = https://github.com/zentra-chat/zentra-docs.git
+[submodule "default-plugin"]
+	path = default-plugin
+	url = https://github.com/zentra-chat/default-plugin.git

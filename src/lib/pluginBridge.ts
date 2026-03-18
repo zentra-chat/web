@@ -1,4 +1,4 @@
-// Plugin bridge protocol — defines the postMessage format used between the
+// Plugin bridge protocol - defines the postMessage format used between the
 // host app (main thread) and sandboxed plugin iframes. Every message has a
 // type, a unique ID, and a direction so the host and guest can match up
 // request/response pairs.

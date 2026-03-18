@@ -29,7 +29,7 @@
 		loadInstances();
 		isLoading = false;
 
-		// Request OS notification permission (quiet — doesn't throw if denied)
+		// Request OS notification permission (quiet, doesn't throw if denied)
 		requestNotificationPermission().catch(() => {});
 
 		// Redirect to login if not authenticated

@@ -94,7 +94,7 @@ function postProcessEmojis(html: string, emojiResolver?: EmojiResolver): string 
 		}
 	);
 
-	// Standard shortcodes like :smile: — try custom emojis by name first, then native
+	// Standard shortcodes like :smile:, try custom emojis by name first, then native
 	html = html.replace(
 		/(?<!=["\'\u2019])(?::([a-zA-Z0-9_+-]{2,})::skin-tone-(\d):|:([a-zA-Z0-9_+-]{2,}):)/g,
 		(match, _skinName, _skinTone, shortcode) => {

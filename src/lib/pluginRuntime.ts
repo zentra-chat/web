@@ -44,7 +44,7 @@ function normalizeBundleUrl(bundlePath: string): string {
 }
 
 // Load a third-party plugin inside a sandboxed iframe. The plugin's bundle
-// is fetched, inlined into a srcdoc, and runs in complete isolation — no
+// is fetched, inlined into a srcdoc, and runs in complete isolation - no
 // access to the parent document, localStorage, cookies, or any same-origin
 // APIs. All SDK communication goes through a postMessage bridge that
 // validates every call against the plugin's granted permissions.

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
@@ -36,8 +36,19 @@
 		stars: number;
 		forks: number;
 		contributors: Contributor[];
+		updatedAt?: string;
 	} | null = $state(null);
 	let githubLoading = $state(true);
+	let revealObserver: IntersectionObserver | null = null;
+
+	type GithubStatsApiResponse = {
+		data?: {
+			stars?: number;
+			forks?: number;
+			contributors?: Contributor[];
+			updatedAt?: string;
+		};
+	};
 
 	onMount(() => {
 		// Desktop app skips the homepage entirely
@@ -56,53 +67,54 @@
 		fetchGithubStats();
 
 		// Fade elements in as they scroll into view
-		const observer = new IntersectionObserver(
+		revealObserver = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
 					if (entry.isIntersecting) {
 						entry.target.classList.add('visible');
-						observer.unobserve(entry.target);
+						revealObserver?.unobserve(entry.target);
 					}
 				});
 			},
 			{ threshold: 0.1 }
 		);
 
-		document.querySelectorAll('.scroll-reveal').forEach((el) => observer.observe(el));
-		return () => observer.disconnect();
+		observeScrollRevealElements();
+		return () => revealObserver?.disconnect();
 	});
+
+	function observeScrollRevealElements() {
+		if (!revealObserver) return;
+		document.querySelectorAll('.scroll-reveal:not(.visible)').forEach((el) => revealObserver?.observe(el));
+	}
 
 	async function fetchGithubStats() {
 		try {
-			const [reposRes, contribRes] = await Promise.all([
-				fetch('https://api.github.com/orgs/zentra-chat/repos?per_page=100'),
-				fetch('https://api.github.com/repos/zentra-chat/frontend/contributors?per_page=30')
-			]);
+			const configuredInstanceUrl = $instances[0]?.url;
+			const backendBase = configuredInstanceUrl
+				? configuredInstanceUrl.replace(/\/+$/, '')
+				: window.location.origin;
 
-			let totalStars = 0;
-			let totalForks = 0;
-
-			if (reposRes.ok) {
-				const repos = await reposRes.json();
-				if (Array.isArray(repos)) {
-					for (const r of repos) {
-						totalStars += r.stargazers_count ?? 0;
-						totalForks += r.forks_count ?? 0;
-					}
-				}
+			const response = await fetch(`${backendBase}/api/v1/public/github/stats`);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch GitHub stats: ${response.status}`);
 			}
 
-			const contributors: Contributor[] = contribRes.ok ? await contribRes.json() : [];
+			const payload: GithubStatsApiResponse = await response.json();
+			const stats = payload?.data;
 
 			githubStats = {
-				stars: totalStars,
-				forks: totalForks,
-				contributors: Array.isArray(contributors) ? contributors : []
+				stars: stats?.stars ?? 0,
+				forks: stats?.forks ?? 0,
+				contributors: Array.isArray(stats?.contributors) ? stats.contributors : [],
+				updatedAt: stats?.updatedAt
 			};
 		} catch {
 			githubStats = { stars: 0, forks: 0, contributors: [] };
 		} finally {
 			githubLoading = false;
+			await tick();
+			observeScrollRevealElements();
 		}
 	}
 
@@ -535,7 +547,7 @@
 			{/each}
 		</div>
 
-		<!-- Contributors grid — only shown once the API responds -->
+		<!-- Contributors grid - only shown once the API responds -->
 		{#if githubStats && githubStats.contributors.length > 0}
 			<div class="scroll-reveal">
 				<h3
@@ -549,14 +561,14 @@
 							href={contributor.html_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							title="{contributor.login} — {contributor.contributions} commits"
+							title="{contributor.login} - {contributor.contributions} commits"
 							class="group relative"
 						>
 							<!-- svelte-ignore a11y_missing_attribute -->
 							<img
 								src={contributor.avatar_url}
 								alt={contributor.login}
-								class="w-12 h-12 rounded-full border-2 border-border group-hover:border-primary transition-colors duration-200 object-cover"
+								class="w-14 h-14 rounded-full border-2 border-border group-hover:border-primary transition-colors duration-200 object-cover"
 								loading="lazy"
 							/>
 							<!-- Name tooltip on hover -->

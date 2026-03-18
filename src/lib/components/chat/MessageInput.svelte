@@ -157,7 +157,7 @@
 		if (emojiQuery === null || emojiQuery.length < 2) return [];
 		const q = emojiQuery.toLowerCase();
 
-		// Custom emojis matching the query — insert as :name: shortcode (expanded on send)
+		// Custom emojis matching the query, insert as :name: shortcode (expanded on send)
 		const customs = $customEmojis
 			.filter((e) => e.name.toLowerCase().includes(q))
 			.slice(0, 8)
@@ -247,7 +247,7 @@
 		return channelMsgs.find(m => m.id === $editingMessageId) || null;
 	});
 
-	// Load content when editing — convert stored <:name:UUID> tokens back to :name: for editing
+	// Load content when editing, convert stored <:name:UUID> tokens back to :name: for editing
 	$effect(() => {
 		if (editingMessage) {
 			content = (editingMessage.content || '').replace(

@@ -2,8 +2,8 @@
  * Native push notification helper.
  *
  * Works on:
- *  - Browser   — via the standard Web Notification API (user must grant permission)
- *  - Tauri app — the WebView supports the same Web Notification API, so no plugin is needed
+ *  - Browser   - via the standard Web Notification API (user must grant permission)
+ *  - Tauri app - the WebView supports the same Web Notification API, so no plugin is needed
  *
  * Usage:
  *   await requestNotificationPermission();

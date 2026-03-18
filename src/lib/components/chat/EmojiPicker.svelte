@@ -137,7 +137,7 @@
 			return;
 		}
 
-		// Insert the shortcode — MessageInput will expand it to <:name:id> on send
+		// Insert the shortcode, MessageInput will expand it to <:name:id> on send
 		onSelect(`:${emoji.name}:`, { keepOpen });
 	}
 

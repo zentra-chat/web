@@ -42,7 +42,7 @@
 
 		const reg = getChannelTypeRegistration(renderType);
 
-		// Sandboxed iframe view — the plugin already has its iframe running,
+		// Sandboxed iframe view. The plugin already has its iframe running,
 		// we just need to mount it via PluginFrame
 		if (reg.viewFrame) {
 			viewFramePluginId = reg.viewFrame.pluginId;

@@ -1,4 +1,4 @@
-// Plugin sandbox — manages iframe isolation for third-party plugins.
+// Plugin sandbox - manages iframe isolation for third-party plugins.
 // Each plugin gets its own sandboxed iframe. All SDK access goes through
 // a postMessage bridge that validates every call against the plugin's
 // granted permissions before executing it.
@@ -44,7 +44,7 @@ interface SandboxedPlugin {
 	grantedPermissions: number;
 	bundleUrl: string;
 	ready: boolean;
-	// Header action callbacks that live on the host side — the iframe just
+	// Header action callbacks that live on the host side - the iframe just
 	// tells us the action ID, we forward the click context back to it
 	headerActionCallbacks: Map<string, (ctx: ChannelHeaderActionContext) => void>;
 	// Cleanup functions for store subscriptions
@@ -79,7 +79,7 @@ export function stagePluginIframe(pluginId: string): void {
 // Creates a sandboxed iframe for a third-party plugin. The bundle is fetched
 // from the host frame and inlined into the srcdoc to avoid CORS issues with
 // module scripts in sandboxed iframes (which have a null origin).
-// The iframe starts in a hidden staging area — PluginFrame.svelte moves it
+// The iframe starts in a hidden staging area - PluginFrame.svelte moves it
 // into the visible DOM when a plugin's channel type is active.
 export async function createPluginSandbox(
 	pluginId: string,
@@ -196,7 +196,7 @@ function buildSrcdoc(pluginId: string, bundleSource: string, grantedPermissions:
 <body>
 <div id="plugin-root" style="width:100%;height:100%;"></div>
 <script>
-// Inline guest bridge — sets up window.__zentra with the postMessage SDK
+// Inline guest bridge - sets up window.__zentra with the postMessage SDK
 (function() {
 	const PLUGIN_ID = ${JSON.stringify(pluginId)};
 	const GRANTED_PERMISSIONS = ${grantedPermissions};
@@ -276,7 +276,7 @@ function buildSrcdoc(pluginId: string, bundleSource: string, grantedPermissions:
 		grantedPermissions: GRANTED_PERMISSIONS,
 		ready: readyPromise,
 
-		// API calls — all async, go through the bridge
+		// API calls - all async, go through the bridge
 		api: new Proxy({}, {
 			get(_, method) {
 				return function(...args) {
@@ -494,7 +494,7 @@ async function executeSDKMethod(
 				);
 			}
 		} else {
-			// Method not in our allowlist — deny by default
+			// Method not in our allowlist - deny by default
 			throw new Error(`Method "${apiMethod}" is not available through the plugin bridge`);
 		}
 

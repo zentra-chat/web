@@ -30,6 +30,8 @@ const preferredOrder = [
 	'index',
 	'development/introduction',
 	'development/local-setup',
+	'development/plugin-development',
+	'plugins',
 	'installation',
 	'self-hosting',
 	'usage',
@@ -42,6 +44,10 @@ const sectionOrder = [
 	{
 		title: 'Start',
 		slugs: ['index', 'development/introduction', 'development/local-setup']
+	},
+	{
+		title: 'Plugins',
+		slugs: ['development/plugin-development', 'plugins']
 	},
 	{
 		title: 'Install & Deploy',

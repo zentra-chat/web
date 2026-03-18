@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { api } from '$lib/api';
 	import { Button } from '$lib/components/ui';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
+	import PublicHeader from '$lib/components/layout/PublicHeader.svelte';
+	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
 	import {
 		Github,
 		ArrowRight,
@@ -24,31 +27,16 @@
 	} from 'lucide-svelte';
 	import { isLoggedIn, instances } from '$lib/stores/instance';
 	import { isDesktop, logTauriGlobals } from '$lib/utils/platform';
-
-	type Contributor = {
-		login: string;
-		avatar_url: string;
-		html_url: string;
-		contributions: number;
-	};
+	import type { GithubContributor } from '$lib/types';
 
 	let githubStats: {
 		stars: number;
 		forks: number;
-		contributors: Contributor[];
+		contributors: GithubContributor[];
 		updatedAt?: string;
 	} | null = $state(null);
 	let githubLoading = $state(true);
 	let revealObserver: IntersectionObserver | null = null;
-
-	type GithubStatsApiResponse = {
-		data?: {
-			stars?: number;
-			forks?: number;
-			contributors?: Contributor[];
-			updatedAt?: string;
-		};
-	};
 
 	onMount(() => {
 		// Desktop app skips the homepage entirely
@@ -90,19 +78,7 @@
 
 	async function fetchGithubStats() {
 		try {
-			const configuredInstanceUrl = $instances[0]?.url;
-			const backendBase = configuredInstanceUrl
-				? configuredInstanceUrl.replace(/\/+$/, '')
-				: window.location.origin;
-
-			const response = await fetch(`${backendBase}/api/v1/public/github/stats`);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch GitHub stats: ${response.status}`);
-			}
-
-			const payload: GithubStatsApiResponse = await response.json();
-			const stats = payload?.data;
-
+			const stats = await api.getGithubStats();
 			githubStats = {
 				stars: stats?.stars ?? 0,
 				forks: stats?.forks ?? 0,
@@ -201,49 +177,7 @@
 <div class="min-h-screen bg-background relative overflow-hidden flex flex-col">
 	<AnimatedBackground />
 
-	<!-- Navigation -->
-	<nav class="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
-		<h1 class="text-2xl font-bold text-gradient">Zentra</h1>
-		<div class="flex items-center gap-4">
-			<a
-				href="/docs"
-				class="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium"
-			>
-				Docs
-			</a>
-			<a
-				href="/download"
-				class="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium"
-			>
-				Download
-			</a>
-			<a
-				href="https://github.com/zentra-chat"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="p-2 text-text-secondary hover:text-text-primary transition-colors"
-				aria-label="GitHub"
-			>
-				<Github size={24} />
-			</a>
-			{#if $isLoggedIn}
-				<Button onclick={() => (window.location.href = '/app')}>
-					Open App
-					<ArrowRight size={18} />
-				</Button>
-			{:else}
-				<a href="/login">
-					<Button variant="secondary">Login</Button>
-				</a>
-				<a href="/register">
-					<Button>
-						Get Started
-						<ArrowRight size={18} />
-					</Button>
-				</a>
-			{/if}
-		</div>
-	</nav>
+	<PublicHeader currentPath="/" />
 
 	<!-- Hero content -->
 	<main class="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 py-48">
@@ -618,20 +552,7 @@
 	</div>
 </section>
 
-<!-- ===================== FOOTER ===================== -->
-<footer class="border-t border-border/60 bg-background">
-	<div
-		class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-text-muted"
-	>
-		<p>© 2026 Zentra / Abstractmelon</p>
-		<div class="flex items-center gap-4">
-			<a href="/docs" class="hover:text-text-secondary transition-colors">Docs</a>
-			<a href="/download" class="hover:text-text-secondary transition-colors">Download</a>
-			<a href="/privacy" class="hover:text-text-secondary transition-colors">Privacy Policy</a>
-			<a href="/terms" class="hover:text-text-secondary transition-colors">Terms of Service</a>
-		</div>
-	</div>
-</footer>
+<PublicFooter />
 
 <style>
 	/* Base hidden state for all scroll-reveal elements */

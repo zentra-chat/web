@@ -2,8 +2,9 @@
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
-	import { Github, ArrowRight } from 'lucide-svelte';
-	import { isLoggedIn } from '$lib/stores/instance';
+	import PublicHeader from '$lib/components/layout/PublicHeader.svelte';
+	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
+	import { ArrowRight } from 'lucide-svelte';
 	import linuxIcon from '$lib/assets/brands/linux.svg';
 	import appleIcon from '$lib/assets/brands/apple.svg';
 	import windowsIcon from '$lib/assets/brands/windows.svg';
@@ -167,41 +168,9 @@
 </svelte:head>
 
 <div class="min-h-screen bg-background relative overflow-hidden flex flex-col">
-  <AnimatedBackground particleCountDesktop={220} />
+	<AnimatedBackground />
 
-  <nav class="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
-		<a href="/" class="text-2xl font-bold text-gradient">Zentra</a>
-		<div class="flex items-center gap-4">
-			<a href="/download" class="text-text-primary transition-colors text-sm font-medium">Download</a>
-			<a
-				href="https://github.com/zentra-chat"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="p-2 text-text-secondary hover:text-text-primary transition-colors"
-				aria-label="GitHub"
-			>
-				<Github size={24} />
-			</a>
-			{#if $isLoggedIn}
-				<a href="/app">
-					<Button>
-						Open App
-						<ArrowRight size={18} />
-					</Button>
-				</a>
-			{:else}
-				<a href="/login">
-					<Button variant="secondary">Login</Button>
-				</a>
-				<a href="/register">
-					<Button>
-						Get Started
-						<ArrowRight size={18} />
-					</Button>
-				</a>
-			{/if}
-		</div>
-	</nav>
+  <PublicHeader currentPath="/download" showDocs={false} />
 
   <main class="relative z-10 flex-1 px-6 py-12 md:py-16">
 		<div class="max-w-6xl mx-auto w-full space-y-8">
@@ -266,14 +235,5 @@
 		</div>
 	</main>
 
-  <footer class="relative z-10 border-t border-border/60 mt-auto">
-		<div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-text-muted">
-			<p>© 2026 Zentra / Abstractmelon</p>
-			<div class="flex items-center gap-4">
-				<a href="/download" class="hover:text-text-secondary">Download</a>
-				<a href="/privacy" class="hover:text-text-secondary">Privacy Policy</a>
-				<a href="/terms" class="hover:text-text-secondary">Terms of Service</a>
-			</div>
-		</div>
-	</footer>
+  <PublicFooter showDocs={false} />
 </div>

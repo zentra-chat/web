@@ -539,3 +539,18 @@ export interface PluginAuditEntry {
 	details: Record<string, unknown>;
 	createdAt: string;
 }
+
+// Public GitHub stats used on the landing page
+export interface GithubContributor {
+	login: string;
+	avatar_url: string;
+	html_url: string;
+	contributions: number;
+}
+
+export interface GithubStats {
+	stars: number;
+	forks: number;
+	contributors: GithubContributor[];
+	updatedAt?: string;
+}

@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import {
 	activeInstance,
 	activeAuth,
+	instances,
 	setInstanceAuth,
 	logout as logoutFromStore
 } from '$lib/stores/instance';
@@ -34,6 +35,7 @@ import type {
 	VoiceState,
 	CustomEmoji,
 	CustomEmojiWithCommunity,
+	GithubStats,
 	Plugin,
 	CommunityPlugin,
 	PluginSource,
@@ -124,6 +126,25 @@ class ApiClient {
 		const instance = get(activeInstance);
 		if (!instance) throw new Error('No active instance');
 		return `${instance.url}/api/v1`;
+	}
+
+	private getPublicBaseUrl(): string {
+		const instance = get(activeInstance);
+		if (instance?.url) {
+			return instance.url.replace(/\/+$/, '');
+		}
+
+		const configuredInstances = get(instances);
+		const fallbackInstanceUrl = configuredInstances[0]?.url;
+		if (fallbackInstanceUrl) {
+			return fallbackInstanceUrl.replace(/\/+$/, '');
+		}
+
+		if (typeof window !== 'undefined' && window.location?.origin) {
+			return window.location.origin.replace(/\/+$/, '');
+		}
+
+		throw new Error('No backend instance configured');
 	}
 
 	private getHeaders(includeAuth = true): Headers {
@@ -944,6 +965,21 @@ class ApiClient {
 		} catch {
 			return false;
 		}
+	}
+
+	// Public endpoints
+	async getGithubStats(): Promise<GithubStats> {
+		const response = await fetch(`${this.getPublicBaseUrl()}/api/v1/public/github/stats`, {
+			method: 'GET'
+		});
+
+		const result = await this.handleResponse<ApiResponse<GithubStats>>(response, false);
+		return {
+			stars: result.data?.stars ?? 0,
+			forks: result.data?.forks ?? 0,
+			contributors: Array.isArray(result.data?.contributors) ? result.data.contributors : [],
+			updatedAt: result.data?.updatedAt
+		};
 	}
 
 	// Notification endpoints

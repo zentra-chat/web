@@ -9,8 +9,8 @@
 	import appleIcon from '$lib/assets/brands/apple.svg';
 	import windowsIcon from '$lib/assets/brands/windows.svg';
 
-	const releaseUrl = 'https://github.com/zentra-chat/zentra-desktop/releases/latest';
-	const latestReleaseApi = 'https://api.github.com/repos/zentra-chat/zentra-desktop/releases/latest';
+	const releaseUrl = 'https://github.com/zentra-chat/desktop/releases/latest';
+	const latestReleaseApi = 'https://api.github.com/repos/zentra-chat/desktop/releases/latest';
 	const aurPackage = 'yay -S zentra-desktop-bin';
 
 	type OsType = 'linux' | 'macos' | 'windows' | 'unknown';

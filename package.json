@@ -38,6 +38,7 @@
 	},
 	"dependencies": {
 		"@emoji-mart/data": "^1.2.1",
+		"@zentra-chat/plugin-sdk": "^0.2.0",
 		"@tauri-apps/api": "^2.10.1",
 		"date-fns": "^4.1.0",
 		"highlight.js": "^11.11.1",

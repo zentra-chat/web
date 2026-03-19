@@ -212,6 +212,16 @@ build_go_host() {
 	)
 }
 
+update_submodules() {
+	if [[ ! -f "$FRONTEND_DIR/.gitmodules" ]]; then
+		return
+	fi
+
+	echo "Updating submodules..."
+	git -C "$FRONTEND_DIR" submodule sync --recursive
+	git -C "$FRONTEND_DIR" submodule update --init --recursive --remote
+}
+
 run_deploy() {
 	resolve_env_values
 	FRONTEND_PORT="${FRONTEND_PORT:-$DEFAULT_PORT}"
@@ -249,6 +259,8 @@ run_update() {
 	echo "Pulling latest code from ${REMOTE}/${BRANCH}..."
 	git -C "$FRONTEND_DIR" fetch "$REMOTE"
 	git -C "$FRONTEND_DIR" pull --ff-only "$REMOTE" "$BRANCH"
+
+	update_submodules
 
 	local should_write_env
 	should_write_env="false"

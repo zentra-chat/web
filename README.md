@@ -1,5 +1,5 @@
-# Selenite
-The frontend web-ui made in svelte for the Zentra App
+# Zentra Web
+The frontend web-ui for zentra made in svelte
 
 ## Submodule setup
 

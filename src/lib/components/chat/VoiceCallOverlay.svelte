@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Mic, MicOff, PhoneOff, VolumeX, Volume2 } from 'lucide-svelte';
+	import { Mic, MicOff, PhoneOff, VolumeX, Volume2, Monitor } from 'lucide-svelte';
 	import { Tooltip } from '$lib/components/ui';
 	import {
 		voiceChannelId,
@@ -7,9 +7,11 @@
 		isInVoiceCall,
 		isSelfMuted,
 		isSelfDeafened,
+		isSelfScreenSharing,
 		currentVoiceParticipants,
 		toggleMute,
 		toggleDeafen,
+		toggleScreenShare,
 		leaveVoiceChannel
 	} from '$lib/stores/voice';
 	import { activeCommunityChannels } from '$lib/stores/community';
@@ -65,6 +67,15 @@
 					{:else}
 						<Volume2 size={18} />
 					{/if}
+				</button>
+			</Tooltip>
+
+			<Tooltip text={$isSelfScreenSharing ? 'Stop sharing' : 'Share screen'} position="top">
+				<button
+					onclick={toggleScreenShare}
+					class="p-2 rounded-full transition-colors {$isSelfScreenSharing ? 'bg-success/20 text-success hover:bg-success/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
+				>
+					<Monitor size={18} />
 				</button>
 			</Tooltip>
 

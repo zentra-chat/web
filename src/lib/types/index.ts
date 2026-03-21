@@ -188,6 +188,7 @@ export interface VoiceState {
 	isDeafened: boolean;
 	isSelfMuted: boolean;
 	isSelfDeafened: boolean;
+	isScreenSharing: boolean;
 	joinedAt: string;
 	user?: User;
 }

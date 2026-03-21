@@ -26,6 +26,10 @@ export const voiceParticipants = writable<Record<string, VoiceState[]>>({});
 // Self mute/deafen state
 export const isSelfMuted = writable(false);
 export const isSelfDeafened = writable(false);
+export const isSelfScreenSharing = writable(false);
+
+// Remote screen-share streams (userId -> MediaStream)
+export const screenShareStreams = writable<Record<string, MediaStream>>({});
 
 // Users currently speaking (userId -> boolean)
 export const speakingUsers = writable<Record<string, boolean>>({});
@@ -33,8 +37,14 @@ export const speakingUsers = writable<Record<string, boolean>>({});
 // Audio streams from peers (userId -> MediaStream)
 const peerStreams = new Map<string, MediaStream>();
 
+// Screen stream IDs by user so we can distinguish screen-share audio from mic audio
+const screenShareStreamIds = new Map<string, string>();
+
 // Peer connections (userId -> RTCPeerConnection)
 const peerConnections = new Map<string, RTCPeerConnection>();
+
+// Per-peer offer state to avoid concurrent renegotiation glare
+const makingOffers = new Map<string, boolean>();
 
 // Buffered ICE candidates for peers that don't have a connection yet
 const pendingIceCandidates = new Map<string, RTCIceCandidateInit[]>();
@@ -44,6 +54,7 @@ const audioAnalysers = new Map<string, { analyser: AnalyserNode; interval: Retur
 
 // Local media stream
 let localStream: MediaStream | null = null;
+let localScreenStream: MediaStream | null = null;
 
 // Monotonic join attempt counter used to cancel stale join operations
 let joinAttemptCounter = 0;
@@ -87,6 +98,68 @@ function removeAudioElement(userId: string) {
 	}
 }
 
+function setScreenShareStream(userId: string, stream: MediaStream | null) {
+	screenShareStreams.update((streams) => {
+		const next = { ...streams };
+		if (stream) {
+			next[userId] = stream;
+		} else {
+			delete next[userId];
+		}
+		return next;
+	});
+}
+
+function setParticipantScreenSharing(channelId: string, userId: string, isScreenSharing: boolean) {
+	voiceParticipants.update((participants) => {
+		const existing = participants[channelId] || [];
+		return {
+			...participants,
+			[channelId]: existing.map((state) =>
+				state.userId === userId ? { ...state, isScreenSharing } : state
+			)
+		};
+	});
+}
+
+function renegotiatePeer(userId: string, channelId: string) {
+	void sendOffer(userId, channelId, false);
+}
+
+async function sendOffer(userId: string, channelId: string, iceRestart: boolean) {
+	const pc = peerConnections.get(userId);
+	if (!pc) return;
+	if (makingOffers.get(userId)) return;
+	if (pc.signalingState !== 'stable') return;
+
+	makingOffers.set(userId, true);
+
+	try {
+		const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
+		await pc.setLocalDescription(offer);
+
+		websocket.send({
+			type: 'VOICE_SIGNAL',
+			data: {
+				channelId,
+				targetUserId: userId,
+				signalType: 'offer',
+				signal: pc.localDescription?.toJSON()
+			}
+		});
+	} catch (err) {
+		console.error('Failed to send offer:', err);
+	} finally {
+		makingOffers.set(userId, false);
+	}
+}
+
+function renegotiateAllPeers(channelId: string) {
+	peerConnections.forEach((_, userId) => {
+		renegotiatePeer(userId, channelId);
+	});
+}
+
 // Create a peer connection for a user
 function createPeerConnection(userId: string, channelId: string, initiator: boolean) {
 	if (peerConnections.has(userId)) {
@@ -95,11 +168,17 @@ function createPeerConnection(userId: string, channelId: string, initiator: bool
 
 	const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 	peerConnections.set(userId, pc);
+	makingOffers.set(userId, false);
 
 	// Add local tracks
 	if (localStream) {
 		localStream.getTracks().forEach((track) => {
 			pc.addTrack(track, localStream!);
+		});
+	}
+	if (localScreenStream) {
+		localScreenStream.getTracks().forEach((track) => {
+			pc.addTrack(track, localScreenStream!);
 		});
 	}
 
@@ -120,18 +199,35 @@ function createPeerConnection(userId: string, channelId: string, initiator: bool
 
 	// Handle remote tracks
 	pc.ontrack = (event) => {
-		const stream = event.streams[0];
-		if (stream) {
-			peerStreams.set(userId, stream);
-			const audio = getOrCreateAudioElement(userId);
-			audio.srcObject = stream;
-
-			// Respect deafen state
-			audio.muted = get(isSelfDeafened);
-
-			// Set up speaking detection for this peer
-			startSpeakingDetection(userId, stream);
+		const track = event.track;
+		if (track.kind === 'video') {
+			const screenStream = event.streams[0] || new MediaStream([track]);
+			screenShareStreamIds.set(userId, screenStream.id);
+			setScreenShareStream(userId, screenStream);
+			track.onended = () => {
+				screenShareStreamIds.delete(userId);
+				setScreenShareStream(userId, null);
+			};
+			return;
 		}
+
+		const stream = event.streams[0];
+		if (!stream) return;
+
+		if (screenShareStreamIds.get(userId) === stream.id) {
+			// Screen-share audio is rendered by the screen-share video element.
+			return;
+		}
+
+		peerStreams.set(userId, stream);
+		const audio = getOrCreateAudioElement(userId);
+		audio.srcObject = stream;
+
+		// Respect deafen state
+		audio.muted = get(isSelfDeafened);
+
+		// Set up speaking detection for this peer
+		startSpeakingDetection(userId, stream);
 	};
 
 	pc.oniceconnectionstatechange = () => {
@@ -139,20 +235,7 @@ function createPeerConnection(userId: string, channelId: string, initiator: bool
 			// Try to recover with an ICE restart if we're the initiator
 			if (initiator) {
 				console.warn(`ICE failed for peer ${userId}, attempting restart`);
-				pc.createOffer({ iceRestart: true })
-					.then((offer) => pc.setLocalDescription(offer))
-					.then(() => {
-						websocket.send({
-							type: 'VOICE_SIGNAL',
-							data: {
-								channelId,
-								targetUserId: userId,
-								signalType: 'offer',
-								signal: pc.localDescription?.toJSON()
-							}
-						});
-					})
-					.catch((err) => console.error('ICE restart failed:', err));
+				void sendOffer(userId, channelId, true);
 			}
 		} else if (pc.iceConnectionState === 'disconnected') {
 			console.warn(`ICE disconnected for peer ${userId}`);
@@ -161,20 +244,7 @@ function createPeerConnection(userId: string, channelId: string, initiator: bool
 
 	// If we're the initiator, create and send offer
 	if (initiator) {
-		pc.createOffer()
-			.then((offer) => pc.setLocalDescription(offer))
-			.then(() => {
-				websocket.send({
-					type: 'VOICE_SIGNAL',
-					data: {
-						channelId,
-						targetUserId: userId,
-						signalType: 'offer',
-						signal: pc.localDescription?.toJSON()
-					}
-				});
-			})
-			.catch((err) => console.error('Failed to create offer:', err));
+		void sendOffer(userId, channelId, false);
 	}
 
 	return pc;
@@ -190,21 +260,35 @@ function handleVoiceSignal(data: VoiceSignalEvent) {
 
 	switch (data.signalType) {
 		case 'offer': {
-			// Someone is initiating a connection with us - create an answerer PC
-			const pc = createPeerConnection(data.fromUserId, channelId, false);
-			const offer = new RTCSessionDescription(data.signal as RTCSessionDescriptionInit);
-			pc.setRemoteDescription(offer)
-				.then(() => {
-					// Flush any ICE candidates that arrived before the offer
+			void (async () => {
+				let pc = peerConnections.get(data.fromUserId);
+				if (!pc) {
+					pc = createPeerConnection(data.fromUserId, channelId, false);
+				}
+
+				try {
+					const offer = new RTCSessionDescription(data.signal as RTCSessionDescriptionInit);
+					const offerCollision = makingOffers.get(data.fromUserId) || pc.signalingState !== 'stable';
+
+					if (offerCollision && pc.signalingState === 'have-local-offer') {
+						await pc.setLocalDescription({ type: 'rollback' });
+					}
+
+					await pc.setRemoteDescription(offer);
+
 					const queued = pendingIceCandidates.get(data.fromUserId) || [];
 					pendingIceCandidates.delete(data.fromUserId);
-					return Promise.all(
-						queued.map((c) => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}))
-					);
-				})
-				.then(() => pc.createAnswer())
-				.then((answer) => pc.setLocalDescription(answer))
-				.then(() => {
+					for (const candidate of queued) {
+						try {
+							await pc.addIceCandidate(new RTCIceCandidate(candidate));
+						} catch {
+							// Ignore stale buffered candidates during renegotiation.
+						}
+					}
+
+					const answer = await pc.createAnswer();
+					await pc.setLocalDescription(answer);
+
 					websocket.send({
 						type: 'VOICE_SIGNAL',
 						data: {
@@ -214,8 +298,10 @@ function handleVoiceSignal(data: VoiceSignalEvent) {
 							signal: pc.localDescription?.toJSON()
 						}
 					});
-				})
-				.catch((err) => console.error('Failed to handle offer:', err));
+				} catch (err) {
+					console.error('Failed to handle offer:', err);
+				}
+			})();
 			break;
 		}
 		case 'answer': {
@@ -231,7 +317,10 @@ function handleVoiceSignal(data: VoiceSignalEvent) {
 							queued.map((c) => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {}))
 						);
 					})
-					.catch((err) => console.error('Failed to set remote description:', err));
+					.catch((err) => {
+						console.warn('Failed to set remote description, will renegotiate:', err);
+						void sendOffer(data.fromUserId, channelId, true);
+					});
 			}
 			break;
 		}
@@ -300,6 +389,8 @@ function handleVoiceLeave(data: VoiceLeaveEvent) {
 		peerConnections.delete(data.userId);
 	}
 	peerStreams.delete(data.userId);
+	screenShareStreamIds.delete(data.userId);
+	setScreenShareStream(data.userId, null);
 	pendingIceCandidates.delete(data.userId);
 	removeAudioElement(data.userId);
 	stopSpeakingDetection(data.userId);
@@ -307,6 +398,10 @@ function handleVoiceLeave(data: VoiceLeaveEvent) {
 
 // Handle voice state update (mute/deafen)
 function handleVoiceStateUpdate(data: VoiceStateUpdateEvent) {
+	if (!data.state.isScreenSharing) {
+		setScreenShareStream(data.userId, null);
+	}
+
 	voiceParticipants.update((p) => {
 		const existing = p[data.channelId] || [];
 		return {
@@ -411,6 +506,7 @@ export async function joinVoiceChannel(channelId: string) {
 		voiceChannelId.set(channelId);
 		isSelfMuted.set(false);
 		isSelfDeafened.set(false);
+		isSelfScreenSharing.set(false);
 		voiceConnectionState.set('connected');
 
 		const myId = get(currentUserId);
@@ -468,12 +564,18 @@ function cleanupVoiceResources() {
 	peerConnections.forEach((pc) => pc.close());
 	peerConnections.clear();
 	peerStreams.clear();
+	screenShareStreamIds.clear();
+	screenShareStreams.set({});
 	pendingIceCandidates.clear();
 
 	// Stop local stream
 	if (localStream) {
 		localStream.getTracks().forEach((track) => track.stop());
 		localStream = null;
+	}
+	if (localScreenStream) {
+		localScreenStream.getTracks().forEach((track) => track.stop());
+		localScreenStream = null;
 	}
 
 	// Close audio context
@@ -493,6 +595,7 @@ function cleanupVoiceResources() {
 	voiceConnectionState.set('disconnected');
 	isSelfMuted.set(false);
 	isSelfDeafened.set(false);
+	isSelfScreenSharing.set(false);
 }
 
 // Toggle self mute
@@ -552,6 +655,126 @@ export function toggleDeafen() {
 			isSelfDeafened: newDeafened
 		}
 	});
+}
+
+async function stopScreenShareInternal(notifyServer: boolean) {
+	const channelId = get(voiceChannelId);
+	if (!localScreenStream) {
+		if (notifyServer && channelId) {
+			websocket.send({
+				type: 'VOICE_STATE_UPDATE',
+				data: {
+					channelId,
+					isScreenSharing: false
+				}
+			});
+		}
+		isSelfScreenSharing.set(false);
+		return;
+	}
+
+	const myId = get(currentUserId);
+
+	const streamToStop = localScreenStream;
+	peerConnections.forEach((pc) => {
+		pc.getSenders().forEach((sender) => {
+			if (sender.track && streamToStop.getTracks().some((track) => track.id === sender.track?.id)) {
+				pc.removeTrack(sender);
+			}
+		});
+	});
+
+	streamToStop.getTracks().forEach((track) => track.stop());
+	localScreenStream = null;
+	isSelfScreenSharing.set(false);
+	if (myId) {
+		setScreenShareStream(myId, null);
+	}
+
+	if (channelId && myId) {
+		setParticipantScreenSharing(channelId, myId, false);
+		renegotiateAllPeers(channelId);
+	}
+
+	if (notifyServer && channelId) {
+		websocket.send({
+			type: 'VOICE_STATE_UPDATE',
+			data: {
+				channelId,
+				isScreenSharing: false
+			}
+		});
+	}
+}
+
+export async function startScreenShare() {
+	const channelId = get(voiceChannelId);
+	if (!channelId || get(voiceConnectionState) !== 'connected') {
+		addToast({ type: 'error', message: 'Join a voice channel before sharing your screen.' });
+		return;
+	}
+
+	if (localScreenStream) {
+		return;
+	}
+
+	try {
+		const stream = await navigator.mediaDevices.getDisplayMedia({
+			video: {
+				frameRate: 30
+			},
+			audio: true
+		});
+
+		localScreenStream = stream;
+		isSelfScreenSharing.set(true);
+
+		const myId = get(currentUserId);
+		if (myId) {
+			setScreenShareStream(myId, stream);
+			setParticipantScreenSharing(channelId, myId, true);
+		}
+
+		stream.getVideoTracks().forEach((track) => {
+			track.onended = () => {
+				void stopScreenShareInternal(true);
+			};
+		});
+
+		peerConnections.forEach((pc) => {
+			stream.getTracks().forEach((track) => {
+				pc.addTrack(track, stream);
+			});
+		});
+
+		renegotiateAllPeers(channelId);
+
+		websocket.send({
+			type: 'VOICE_STATE_UPDATE',
+			data: {
+				channelId,
+				isScreenSharing: true
+			}
+		});
+	} catch (err: unknown) {
+		if (err instanceof Error && err.name === 'NotAllowedError') {
+			addToast({ type: 'error', message: 'Screen sharing permission was denied.' });
+			return;
+		}
+		addToast({ type: 'error', message: 'Failed to start screen sharing.' });
+	}
+}
+
+export async function stopScreenShare() {
+	await stopScreenShareInternal(true);
+}
+
+export function toggleScreenShare() {
+	if (get(isSelfScreenSharing)) {
+		void stopScreenShare();
+		return;
+	}
+	void startScreenShare();
 }
 
 // Load voice states for a channel (used in sidebar)

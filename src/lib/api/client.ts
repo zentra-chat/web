@@ -914,6 +914,18 @@ class ApiClient {
 		return result.data;
 	}
 
+	async uploadWebhookAvatar(channelId: string, file: File): Promise<string> {
+		const formData = new FormData();
+		formData.append('avatar', file);
+
+		const result = await this.request<ApiResponse<{ url: string }>>(`/webhooks/channels/${channelId}/avatar`, {
+			method: 'POST',
+			body: formData
+		});
+
+		return this.withCacheBuster(result.data.url);
+	}
+
 	async getChannelWebhooks(channelId: string): Promise<Webhook[]> {
 		const result = await this.request<ApiResponse<Webhook[]>>(`/webhooks/channels/${channelId}`);
 		return result.data || [];

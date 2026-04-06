@@ -24,6 +24,7 @@
 	let isLoading = $state(false);
 	let requires2FA = $state(false);
 	let error = $state('');
+	let errorCode = $state('');
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
 	let isAddAccountMode = $derived($page.url.searchParams.get('addAccount') === '1');
@@ -70,6 +71,7 @@
 		attemptedPortableAuth = true;
 		isLoading = true;
 		error = '';
+		errorCode = '';
 
 		try {
 			const response = await api.portableAuth();
@@ -145,6 +147,7 @@
 			handleRedirectAfterLogin();
 		} catch (err) {
 			const apiError = err as { error?: string; code?: string };
+			errorCode = apiError.code || '';
 			error = apiError.error || 'Failed to login. Please check your credentials.';
 		} finally {
 			isLoading = false;
@@ -239,7 +242,17 @@
 				{/if}
 
 				{#if error}
-					<p class="text-sm text-danger text-center">{error}</p>
+					<div class="space-y-2 text-center">
+						<p class="text-sm text-danger">{error}</p>
+						{#if errorCode === 'EMAIL_NOT_VERIFIED'}
+							<a
+								href={`/verify-email?email=${encodeURIComponent(login.trim())}`}
+								class="text-xs text-primary hover:underline"
+							>
+								Verify email and resend link
+							</a>
+						{/if}
+					</div>
 				{/if}
 
 				<Button type="submit" class="w-full" loading={isLoading}>

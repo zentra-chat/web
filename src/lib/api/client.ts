@@ -15,6 +15,7 @@ import type {
 	AuthResponse,
 	LoginRequest,
 	RegisterRequest,
+	RegisterResponse,
 	FullUser,
 	User,
 	UserSettings,
@@ -286,13 +287,13 @@ class ApiClient {
 	}
 
 	// Auth endpoints
-	async register(data: RegisterRequest): Promise<AuthResponse> {
+	async register(data: RegisterRequest): Promise<RegisterResponse> {
 		const payload: RegisterRequest = {
 			...data,
 			portableProfile: data.portableProfile ?? getPortableProfileForAuth()
 		};
 
-		const result = await this.request<ApiResponse<AuthResponse>>(
+		const result = await this.request<ApiResponse<RegisterResponse>>(
 			'/auth/register',
 			{
 				method: 'POST',
@@ -300,8 +301,30 @@ class ApiClient {
 			},
 			false
 		);
-		this.authFailureHandled = false;
-		applyProfileSync(result.data.profileSync);
+		return result.data;
+	}
+
+	async verifyEmail(token: string): Promise<{ message: string }> {
+		const result = await this.request<ApiResponse<{ message: string }>>(
+			'/auth/verify-email',
+			{
+				method: 'POST',
+				body: JSON.stringify({ token })
+			},
+			false
+		);
+		return result.data;
+	}
+
+	async resendVerificationEmail(email: string): Promise<{ message: string }> {
+		const result = await this.request<ApiResponse<{ message: string }>>(
+			'/auth/resend-verification',
+			{
+				method: 'POST',
+				body: JSON.stringify({ email })
+			},
+			false
+		);
 		return result.data;
 	}
 

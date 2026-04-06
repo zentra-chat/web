@@ -139,7 +139,16 @@
 			await api.logout();
 			addToast({ type: 'success', message: 'Logged out' });
 		} catch (err) {
-			console.error('Failed to log out cleanly:', err);
+			const apiError = err as { error?: string; code?: string; shouldRetry?: boolean };
+			const isExpectedUnauthorized =
+				apiError.error === 'Unauthorized' ||
+				apiError.code === 'UNAUTHORIZED' ||
+				apiError.code === 'INVALID_SESSION' ||
+				apiError.shouldRetry === true;
+
+			if (!isExpectedUnauthorized) {
+				console.error('Failed to log out cleanly:', err);
+			}
 			addToast({ type: 'warning', message: 'Logged out locally' });
 		} finally {
 			isLoggingOut = false;

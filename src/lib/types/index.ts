@@ -87,7 +87,15 @@ export interface RegisterRequest {
 	username: string;
 	email: string;
 	password: string;
+	captchaToken?: string;
 	portableProfile?: PortableProfile;
+}
+
+export interface RegisterResponse {
+	requiresEmailVerification: boolean;
+	verificationSent: boolean;
+	email: string;
+	message: string;
 }
 
 // Community types
@@ -346,7 +354,7 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
 	error: string;
 	code: string;
-	details?: Record<string, string[]>;
+	details?: Record<string, string[] | string>;
 }
 
 // WebSocket event types

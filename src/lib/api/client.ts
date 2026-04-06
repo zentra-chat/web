@@ -32,6 +32,10 @@ import type {
 	Role,
 	Message,
 	SendMessageRequest,
+	CreateWebhookRequest,
+	UpdateWebhookRequest,
+	Webhook,
+	WebhookSecretResponse,
 	Attachment,
 	DMConversation,
 	Notification,
@@ -896,6 +900,45 @@ class ApiClient {
 		await this.request(`/messages/channels/${channelId}/messages/typing`, {
 			method: 'POST'
 		});
+	}
+
+	// Webhook endpoints
+	async createWebhook(channelId: string, data: CreateWebhookRequest): Promise<WebhookSecretResponse> {
+		const result = await this.request<ApiResponse<WebhookSecretResponse>>(
+			`/webhooks/channels/${channelId}`,
+			{
+				method: 'POST',
+				body: JSON.stringify(data)
+			}
+		);
+		return result.data;
+	}
+
+	async getChannelWebhooks(channelId: string): Promise<Webhook[]> {
+		const result = await this.request<ApiResponse<Webhook[]>>(`/webhooks/channels/${channelId}`);
+		return result.data || [];
+	}
+
+	async updateWebhook(webhookId: string, data: UpdateWebhookRequest): Promise<Webhook> {
+		const result = await this.request<ApiResponse<Webhook>>(`/webhooks/${webhookId}`, {
+			method: 'PATCH',
+			body: JSON.stringify(data)
+		});
+		return result.data;
+	}
+
+	async rotateWebhookToken(webhookId: string): Promise<WebhookSecretResponse> {
+		const result = await this.request<ApiResponse<WebhookSecretResponse>>(
+			`/webhooks/${webhookId}/rotate`,
+			{
+				method: 'POST'
+			}
+		);
+		return result.data;
+	}
+
+	async deleteWebhook(webhookId: string): Promise<void> {
+		await this.request(`/webhooks/${webhookId}`, { method: 'DELETE' });
 	}
 
 	// DM endpoints

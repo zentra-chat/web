@@ -400,7 +400,7 @@
 									<img
 										src={preview.imageUrl}
 										alt={preview.title || getPreviewSite(preview.url, preview.siteName)}
-										class="h-20 w-28 rounded-md object-cover border border-border"
+										class="h-24 w-auto rounded-md object-cover border border-border"
 									/>
 								{/if}
 								<div class="min-w-0">

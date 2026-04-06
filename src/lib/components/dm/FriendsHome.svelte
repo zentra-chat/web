@@ -111,6 +111,7 @@
 
 	function getPresenceLabel(user: User): string {
 		if (user.status === 'invisible') return 'Offline';
+		if (user.status === 'away') return 'Idle';
 		return user.status.charAt(0).toUpperCase() + user.status.slice(1);
 	}
 

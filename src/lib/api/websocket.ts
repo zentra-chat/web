@@ -52,11 +52,25 @@ class WebSocketManager {
 	private maxReconnectAttempts = 10;
 	private reconnectDelay = 1000;
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+	private idleTimeout: ReturnType<typeof setTimeout> | null = null;
 	private eventHandlers: Map<string, EventHandler[]> = new Map();
 	private messageQueue: string[] = [];
 	private isConnecting = false;
 	private activeSubscriptions: Set<string> = new Set();
 	private subscriptionRefCounts: Map<string, number> = new Map();
+	private isPresenceTracking = false;
+	private currentPresenceStatus: 'online' | 'away' | 'offline' | null = null;
+	private lastActivityAt = 0;
+	private readonly idleThresholdMs = 2 * 60 * 1000;
+	private readonly activityHandler = () => {
+		this.handleUserActivity();
+	};
+	private readonly visibilityHandler = () => {
+		this.handleVisibilityChange();
+	};
+	private readonly windowBlurHandler = () => {
+		this.setAutoPresence('away');
+	};
 
 	private withCacheBuster(url: string | null | undefined): string | null | undefined {
 		if (!url) return url;
@@ -101,6 +115,7 @@ class WebSocketManager {
 			this.isConnecting = false;
 			this.reconnectAttempts = 0;
 			this.startHeartbeat();
+			this.startPresenceTracking();
 			this.flushMessageQueue();
 
 			// Resubscribe to active channels
@@ -133,6 +148,7 @@ class WebSocketManager {
 			console.log('WebSocket closed:', event.code, event.reason);
 			this.isConnecting = false;
 			this.stopHeartbeat();
+			this.stopPresenceTracking();
 
 			// Don't reconnect on intentional close
 			if (event.code !== 1000) {
@@ -390,6 +406,108 @@ class WebSocketManager {
 		}
 	}
 
+	private startPresenceTracking(): void {
+		if (typeof window === 'undefined' || typeof document === 'undefined' || this.isPresenceTracking) {
+			return;
+		}
+
+		this.isPresenceTracking = true;
+		this.lastActivityAt = Date.now();
+
+		window.addEventListener('mousemove', this.activityHandler, { passive: true });
+		window.addEventListener('mousedown', this.activityHandler, { passive: true });
+		window.addEventListener('keydown', this.activityHandler);
+		window.addEventListener('touchstart', this.activityHandler, { passive: true });
+		window.addEventListener('scroll', this.activityHandler, { passive: true });
+		window.addEventListener('focus', this.activityHandler);
+		window.addEventListener('blur', this.windowBlurHandler);
+		document.addEventListener('visibilitychange', this.visibilityHandler);
+
+		this.handleVisibilityChange();
+	}
+
+	private stopPresenceTracking(): void {
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('mousemove', this.activityHandler);
+			window.removeEventListener('mousedown', this.activityHandler);
+			window.removeEventListener('keydown', this.activityHandler);
+			window.removeEventListener('touchstart', this.activityHandler);
+			window.removeEventListener('scroll', this.activityHandler);
+			window.removeEventListener('focus', this.activityHandler);
+			window.removeEventListener('blur', this.windowBlurHandler);
+		}
+
+		if (typeof document !== 'undefined') {
+			document.removeEventListener('visibilitychange', this.visibilityHandler);
+		}
+
+		if (this.idleTimeout) {
+			clearTimeout(this.idleTimeout);
+			this.idleTimeout = null;
+		}
+
+		this.isPresenceTracking = false;
+		this.currentPresenceStatus = null;
+		this.lastActivityAt = 0;
+	}
+
+	private handleUserActivity(): void {
+		this.lastActivityAt = Date.now();
+
+		if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+			this.setAutoPresence('online');
+		}
+
+		this.scheduleIdleTransition();
+	}
+
+	private handleVisibilityChange(): void {
+		if (typeof document === 'undefined') return;
+
+		if (document.visibilityState === 'visible') {
+			this.handleUserActivity();
+			return;
+		}
+
+		this.setAutoPresence('away');
+		if (this.idleTimeout) {
+			clearTimeout(this.idleTimeout);
+			this.idleTimeout = null;
+		}
+	}
+
+	private scheduleIdleTransition(): void {
+		if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+			return;
+		}
+
+		if (this.idleTimeout) {
+			clearTimeout(this.idleTimeout);
+		}
+
+		const elapsed = Date.now() - this.lastActivityAt;
+		const delay = Math.max(this.idleThresholdMs - elapsed, 1000);
+
+		this.idleTimeout = setTimeout(() => {
+			const now = Date.now();
+			if (now - this.lastActivityAt >= this.idleThresholdMs) {
+				this.setAutoPresence('away');
+				return;
+			}
+
+			this.scheduleIdleTransition();
+		}, delay);
+	}
+
+	private setAutoPresence(status: 'online' | 'away' | 'offline'): void {
+		if (this.currentPresenceStatus === status) {
+			return;
+		}
+
+		this.currentPresenceStatus = status;
+		this.updatePresence(status);
+	}
+
 	private scheduleReconnect(): void {
 		if (this.reconnectAttempts >= this.maxReconnectAttempts) {
 			console.error('Max reconnect attempts reached');
@@ -459,7 +577,11 @@ class WebSocketManager {
 	}
 
 	updatePresence(status: string): void {
-		this.send({ type: 'PRESENCE_UPDATE', data: { status } });
+		if (this.ws?.readyState !== WebSocket.OPEN) {
+			return;
+		}
+
+		this.ws.send(JSON.stringify({ type: 'PRESENCE_UPDATE', data: { status } }));
 	}
 
 	on(event: string, handler: EventHandler): () => void {
@@ -479,7 +601,12 @@ class WebSocketManager {
 
 	disconnect(): void {
 		this.stopHeartbeat();
+		this.stopPresenceTracking();
 		if (this.ws) {
+			if (this.ws.readyState === WebSocket.OPEN) {
+				this.updatePresence('offline');
+			}
+
 			this.ws.close(1000, 'User disconnected');
 			this.ws = null;
 		}

@@ -432,7 +432,7 @@
 						</div>
 
 						<div class="pt-6 border-t border-border">
-							<h3 class="text-lg font-semibold text-error mb-2">Danger Zone</h3>
+							<h3 class="text-lg font-semibold text-danger mb-2">Danger Zone</h3>
 							<p class="text-sm text-text-muted mb-4">Once you delete your account, there is no going back. Please be certain.</p>
 							<Button variant="danger" onclick={handleDeleteAccount}><Trash size={16} />Delete Account</Button>
 						</div>

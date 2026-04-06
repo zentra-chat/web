@@ -225,7 +225,7 @@
 						<div class="flex items-center gap-2">
 							<code class="text-sm font-mono text-text-primary">{invite.code}</code>
 							{#if expired}
-								<span class="text-xs px-2 py-0.5 rounded bg-error/10 text-error">Expired</span>
+								<span class="text-xs px-2 py-0.5 rounded bg-error/10 text-danger">Expired</span>
 							{:else if maxedOut}
 								<span class="text-xs px-2 py-0.5 rounded bg-warning/10 text-warning">Max uses reached</span>
 							{/if}
@@ -246,7 +246,7 @@
 							<Copy size={16} />
 						</Button>
 						<Button variant="ghost" size="sm" onclick={() => deleteInvite(invite.id)}>
-							<Trash size={16} class="text-error" />
+							<Trash size={16} class="text-danger" />
 						</Button>
 					</div>
 				</div>

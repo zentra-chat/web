@@ -224,7 +224,7 @@
 							</button>
 							<button
 								onclick={() => deleteEmoji(emoji.id, emoji.name)}
-								class="p-1.5 rounded hover:bg-surface-hover text-text-muted hover:text-error transition-colors"
+								class="p-1.5 rounded hover:bg-surface-hover text-text-muted hover:text-danger transition-colors"
 								aria-label="Delete emoji"
 							>
 								<Trash size={14} />

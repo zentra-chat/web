@@ -47,7 +47,7 @@
 			<Tooltip text={$isSelfMuted ? 'Unmute' : 'Mute'} position="top">
 				<button
 					onclick={toggleMute}
-					class="p-2 rounded-full transition-colors {$isSelfMuted ? 'bg-error/20 text-error hover:bg-error/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
+					class="p-2 rounded-full transition-colors {$isSelfMuted ? 'bg-error/20 text-danger hover:bg-error/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
 				>
 					{#if $isSelfMuted}
 						<MicOff size={18} />
@@ -60,7 +60,7 @@
 			<Tooltip text={$isSelfDeafened ? 'Undeafen' : 'Deafen'} position="top">
 				<button
 					onclick={toggleDeafen}
-					class="p-2 rounded-full transition-colors {$isSelfDeafened ? 'bg-error/20 text-error hover:bg-error/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
+					class="p-2 rounded-full transition-colors {$isSelfDeafened ? 'bg-error/20 text-danger hover:bg-error/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
 				>
 					{#if $isSelfDeafened}
 						<VolumeX size={18} />
@@ -82,7 +82,7 @@
 			<Tooltip text="Disconnect" position="top">
 				<button
 					onclick={() => leaveVoiceChannel()}
-					class="p-2 rounded-full bg-error/20 text-error hover:bg-error/30 transition-colors"
+					class="p-2 rounded-full bg-error/20 text-danger hover:bg-error/30 transition-colors"
 				>
 					<PhoneOff size={18} />
 				</button>

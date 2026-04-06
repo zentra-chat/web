@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
 	import { Input, Avatar, Spinner } from '$lib/components/ui';
-	import { MessageSquare, Search } from 'lucide-svelte';
+	import { MessageSquare, Search, Users } from 'lucide-svelte';
+	import FriendsHome from '$lib/components/dm/FriendsHome.svelte';
 	import { MessageList, MessageInput } from '$lib/components/chat';
 	import { api } from '$lib/api';
 	import { activeInstance, currentUserId, activeAuth } from '$lib/stores/instance';
+	import { incomingFriendRequestCount, loadFriendsData } from '$lib/stores/friends';
 	import {
 		dmConversationsCache,
 		activeDmConversationId,
@@ -22,6 +24,7 @@
 	let isSearching = $state(false);
 	let searchResults = $state<User[]>([]);
 	let searchError = $state<string | null>(null);
+	let activeHomeView = $state<'friends' | 'dm'>($activeDmConversationId ? 'dm' : 'friends');
 
 	let conversations = $derived($dmConversationsCache[$activeInstance?.id || ''] || []);
 
@@ -83,6 +86,17 @@
 	});
 
 	$effect(() => {
+		const instance = $activeInstance;
+		const auth = $activeAuth;
+
+		if (!instance || !auth) {
+			return;
+		}
+
+		void loadFriendsData();
+	});
+
+	$effect(() => {
 		if (searchQuery.trim().length < 2) {
 			searchResults = [];
 			searchError = null;
@@ -126,6 +140,7 @@
 			const conversation = await api.createDmConversation(userId);
 			upsertDmConversation(conversation);
 			setActiveDmConversationId(conversation.id);
+			activeHomeView = 'dm';
 			searchQuery = '';
 			searchResults = [];
 		} catch (err) {
@@ -135,6 +150,14 @@
 
 	function handleSelectConversation(conversationId: string) {
 		setActiveDmConversationId(conversationId);
+		activeHomeView = 'dm';
+	}
+
+	function handleShowFriends() {
+		activeHomeView = 'friends';
+		if ($activeDmConversationId) {
+			setActiveDmConversationId(null);
+		}
 	}
 
 	function getLastMessagePreview(conversation: DMConversation): string {
@@ -193,6 +216,24 @@
 		{/if}
 
 		<div class="flex-1 overflow-y-auto">
+			<div class="px-2 py-2 border-b border-border/70">
+				<button
+					onclick={handleShowFriends}
+					class="w-full px-2.5 py-2 rounded-md flex items-center gap-2 text-sm transition-colors
+					{activeHomeView === 'friends'
+						? 'bg-surface-active text-text-primary'
+						: 'text-text-muted hover:bg-surface hover:text-text-primary'}"
+				>
+					<Users size={15} />
+					<span class="flex-1 text-left">Friends</span>
+					{#if $incomingFriendRequestCount > 0}
+						<span class="text-xs bg-danger text-white px-1.5 py-0.5 rounded-full">
+							{$incomingFriendRequestCount > 99 ? '99+' : $incomingFriendRequestCount}
+						</span>
+					{/if}
+				</button>
+			</div>
+
 			{#if isLoading}
 				<div class="flex items-center justify-center h-full">
 					<Spinner size="md" />
@@ -211,7 +252,7 @@
 					<button
 						onclick={() => handleSelectConversation(conversation.id)}
 						class="w-full px-3 py-3 flex items-center gap-3 hover:bg-surface transition-colors border-b border-border/60
-						{$activeDmConversationId === conversation.id ? 'bg-surface-active' : ''}"
+						{activeHomeView === 'dm' && $activeDmConversationId === conversation.id ? 'bg-surface-active' : ''}"
 					>
 						<Avatar user={otherUser} size="md" />
 						<div class="flex-1 min-w-0 text-left">
@@ -234,7 +275,9 @@
 	</aside>
 
 	<section class="flex-1 min-w-0 flex flex-col">
-		{#if $activeDmConversationId}
+		{#if activeHomeView === 'friends'}
+			<FriendsHome onOpenDm={() => (activeHomeView = 'dm')} />
+		{:else if $activeDmConversationId}
 			<MessageList dmConversationId={$activeDmConversationId} />
 			<MessageInput dmConversationId={$activeDmConversationId} />
 		{:else}

@@ -20,6 +20,29 @@ export interface FullUser extends User {
 
 export type UserStatus = 'online' | 'away' | 'busy' | 'invisible' | 'offline';
 
+export type RelationshipStatus =
+	| 'none'
+	| 'friends'
+	| 'incoming_request'
+	| 'outgoing_request'
+	| 'blocked'
+	| 'blocked_by';
+
+export interface FriendRequest {
+	user: User;
+	createdAt: string;
+}
+
+export interface FriendRequestsResponse {
+	incoming: FriendRequest[];
+	outgoing: FriendRequest[];
+}
+
+export interface UserRelationship {
+	userId: string;
+	status: RelationshipStatus;
+}
+
 export type InstanceSelectorMode = 'disabled' | 'auto' | 'show';
 
 export interface UserSettings {
@@ -350,6 +373,7 @@ export type WebSocketEventType =
 	| 'REACTION_REMOVE'
 	| 'NOTIFICATION'
 	| 'NOTIFICATION_READ'
+	| 'FRIEND_STATE_UPDATE'
 	| 'VOICE_JOIN'
 	| 'VOICE_LEAVE'
 	| 'VOICE_STATE_UPDATE'
@@ -376,6 +400,10 @@ export interface PresenceEvent {
 	userId: string;
 	status: UserStatus;
 	customStatus?: string;
+}
+
+export interface FriendStateEvent {
+	affectedUserIds: string[];
 }
 
 export interface ToastMessage {

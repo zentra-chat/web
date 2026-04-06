@@ -18,6 +18,8 @@ import type {
 	FullUser,
 	User,
 	UserSettings,
+	FriendRequestsResponse,
+	UserRelationship,
 	Community,
 	CommunityInvite,
 	CommunityBan,
@@ -417,6 +419,40 @@ class ApiClient {
 		return this.request<PaginatedResponse<User>>(
 			`/users/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=${pageSize}`
 		);
+	}
+
+	async getFriends(): Promise<User[]> {
+		const result = await this.request<ApiResponse<User[]>>('/users/me/friends');
+		return result.data || [];
+	}
+
+	async getFriendRequests(): Promise<FriendRequestsResponse> {
+		const result = await this.request<ApiResponse<FriendRequestsResponse>>('/users/me/friends/requests');
+		return {
+			incoming: result.data?.incoming || [],
+			outgoing: result.data?.outgoing || []
+		};
+	}
+
+	async sendFriendRequest(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/requests/${userId}`, { method: 'POST' });
+	}
+
+	async acceptFriendRequest(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/requests/${userId}/accept`, { method: 'POST' });
+	}
+
+	async removeFriendRequest(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/requests/${userId}`, { method: 'DELETE' });
+	}
+
+	async removeFriend(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/${userId}`, { method: 'DELETE' });
+	}
+
+	async getRelationship(userId: string): Promise<UserRelationship> {
+		const result = await this.request<ApiResponse<UserRelationship>>(`/users/me/relationships/${userId}`);
+		return result.data;
 	}
 
 	async getUser(userId: string): Promise<User> {

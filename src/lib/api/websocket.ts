@@ -25,6 +25,7 @@ import {
 	addDmMessageReaction,
 	removeDmMessageReaction
 } from '$lib/stores/dm';
+import { loadFriendsData } from '$lib/stores/friends';
 import { setTyping, setUserPresence, showToast, showNotificationPreview } from '$lib/stores/ui';
 import { prependNotification, markNotificationReadLocal, markAllNotificationsReadLocal } from '$lib/stores/notification';
 import { sendNativeNotification } from '$lib/utils/nativeNotification';
@@ -37,7 +38,8 @@ import type {
 	TypingEvent,
 	PresenceEvent,
 	User,
-	Notification
+	Notification,
+	FriendStateEvent
 } from '$lib/types';
 import { mapDmMessage, type RawDmMessage } from '$lib/utils/dm';
 import { api } from './client';
@@ -214,6 +216,9 @@ class WebSocketManager {
 			case 'NOTIFICATION_READ':
 				this.handleNotificationRead(event.data as { notificationId?: string; all?: boolean });
 				break;
+			case 'FRIEND_STATE_UPDATE':
+				void this.handleFriendStateUpdate(event.data as FriendStateEvent);
+				break;
 		}
 	}
 
@@ -353,6 +358,22 @@ class WebSocketManager {
 			markAllNotificationsReadLocal();
 		} else if (data.notificationId) {
 			markNotificationReadLocal(data.notificationId);
+		}
+	}
+
+	private async handleFriendStateUpdate(data: FriendStateEvent): Promise<void> {
+		const me = get(currentUserId);
+		if (!me) return;
+
+		const affected = Array.isArray(data?.affectedUserIds) ? data.affectedUserIds : [];
+		if (affected.length > 0 && !affected.includes(me)) {
+			return;
+		}
+
+		try {
+			await loadFriendsData({ force: true });
+		} catch (error) {
+			console.warn('Failed to refresh friend state after websocket update:', error);
 		}
 	}
 

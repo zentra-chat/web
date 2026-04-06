@@ -150,7 +150,7 @@
 
 		{#if canKick}
 			<button
-				class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-error hover:bg-error/10 transition-colors text-left"
+				class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-danger hover:bg-error/10 transition-colors text-left"
 				onclick={handleKick}
 				role="menuitem"
 			>
@@ -161,7 +161,7 @@
 
 		{#if canBan}
 			<button
-				class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-error hover:bg-error/10 transition-colors text-left"
+				class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-danger hover:bg-error/10 transition-colors text-left"
 				onclick={handleBan}
 				role="menuitem"
 			>

@@ -757,7 +757,7 @@
 					</button>
 					<button
 						onclick={handleContextDeleteCategory}
-						class="w-full rounded px-3 py-2 text-left text-sm text-error hover:bg-surface-hover flex items-center gap-2"
+						class="w-full rounded px-3 py-2 text-left text-sm text-danger hover:bg-surface-hover flex items-center gap-2"
 					>
 						<Trash2 size={14} />
 						Delete Folder

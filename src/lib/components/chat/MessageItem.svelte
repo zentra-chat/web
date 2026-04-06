@@ -593,7 +593,7 @@
 			{#if canDeleteMessage}
 				<button
 					onclick={(e) => requestDelete(e)}
-					class="p-2 text-text-muted hover:text-error hover:bg-surface-hover transition-colors"
+					class="p-2 text-text-muted hover:text-danger hover:bg-surface-hover transition-colors"
 					aria-label="Delete"
 					title="Hold Shift to delete without confirmation"
 				>

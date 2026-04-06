@@ -301,6 +301,40 @@ export interface SendMessageRequest {
 	attachments?: string[];
 }
 
+export interface Webhook {
+	id: string;
+	channelId: string;
+	communityId: string;
+	createdBy: string;
+	name: string;
+	avatarUrl?: string;
+	providerHint?: string;
+	tokenPreview: string;
+	isActive: boolean;
+	lastUsedAt?: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface CreateWebhookRequest {
+	name?: string;
+	avatarUrl?: string;
+	providerHint?: string;
+}
+
+export interface UpdateWebhookRequest {
+	name?: string;
+	avatarUrl?: string;
+	providerHint?: string;
+	isActive?: boolean;
+}
+
+export interface WebhookSecretResponse {
+	webhook: Webhook;
+	token: string;
+	url: string;
+}
+
 // Role and Permission types
 export interface Role {
 	id: string;

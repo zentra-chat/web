@@ -1,10 +1,23 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Button, Input, Spinner } from '$lib/components/ui';
-	import { Plus, RefreshCw, Trash, Copy, Link, Check, AlertTriangle, Eye, EyeOff } from 'lucide-svelte';
+	import { Button, Input, Select, Spinner } from '$lib/components/ui';
+	import {
+		Plus,
+		RefreshCw,
+		Trash,
+		Copy,
+		Link,
+		Check,
+		AlertTriangle,
+		Eye,
+		EyeOff,
+		Pencil,
+		Image,
+		X
+	} from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { addToast } from '$lib/stores/ui';
-	import type { Channel, Webhook } from '$lib/types';
+	import type { Channel, UpdateWebhookRequest, Webhook } from '$lib/types';
 
 	interface Props {
 		communityId: string;
@@ -31,15 +44,28 @@
 	let isDeletingWebhookId = $state<string | null>(null);
 	let isRotatingWebhookId = $state<string | null>(null);
 	let isTogglingWebhookId = $state<string | null>(null);
+	let isSavingWebhookId = $state<string | null>(null);
 
 	let webhookName = $state('Incoming Webhook');
-	let webhookAvatarUrl = $state('');
+	let createAvatarFile = $state<File | null>(null);
+	let createAvatarPreview = $state<string | null>(null);
+	let createAvatarInputRef = $state<HTMLInputElement | null>(null);
 	let providerMode = $state<ProviderMode>('github');
 	let customProviderHint = $state('');
+
+	let editingWebhookId = $state<string | null>(null);
+	let editingWebhookName = $state('');
+	let editingProviderMode = $state<ProviderMode>('generic');
+	let editingCustomProviderHint = $state('');
+	let editingAvatarFile = $state<File | null>(null);
+	let editingAvatarPreview = $state<string | null>(null);
+	let editingRemoveAvatar = $state(false);
+	let editAvatarInputRef = $state<HTMLInputElement | null>(null);
 
 	let latestSecret = $state<WebhookSecret | null>(null);
 	let revealSecret = $state(false);
 	let loadedChannelsForCommunityId = $state<string | null>(null);
+	let loadedWebhooksForChannelId = $state<string | null>(null);
 
 	$effect(() => {
 		if (!communityId) return;
@@ -49,6 +75,9 @@
 		channels = [];
 		selectedChannelId = '';
 		webhooks = [];
+		loadedWebhooksForChannelId = null;
+		clearCreateAvatar();
+		cancelWebhookEdit();
 
 		void untrack(() => loadChannels(communityId));
 	});
@@ -57,9 +86,17 @@
 		const channelId = selectedChannelId;
 		if (!channelId) {
 			webhooks = [];
+			loadedWebhooksForChannelId = null;
+			cancelWebhookEdit();
 			return;
 		}
 
+		if (loadedWebhooksForChannelId === channelId) {
+			return;
+		}
+
+		loadedWebhooksForChannelId = channelId;
+		cancelWebhookEdit();
 		void untrack(() => loadWebhooks(channelId));
 	});
 
@@ -70,7 +107,6 @@
 		try {
 			const channelList = await api.getChannels(targetCommunityId);
 
-			// Ignore stale responses from previous community loads.
 			if (targetCommunityId !== communityId) {
 				return;
 			}
@@ -111,8 +147,81 @@
 		}
 	}
 
-	function resolvedProviderHint(): string | undefined {
-		switch (providerMode) {
+	function revokePreview(url: string | null) {
+		if (url && url.startsWith('blob:')) {
+			URL.revokeObjectURL(url);
+		}
+	}
+
+	function clearCreateAvatar() {
+		revokePreview(createAvatarPreview);
+		createAvatarFile = null;
+		createAvatarPreview = null;
+		if (createAvatarInputRef) {
+			createAvatarInputRef.value = '';
+		}
+	}
+
+	function clearEditAvatarSelection() {
+		revokePreview(editingAvatarPreview);
+		editingAvatarFile = null;
+		editingAvatarPreview = null;
+		if (editAvatarInputRef) {
+			editAvatarInputRef.value = '';
+		}
+	}
+
+	function validateAvatarFile(file: File): string | null {
+		if (!file.type.startsWith('image/')) {
+			return 'Please select an image file';
+		}
+
+		if (file.size > 5 * 1024 * 1024) {
+			return 'Image must be less than 5MB';
+		}
+
+		return null;
+	}
+
+	function handleCreateAvatarSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		const validationError = validateAvatarFile(file);
+		if (validationError) {
+			addToast({ type: 'error', message: validationError });
+			if (createAvatarInputRef) {
+				createAvatarInputRef.value = '';
+			}
+			return;
+		}
+
+		revokePreview(createAvatarPreview);
+		createAvatarFile = file;
+		createAvatarPreview = URL.createObjectURL(file);
+	}
+
+	function providerModeFromHint(providerHint?: string): ProviderMode {
+		const normalized = providerHint?.trim().toLowerCase();
+		if (!normalized) return 'generic';
+		if (normalized === 'github' || normalized === 'gitlab' || normalized === 'stripe') {
+			return normalized;
+		}
+		return 'custom';
+	}
+
+	function customProviderHintFrom(providerHint?: string): string {
+		if (!providerHint) return '';
+		const normalized = providerHint.trim().toLowerCase();
+		if (normalized === 'github' || normalized === 'gitlab' || normalized === 'stripe') {
+			return '';
+		}
+		return providerHint.trim();
+	}
+
+	function resolveProviderHint(mode: ProviderMode, customHint: string): string | undefined {
+		switch (mode) {
 			case 'github':
 				return 'github';
 			case 'gitlab':
@@ -122,21 +231,72 @@
 			case 'generic':
 				return undefined;
 			case 'custom':
-				return customProviderHint.trim() || undefined;
+				return customHint.trim() || undefined;
 			default:
 				return undefined;
 		}
 	}
 
+	function startEditingWebhook(webhook: Webhook) {
+		cancelWebhookEdit();
+		editingWebhookId = webhook.id;
+		editingWebhookName = webhook.name;
+		editingProviderMode = providerModeFromHint(webhook.providerHint);
+		editingCustomProviderHint = customProviderHintFrom(webhook.providerHint);
+		editingRemoveAvatar = false;
+	}
+
+	function handleEditAvatarSelect(event: Event) {
+		if (!editingWebhookId) return;
+
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		const validationError = validateAvatarFile(file);
+		if (validationError) {
+			addToast({ type: 'error', message: validationError });
+			if (editAvatarInputRef) {
+				editAvatarInputRef.value = '';
+			}
+			return;
+		}
+
+		clearEditAvatarSelection();
+		editingAvatarFile = file;
+		editingAvatarPreview = URL.createObjectURL(file);
+		editingRemoveAvatar = false;
+	}
+
+	function removeEditingAvatar() {
+		clearEditAvatarSelection();
+		editingRemoveAvatar = true;
+	}
+
+	function cancelWebhookEdit() {
+		clearEditAvatarSelection();
+		editingWebhookId = null;
+		editingWebhookName = '';
+		editingProviderMode = 'generic';
+		editingCustomProviderHint = '';
+		editingRemoveAvatar = false;
+	}
+
 	async function createWebhook() {
 		if (!selectedChannelId || !webhookName.trim() || isCreatingWebhook) return;
+		if (providerMode === 'custom' && !customProviderHint.trim()) return;
 
 		isCreatingWebhook = true;
 		try {
+			let avatarUrl: string | undefined;
+			if (createAvatarFile) {
+				avatarUrl = await api.uploadWebhookAvatar(selectedChannelId, createAvatarFile);
+			}
+
 			const created = await api.createWebhook(selectedChannelId, {
 				name: webhookName.trim(),
-				avatarUrl: webhookAvatarUrl.trim() || undefined,
-				providerHint: resolvedProviderHint()
+				avatarUrl,
+				providerHint: resolveProviderHint(providerMode, customProviderHint)
 			});
 
 			latestSecret = {
@@ -147,6 +307,7 @@
 			};
 			revealSecret = true;
 
+			clearCreateAvatar();
 			addToast({ type: 'success', message: 'Webhook created' });
 			await loadWebhooks(selectedChannelId);
 		} catch (err) {
@@ -154,6 +315,46 @@
 			addToast({ type: 'error', message: 'Failed to create webhook' });
 		} finally {
 			isCreatingWebhook = false;
+		}
+	}
+
+	async function saveWebhookEdits(webhook: Webhook) {
+		if (editingWebhookId !== webhook.id || isSavingWebhookId) return;
+		if (!editingWebhookName.trim()) return;
+		if (editingProviderMode === 'custom' && !editingCustomProviderHint.trim()) return;
+
+		isSavingWebhookId = webhook.id;
+		try {
+			let avatarUrl: string | undefined;
+			if (editingAvatarFile) {
+				avatarUrl = await api.uploadWebhookAvatar(webhook.channelId, editingAvatarFile);
+			}
+
+			const updatePayload: UpdateWebhookRequest = {
+				name: editingWebhookName.trim()
+			};
+
+			if (editingProviderMode === 'generic') {
+				updatePayload.providerHint = '';
+			} else {
+				updatePayload.providerHint = resolveProviderHint(editingProviderMode, editingCustomProviderHint);
+			}
+
+			if (editingRemoveAvatar) {
+				updatePayload.avatarUrl = '';
+			} else if (avatarUrl) {
+				updatePayload.avatarUrl = avatarUrl;
+			}
+
+			const updated = await api.updateWebhook(webhook.id, updatePayload);
+			webhooks = webhooks.map((item) => (item.id === updated.id ? updated : item));
+			cancelWebhookEdit();
+			addToast({ type: 'success', message: 'Webhook updated' });
+		} catch (err) {
+			console.error('Failed to update webhook:', err);
+			addToast({ type: 'error', message: 'Failed to update webhook' });
+		} finally {
+			isSavingWebhookId = null;
 		}
 	}
 
@@ -210,6 +411,9 @@
 		try {
 			await api.deleteWebhook(webhook.id);
 			webhooks = webhooks.filter((item) => item.id !== webhook.id);
+			if (editingWebhookId === webhook.id) {
+				cancelWebhookEdit();
+			}
 			if (latestSecret?.webhookId === webhook.id) {
 				latestSecret = null;
 			}
@@ -266,15 +470,11 @@
 		{:else if channels.length === 0}
 			<div class="py-3 text-sm text-text-muted">No channels found in this community.</div>
 		{:else}
-			<select
-				id="webhook-channel"
-				bind:value={selectedChannelId}
-				class="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:border-primary"
-			>
+			<Select id="webhook-channel" bind:value={selectedChannelId}>
 				{#each channels as channel (channel.id)}
 					<option value={channel.id}>#{channel.name}</option>
 				{/each}
-			</select>
+			</Select>
 		{/if}
 	</div>
 
@@ -284,29 +484,57 @@
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 				<Input label="Name" bind:value={webhookName} placeholder="GitHub" maxlength={80} />
-				<Input
-					label="Avatar URL (optional)"
-					bind:value={webhookAvatarUrl}
-					placeholder="https://..."
-					type="url"
-				/>
+				<div class="space-y-2">
+					<p class="text-sm text-text-muted">Avatar (optional)</p>
+					<input
+						bind:this={createAvatarInputRef}
+						type="file"
+						accept="image/*"
+						onchange={handleCreateAvatarSelect}
+						class="hidden"
+					/>
+					<div class="flex items-center gap-3">
+						{#if createAvatarPreview}
+							<div class="relative">
+								<img src={createAvatarPreview} alt="Webhook avatar preview" class="w-12 h-12 rounded-lg object-cover" />
+								<Button
+									type="button"
+									onclick={clearCreateAvatar}
+									variant="danger"
+									size="sm"
+									class="absolute -top-1 -right-1 w-5 h-5 p-0 min-w-0"
+								>
+									<X size={12} />
+								</Button>
+							</div>
+						{:else}
+							<Button
+								type="button"
+								onclick={() => createAvatarInputRef?.click()}
+								variant="ghost"
+								size="sm"
+								class="w-12 h-12 p-0 border-2 border-dashed border-border hover:border-primary"
+							>
+								<Image size={18} class="text-text-muted" />
+							</Button>
+						{/if}
+
+						<div>
+							<p class="text-xs text-text-muted">PNG, JPG, GIF, or WebP</p>
+							<p class="text-xs text-text-muted">Max file size: 5MB</p>
+						</div>
+					</div>
+				</div>
 			</div>
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-				<div>
-					<label for="provider-mode" class="block text-sm text-text-muted mb-1">Provider</label>
-					<select
-						id="provider-mode"
-						bind:value={providerMode}
-						class="w-full px-3 py-2 bg-surface border border-border rounded-lg text-text-primary text-sm focus:outline-none focus:border-primary"
-					>
-						<option value="github">GitHub</option>
-						<option value="gitlab">GitLab</option>
-						<option value="stripe">Stripe</option>
-						<option value="generic">Generic</option>
-						<option value="custom">Custom</option>
-					</select>
-				</div>
+				<Select id="provider-mode" label="Provider" bind:value={providerMode}>
+					<option value="github">GitHub</option>
+					<option value="gitlab">GitLab</option>
+					<option value="stripe">Stripe</option>
+					<option value="generic">Generic</option>
+					<option value="custom">Custom</option>
+				</Select>
 
 				{#if providerMode === 'custom'}
 					<Input
@@ -417,16 +645,32 @@
 				{#each webhooks as webhook (webhook.id)}
 					<div class="rounded-lg border border-border bg-surface p-3">
 						<div class="flex items-center justify-between gap-3">
-							<div class="min-w-0">
-								<p class="font-medium text-text-primary truncate">{webhook.name}</p>
-								<div class="flex items-center gap-2 mt-1 text-xs text-text-muted">
-									<span class="font-mono">id: {webhook.id}</span>
-									<span>&middot;</span>
-									<span class="font-mono">token: {webhook.tokenPreview}...</span>
-									{#if webhook.providerHint}
+							<div class="min-w-0 flex items-center gap-3">
+								{#if webhook.avatarUrl}
+									<img
+										src={webhook.avatarUrl}
+										alt={`${webhook.name} avatar`}
+										class="w-10 h-10 rounded-lg object-cover shrink-0"
+									/>
+								{:else}
+									<div
+										class="w-10 h-10 rounded-lg border border-border bg-surface-hover flex items-center justify-center shrink-0"
+									>
+										<Link size={16} class="text-text-muted" />
+									</div>
+								{/if}
+
+								<div class="min-w-0">
+									<p class="font-medium text-text-primary truncate">{webhook.name}</p>
+									<div class="flex items-center gap-2 mt-1 text-xs text-text-muted">
+										<span class="font-mono">id: {webhook.id}</span>
 										<span>&middot;</span>
-										<span>{webhook.providerHint}</span>
-									{/if}
+										<span class="font-mono">token: {webhook.tokenPreview}...</span>
+										{#if webhook.providerHint}
+											<span>&middot;</span>
+											<span>{webhook.providerHint}</span>
+										{/if}
+									</div>
 								</div>
 							</div>
 
@@ -450,8 +694,22 @@
 							<Button
 								size="sm"
 								variant="ghost"
+								onclick={() => editingWebhookId === webhook.id ? cancelWebhookEdit() : startEditingWebhook(webhook)}
+								disabled={isSavingWebhookId === webhook.id}
+							>
+								{#if editingWebhookId === webhook.id}
+									<X size={14} />
+									Cancel Edit
+								{:else}
+									<Pencil size={14} />
+									Edit
+								{/if}
+							</Button>
+							<Button
+								size="sm"
+								variant="ghost"
 								onclick={() => toggleWebhookStatus(webhook)}
-								disabled={isTogglingWebhookId === webhook.id}
+								disabled={isTogglingWebhookId === webhook.id || isSavingWebhookId === webhook.id}
 							>
 								{webhook.isActive ? 'Pause' : 'Enable'}
 							</Button>
@@ -459,7 +717,7 @@
 								size="sm"
 								variant="secondary"
 								onclick={() => rotateWebhookToken(webhook)}
-								disabled={isRotatingWebhookId === webhook.id}
+								disabled={isRotatingWebhookId === webhook.id || isSavingWebhookId === webhook.id}
 							>
 								{#if isRotatingWebhookId === webhook.id}
 									<Spinner size="sm" />
@@ -473,12 +731,103 @@
 								size="sm"
 								variant="danger"
 								onclick={() => deleteWebhook(webhook)}
-								disabled={isDeletingWebhookId === webhook.id}
+								disabled={isDeletingWebhookId === webhook.id || isSavingWebhookId === webhook.id}
 							>
 								<Trash size={14} />
 								Delete
 							</Button>
 						</div>
+
+						{#if editingWebhookId === webhook.id}
+							<div class="mt-4 pt-3 border-t border-border space-y-3">
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+									<Input label="Name" bind:value={editingWebhookName} placeholder="GitHub" maxlength={80} />
+
+									<div class="space-y-2">
+										<p class="text-sm text-text-muted">Avatar</p>
+										<input
+											bind:this={editAvatarInputRef}
+											type="file"
+											accept="image/*"
+											onchange={handleEditAvatarSelect}
+											class="hidden"
+										/>
+										<div class="flex items-center gap-3">
+											{#if editingAvatarPreview}
+												<img
+													src={editingAvatarPreview}
+													alt="Webhook avatar preview"
+													class="w-12 h-12 rounded-lg object-cover"
+												/>
+											{:else if !editingRemoveAvatar && webhook.avatarUrl}
+												<img src={webhook.avatarUrl} alt={`${webhook.name} avatar`} class="w-12 h-12 rounded-lg object-cover" />
+											{:else}
+												<div
+													class="w-12 h-12 rounded-lg border border-border bg-surface-hover flex items-center justify-center"
+												>
+													<Image size={18} class="text-text-muted" />
+												</div>
+											{/if}
+
+											<div class="flex flex-wrap gap-2">
+												<Button size="sm" variant="ghost" onclick={() => editAvatarInputRef?.click()}>
+													Upload
+												</Button>
+												{#if editingAvatarPreview || (!editingRemoveAvatar && webhook.avatarUrl)}
+													<Button size="sm" variant="ghost" onclick={removeEditingAvatar}>Remove</Button>
+												{/if}
+											</div>
+										</div>
+										<p class="text-xs text-text-muted">PNG, JPG, GIF, or WebP up to 5MB</p>
+									</div>
+								</div>
+
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+									<Select
+										id={`edit-provider-mode-${webhook.id}`}
+										label="Provider"
+										bind:value={editingProviderMode}
+									>
+										<option value="github">GitHub</option>
+										<option value="gitlab">GitLab</option>
+										<option value="stripe">Stripe</option>
+										<option value="generic">Generic</option>
+										<option value="custom">Custom</option>
+									</Select>
+
+									{#if editingProviderMode === 'custom'}
+										<Input
+											label="Custom Provider Hint"
+											bind:value={editingCustomProviderHint}
+											placeholder="ci-system"
+											maxlength={32}
+										/>
+									{/if}
+								</div>
+
+								<div class="flex justify-end gap-2">
+									<Button size="sm" variant="ghost" onclick={cancelWebhookEdit} disabled={isSavingWebhookId === webhook.id}>
+										Cancel
+									</Button>
+									<Button
+										size="sm"
+										onclick={() => saveWebhookEdits(webhook)}
+										disabled={
+											isSavingWebhookId === webhook.id ||
+											!editingWebhookName.trim() ||
+											(editingProviderMode === 'custom' && !editingCustomProviderHint.trim())
+										}
+									>
+										{#if isSavingWebhookId === webhook.id}
+											<Spinner size="sm" />
+											Saving...
+										{:else}
+											Save Changes
+										{/if}
+									</Button>
+								</div>
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>

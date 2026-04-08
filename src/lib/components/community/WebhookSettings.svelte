@@ -55,6 +55,7 @@
 
 	let editingWebhookId = $state<string | null>(null);
 	let editingWebhookName = $state('');
+	let editingWebhookChannelId = $state('');
 	let editingProviderMode = $state<ProviderMode>('generic');
 	let editingCustomProviderHint = $state('');
 	let editingAvatarFile = $state<File | null>(null);
@@ -65,7 +66,9 @@
 	let latestSecret = $state<WebhookSecret | null>(null);
 	let revealSecret = $state(false);
 	let loadedChannelsForCommunityId = $state<string | null>(null);
-	let loadedWebhooksForChannelId = $state<string | null>(null);
+	let loadedWebhooksForCommunityId = $state<string | null>(null);
+
+	const channelNameById = $derived(new Map(channels.map((channel) => [channel.id, channel.name])));
 
 	$effect(() => {
 		if (!communityId) return;
@@ -75,7 +78,7 @@
 		channels = [];
 		selectedChannelId = '';
 		webhooks = [];
-		loadedWebhooksForChannelId = null;
+		loadedWebhooksForCommunityId = null;
 		clearCreateAvatar();
 		cancelWebhookEdit();
 
@@ -83,21 +86,20 @@
 	});
 
 	$effect(() => {
-		const channelId = selectedChannelId;
-		if (!channelId) {
+		if (!communityId) {
 			webhooks = [];
-			loadedWebhooksForChannelId = null;
+			loadedWebhooksForCommunityId = null;
 			cancelWebhookEdit();
 			return;
 		}
 
-		if (loadedWebhooksForChannelId === channelId) {
+		if (loadedWebhooksForCommunityId === communityId) {
 			return;
 		}
 
-		loadedWebhooksForChannelId = channelId;
+		loadedWebhooksForCommunityId = communityId;
 		cancelWebhookEdit();
-		void untrack(() => loadWebhooks(channelId));
+		void untrack(() => loadWebhooksForCommunity());
 	});
 
 	async function loadChannels(targetCommunityId: string) {
@@ -125,6 +127,9 @@
 			if (!selectedStillExists) {
 				selectedChannelId = channels[0].id;
 			}
+
+			loadedWebhooksForCommunityId = null;
+			await loadWebhooksForCommunity();
 		} catch (err) {
 			console.error('Failed to load channels for webhook settings:', err);
 			addToast({ type: 'error', message: 'Failed to load channels' });
@@ -133,15 +138,24 @@
 		}
 	}
 
-	async function loadWebhooks(channelId: string) {
-		if (!channelId || isLoadingWebhooks) return;
+	async function loadWebhooksForCommunity() {
+		if (!communityId || isLoadingWebhooks) return;
 
 		isLoadingWebhooks = true;
 		try {
-			webhooks = await api.getChannelWebhooks(channelId);
+			const webhookGroups = await Promise.all(
+				channels.map(async (channel) => {
+					const channelWebhooks = await api.getChannelWebhooks(channel.id);
+					return channelWebhooks;
+				})
+			);
+
+			webhooks = webhookGroups
+				.flat()
+				.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 		} catch (err) {
 			console.error('Failed to load webhooks:', err);
-			addToast({ type: 'error', message: 'Failed to load webhooks for this channel' });
+			addToast({ type: 'error', message: 'Failed to load webhooks' });
 		} finally {
 			isLoadingWebhooks = false;
 		}
@@ -241,6 +255,7 @@
 		cancelWebhookEdit();
 		editingWebhookId = webhook.id;
 		editingWebhookName = webhook.name;
+		editingWebhookChannelId = webhook.channelId;
 		editingProviderMode = providerModeFromHint(webhook.providerHint);
 		editingCustomProviderHint = customProviderHintFrom(webhook.providerHint);
 		editingRemoveAvatar = false;
@@ -277,6 +292,7 @@
 		clearEditAvatarSelection();
 		editingWebhookId = null;
 		editingWebhookName = '';
+		editingWebhookChannelId = '';
 		editingProviderMode = 'generic';
 		editingCustomProviderHint = '';
 		editingRemoveAvatar = false;
@@ -309,7 +325,7 @@
 
 			clearCreateAvatar();
 			addToast({ type: 'success', message: 'Webhook created' });
-			await loadWebhooks(selectedChannelId);
+			await loadWebhooksForCommunity();
 		} catch (err) {
 			console.error('Failed to create webhook:', err);
 			addToast({ type: 'error', message: 'Failed to create webhook' });
@@ -321,18 +337,23 @@
 	async function saveWebhookEdits(webhook: Webhook) {
 		if (editingWebhookId !== webhook.id || isSavingWebhookId) return;
 		if (!editingWebhookName.trim()) return;
+		if (!editingWebhookChannelId) return;
 		if (editingProviderMode === 'custom' && !editingCustomProviderHint.trim()) return;
 
 		isSavingWebhookId = webhook.id;
 		try {
 			let avatarUrl: string | undefined;
 			if (editingAvatarFile) {
-				avatarUrl = await api.uploadWebhookAvatar(webhook.channelId, editingAvatarFile);
+				avatarUrl = await api.uploadWebhookAvatar(editingWebhookChannelId || webhook.channelId, editingAvatarFile);
 			}
 
 			const updatePayload: UpdateWebhookRequest = {
 				name: editingWebhookName.trim()
 			};
+
+			if (editingWebhookChannelId !== webhook.channelId) {
+				updatePayload.channelId = editingWebhookChannelId;
+			}
 
 			if (editingProviderMode === 'generic') {
 				updatePayload.providerHint = '';
@@ -372,7 +393,7 @@
 			};
 			revealSecret = true;
 			addToast({ type: 'success', message: `Rotated token for ${webhook.name}` });
-			await loadWebhooks(selectedChannelId);
+			await loadWebhooksForCommunity();
 		} catch (err) {
 			console.error('Failed to rotate webhook token:', err);
 			addToast({ type: 'error', message: 'Failed to rotate webhook token' });
@@ -450,7 +471,7 @@
 
 	<div class="bg-surface-hover rounded-lg border border-border p-4 space-y-3">
 		<div class="flex items-center justify-between gap-3">
-			<label for="webhook-channel" class="text-sm text-text-muted">Target Channel</label>
+			<h4 class="text-sm font-semibold text-text-primary">Create Incoming Webhook</h4>
 			<Button
 				variant="ghost"
 				size="sm"
@@ -470,18 +491,6 @@
 		{:else if channels.length === 0}
 			<div class="py-3 text-sm text-text-muted">No channels found in this community.</div>
 		{:else}
-			<Select id="webhook-channel" bind:value={selectedChannelId}>
-				{#each channels as channel (channel.id)}
-					<option value={channel.id}>#{channel.name}</option>
-				{/each}
-			</Select>
-		{/if}
-	</div>
-
-	{#if selectedChannelId}
-		<div class="bg-surface-hover rounded-lg border border-border p-4 space-y-3">
-			<h4 class="text-sm font-semibold text-text-primary">Create Incoming Webhook</h4>
-
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 				<Input label="Name" bind:value={webhookName} placeholder="GitHub" maxlength={80} />
 				<div class="space-y-2">
@@ -528,6 +537,12 @@
 			</div>
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+				<Select id="webhook-channel" label="Channel" bind:value={selectedChannelId}>
+					{#each channels as channel (channel.id)}
+						<option value={channel.id}>#{channel.name}</option>
+					{/each}
+				</Select>
+
 				<Select id="provider-mode" label="Provider" bind:value={providerMode}>
 					<option value="github">GitHub</option>
 					<option value="gitlab">GitLab</option>
@@ -549,7 +564,12 @@
 			<div class="flex justify-end">
 				<Button
 					onclick={createWebhook}
-					disabled={isCreatingWebhook || !webhookName.trim() || (providerMode === 'custom' && !customProviderHint.trim())}
+					disabled={
+						isCreatingWebhook ||
+						!selectedChannelId ||
+						!webhookName.trim() ||
+						(providerMode === 'custom' && !customProviderHint.trim())
+					}
 				>
 					{#if isCreatingWebhook}
 						<Spinner size="sm" />
@@ -560,8 +580,8 @@
 					{/if}
 				</Button>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 
 	{#if latestSecret}
 		{@const secret = latestSecret}
@@ -613,23 +633,14 @@
 
 	<div class="bg-surface-hover rounded-lg border border-border p-4 space-y-3">
 		<div class="flex items-center justify-between">
-			<h4 class="text-sm font-semibold text-text-primary">Channel Webhooks</h4>
-			{#if selectedChannelId}
-				<Button
-					variant="ghost"
-					size="sm"
-					onclick={() => loadWebhooks(selectedChannelId)}
-					disabled={isLoadingWebhooks}
-				>
-					<RefreshCw size={14} class={isLoadingWebhooks ? 'animate-spin' : ''} />
-					Refresh
-				</Button>
-			{/if}
+			<h4 class="text-sm font-semibold text-text-primary">All Webhooks</h4>
+			<Button variant="ghost" size="sm" onclick={() => loadWebhooksForCommunity()} disabled={isLoadingWebhooks}>
+				<RefreshCw size={14} class={isLoadingWebhooks ? 'animate-spin' : ''} />
+				Refresh
+			</Button>
 		</div>
 
-		{#if !selectedChannelId}
-			<p class="text-sm text-text-muted">Select a channel to manage webhooks.</p>
-		{:else if isLoadingWebhooks}
+		{#if isLoadingWebhooks}
 			<div class="flex items-center gap-2 py-4 text-sm text-text-muted">
 				<Spinner size="sm" />
 				Loading webhooks...
@@ -637,7 +648,7 @@
 		{:else if webhooks.length === 0}
 			<div class="text-center py-8 text-text-muted">
 				<Link size={32} class="mx-auto mb-2 opacity-50" />
-				<p>No webhooks for this channel</p>
+				<p>No webhooks in this community</p>
 				<p class="text-sm">Create one above to start receiving external events.</p>
 			</div>
 		{:else}
@@ -663,6 +674,8 @@
 								<div class="min-w-0">
 									<p class="font-medium text-text-primary truncate">{webhook.name}</p>
 									<div class="flex items-center gap-2 mt-1 text-xs text-text-muted">
+										<span>#{channelNameById.get(webhook.channelId) ?? 'Unknown channel'}</span>
+										<span>&middot;</span>
 										<span class="font-mono">id: {webhook.id}</span>
 										<span>&middot;</span>
 										<span class="font-mono">token: {webhook.tokenPreview}...</span>
@@ -783,6 +796,12 @@
 								</div>
 
 								<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+									<Select id={`edit-channel-${webhook.id}`} label="Channel" bind:value={editingWebhookChannelId}>
+										{#each channels as channel (channel.id)}
+											<option value={channel.id}>#{channel.name}</option>
+										{/each}
+									</Select>
+
 									<Select
 										id={`edit-provider-mode-${webhook.id}`}
 										label="Provider"
@@ -815,6 +834,7 @@
 										disabled={
 											isSavingWebhookId === webhook.id ||
 											!editingWebhookName.trim() ||
+											!editingWebhookChannelId ||
 											(editingProviderMode === 'custom' && !editingCustomProviderHint.trim())
 										}
 									>

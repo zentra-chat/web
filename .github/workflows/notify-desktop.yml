@@ -1,0 +1,23 @@
+name: Notify Desktop Repo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch frontend update event to desktop repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DESKTOP_REPO_DISPATCH_TOKEN }}
+          repository: zentra-chat/desktop
+          event-type: frontend-updated
+          client-payload: |
+            {
+              "frontend_sha": "${{ github.sha }}",
+              "frontend_ref": "${{ github.ref_name }}",
+              "frontend_repo": "${{ github.repository }}"
+            }

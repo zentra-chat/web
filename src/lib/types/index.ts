@@ -326,6 +326,7 @@ export interface UpdateWebhookRequest {
 	name?: string;
 	avatarUrl?: string;
 	providerHint?: string;
+	channelId?: string;
 	isActive?: boolean;
 }
 

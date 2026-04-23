@@ -2,21 +2,20 @@
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		Hash,
-		Megaphone,
-		Image,
 		ChevronDown,
 		ChevronRight,
 		Plus,
 		Pencil,
+		Settings,
 		Copy,
 		Trash2,
-		FolderPlus,
-		Volume2
+		FolderPlus
 	} from 'lucide-svelte';
 	import { Tooltip, Button, Modal, Input } from '$lib/components/ui';
+	import ChannelSettingsModal from '$lib/components/community/ChannelSettingsModal.svelte';
 	import VoiceChannelUsers from '$lib/components/chat/VoiceChannelUsers.svelte';
 	import VoiceCallOverlay from '$lib/components/chat/VoiceCallOverlay.svelte';
-	import { getChannelIcon, getChannelTypeRegistration } from '$lib/channelTypes';
+	import { getChannelIcon } from '$lib/channelTypes';
 	import {
 		activeCommunity,
 		activeCommunityMembers,
@@ -39,6 +38,7 @@
 		toggleDevTextChannelOverride
 	} from '$lib/stores/ui';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
 	import { joinVoiceChannel, voiceChannelId, loadVoiceStates } from '$lib/stores/voice';
@@ -46,7 +46,7 @@
 
 	type ApiErrorLike = { error?: string; message?: string };
 
-	let collapsedCategories = $state<Set<string>>(new Set());
+	let collapsedCategories = $state<string[]>([]);
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
 	let contextMenu = $state<
 		| { x: number; y: number; type: 'channel'; channelId: string }
@@ -76,8 +76,14 @@
 		}
 		| null
 	>(null);
+	let isChannelSettingsOpen = $state(false);
+	let channelSettingsChannelId = $state<string | null>(null);
 	let isDeleting = $state(false);
 	let subscribedVoiceChannelIds = new Set<string>();
+	let channelSettingsChannel = $derived.by(() => {
+		if (!channelSettingsChannelId) return null;
+		return $activeCommunityChannels.find((channel) => channel.id === channelSettingsChannelId) || null;
+	});
 	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
 	let canManageChannels = $derived(isOwner || memberHasPermission(myMember, Permission.ManageChannels));
@@ -174,12 +180,12 @@
 	}
 
 	function toggleCategory(categoryId: string) {
-		collapsedCategories = new Set(collapsedCategories);
-		if (collapsedCategories.has(categoryId)) {
-			collapsedCategories.delete(categoryId);
-		} else {
-			collapsedCategories.add(categoryId);
+		if (collapsedCategories.includes(categoryId)) {
+			collapsedCategories = collapsedCategories.filter((id) => id !== categoryId);
+			return;
 		}
+
+		collapsedCategories = [...collapsedCategories, categoryId];
 	}
 
 	function handleChannelClick(channel: Channel) {
@@ -390,6 +396,19 @@
 		openRenameChannelModal(contextMenu.channelId);
 	}
 
+	function handleContextOpenChannelSettings() {
+		if (!contextMenu || contextMenu.type !== 'channel') return;
+
+		channelSettingsChannelId = contextMenu.channelId;
+		isChannelSettingsOpen = true;
+		contextMenu = null;
+	}
+
+	function closeChannelSettingsModal() {
+		isChannelSettingsOpen = false;
+		channelSettingsChannelId = null;
+	}
+
 	function handleContextCopyChannelId() {
 		if (!contextMenu || contextMenu.type !== 'channel') return;
 		void handleCopyChannelId(contextMenu.channelId);
@@ -509,7 +528,7 @@
 			addToast({ type: 'error', message: 'Insufficient permissions' });
 			return;
 		}
-		goto('/app/community-settings');
+		goto(resolve('/app/community-settings'));
 	}
 
 	function handleCreateChannel(categoryId: string | null) {
@@ -635,7 +654,7 @@
 				<!-- Categorized channels -->
 				{#each $activeCommunityCategories.sort((a, b) => a.position - b.position) as category (category.id)}
 				{@const categoryChannels = channelsByCategory[category.id] || []}
-				{@const isCollapsed = collapsedCategories.has(category.id)}
+				{@const isCollapsed = collapsedCategories.includes(category.id)}
 
 				<div class="mb-2">
 					<button
@@ -713,6 +732,13 @@
 		>
 			{#if contextMenu.type === 'channel'}
 				{#if canManageChannels}
+					<button
+						onclick={handleContextOpenChannelSettings}
+						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover flex items-center gap-2"
+					>
+						<Settings size={14} />
+						Channel Settings
+					</button>
 					<button
 						onclick={handleContextRenameChannel}
 						class="w-full rounded px-3 py-2 text-left text-sm text-text-primary hover:bg-surface-hover flex items-center gap-2"
@@ -822,6 +848,12 @@
 			</div>
 		</div>
 	</Modal>
+
+	<ChannelSettingsModal
+		isOpen={isChannelSettingsOpen}
+		channel={channelSettingsChannel}
+		onclose={closeChannelSettingsModal}
+	/>
 
 	<!-- Voice call controls -->
 	<VoiceCallOverlay />

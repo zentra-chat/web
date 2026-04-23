@@ -16,6 +16,7 @@
 	import EmojiPicker from './EmojiPicker.svelte';
 	import { customEmojis } from '$lib/stores/emoji';
 	import { searchEmojis as searchNativeEmojis } from '$lib/utils/emoji';
+	import { getErrorMessage } from '$lib/utils/apiError';
 
 	interface Props {
 		channelId?: string;
@@ -291,7 +292,7 @@
 						console.error('Failed to upload attachment:', err);
 						addToast({
 							type: 'error',
-							message: `Failed to upload ${file.name}`
+							message: getErrorMessage(err, `Failed to upload ${file.name}`)
 						});
 					}
 				}
@@ -354,7 +355,7 @@
 			console.error('Failed to send message:', err);
 			addToast({
 				type: 'error',
-				message: 'Failed to send message'
+				message: getErrorMessage(err, 'Failed to send message')
 			});
 		} finally {
 			isSending = false;

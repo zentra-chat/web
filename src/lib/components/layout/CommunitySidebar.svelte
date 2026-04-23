@@ -21,6 +21,7 @@
 	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import { unreadDmConversations, totalDmUnread, setActiveDmConversationId } from '$lib/stores/dm';
+	import { normalizeApiError } from '$lib/utils/apiError';
 	import type { Community, User, DMConversation } from '$lib/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -139,7 +140,11 @@
 			await api.logout();
 			addToast({ type: 'success', message: 'Logged out' });
 		} catch (err) {
-			const apiError = err as { error?: string; code?: string; shouldRetry?: boolean };
+			const apiError = normalizeApiError(err, 'Unauthorized') as {
+				error: string;
+				code: string;
+				shouldRetry?: boolean;
+			};
 			const isExpectedUnauthorized =
 				apiError.error === 'Unauthorized' ||
 				apiError.code === 'UNAUTHORIZED' ||

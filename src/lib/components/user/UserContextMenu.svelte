@@ -10,6 +10,7 @@
 	} from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { User } from '$lib/types';
 
 	interface Props {
@@ -93,7 +94,7 @@
 			const members = await api.getCommunityMembers($activeCommunity.id);
 			setMembers($activeCommunity.id, members);
 		} catch (err: any) {
-			addToast({ type: 'error', message: err?.error || err?.message || 'Failed to kick member' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to kick member') });
 		}
 		onclose();
 	}

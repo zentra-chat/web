@@ -4,8 +4,7 @@
 	import { createCommunityModalOpen, closeCreateCommunityModal, addToast } from '$lib/stores/ui';
 	import { addCommunity } from '$lib/stores/community';
 	import { api } from '$lib/api';
-
-	type ApiErrorLike = { error?: string; message?: string };
+	import { getErrorMessage } from '$lib/utils/apiError';
 
 	let name = $state('');
 	let description = $state('');
@@ -112,9 +111,8 @@
 			});
 			handleClose();
 		} catch (err: unknown) {
-			const error = err as ApiErrorLike;
 			console.error('Failed to create community:', err);
-			errors = { submit: error.error || error.message || 'Failed to create community. Please try again.' };
+			errors = { submit: getErrorMessage(err, 'Failed to create community. Please try again.') };
 		} finally {
 			isSubmitting = false;
 		}

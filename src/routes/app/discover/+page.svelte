@@ -5,9 +5,8 @@
 	import { api } from '$lib/api';
 	import { addCommunity, selectCommunity } from '$lib/stores/community';
 	import { addToast } from '$lib/stores/ui';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { Community } from '$lib/types';
-
-	type ApiErrorLike = { error?: string; message?: string; response?: { data?: { message?: string } } };
 
 	let searchQuery = $state('');
 	let communities = $state<Community[]>([]);
@@ -29,7 +28,7 @@
 			hasSearched = false;
 		} catch (err) {
 			console.error('Failed to load public servers:', err);
-			addToast({ type: 'error', message: 'Failed to load public servers' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to load public servers') });
 		} finally {
 			isLoading = false;
 		}
@@ -48,7 +47,7 @@
 			communities = (await api.discoverCommunities(query, 1, 24)) || [];
 		} catch (err) {
 			console.error('Failed to search communities:', err);
-			addToast({ type: 'error', message: 'Failed to search communities' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to search communities') });
 		} finally {
 			isSearching = false;
 		}
@@ -71,12 +70,10 @@
 			selectCommunity(community.id);
 			goto('/app');
 		} catch (err: unknown) {
-			const apiError = err as ApiErrorLike;
 			console.error('Failed to join community:', err);
 			addToast({
 				type: 'error',
-				message:
-					apiError.response?.data?.message || apiError.error || apiError.message || 'Failed to join community'
+				message: getErrorMessage(err, 'Failed to join community')
 			});
 		} finally {
 			isJoining = null;

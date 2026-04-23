@@ -16,6 +16,7 @@
 	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
+	import { getErrorMessage, normalizeApiError } from '$lib/utils/apiError';
 	import { onMount } from 'svelte';
 
 	let login = $state('');
@@ -146,9 +147,9 @@
 			showToast('success', `Welcome back, ${response.user.displayName || response.user.username}!`);
 			handleRedirectAfterLogin();
 		} catch (err) {
-			const apiError = err as { error?: string; code?: string };
-			errorCode = apiError.code || '';
-			error = apiError.error || 'Failed to login. Please check your credentials.';
+			const normalizedError = normalizeApiError(err, 'Failed to login. Please check your credentials.');
+			errorCode = normalizedError.code || '';
+			error = getErrorMessage(err, 'Failed to login. Please check your credentials.');
 		} finally {
 			isLoading = false;
 		}

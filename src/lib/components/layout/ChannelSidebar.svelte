@@ -56,6 +56,9 @@
 	let draggedChannelId = $state<string | null>(null);
 	let dragOverChannelId = $state<string | null>(null);
 	let isReorderingChannels = $state(false);
+	let draggedCategoryId = $state<string | null>(null);
+	let dragOverCategoryId = $state<string | null>(null);
+	let isReorderingCategories = $state(false);
 	let renameModal = $state<
 		| {
 			type: 'channel' | 'category';
@@ -179,12 +182,13 @@
 	}
 
 	function toggleCategory(categoryId: string) {
-		if (collapsedCategories.includes(categoryId)) {
-			collapsedCategories = collapsedCategories.filter((id) => id !== categoryId);
+		if (collapsedCategories.has(categoryId)) {
+			collapsedCategories.delete(categoryId);
+			collapsedCategories = new Set(collapsedCategories);
 			return;
 		}
 
-		collapsedCategories = [...collapsedCategories, categoryId];
+		collapsedCategories = new Set([...collapsedCategories, categoryId]);
 	}
 
 	function handleChannelClick(channel: Channel) {
@@ -258,6 +262,68 @@
 	function handleChannelDragEnd() {
 		draggedChannelId = null;
 		dragOverChannelId = null;
+	}
+
+	function handleCategoryDragStart(event: DragEvent, categoryId: string) {
+		if (!canManageChannels || isReorderingCategories) return;
+		draggedCategoryId = categoryId;
+		dragOverCategoryId = categoryId;
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			event.dataTransfer.setData('text/plain', categoryId);
+		}
+	}
+
+	function handleCategoryDragOver(event: DragEvent, categoryId: string) {
+		if (!draggedCategoryId || draggedCategoryId === categoryId) return;
+		event.preventDefault();
+		dragOverCategoryId = categoryId;
+	}
+
+	function handleCategoryDragLeave(categoryId: string) {
+		if (dragOverCategoryId === categoryId) {
+			dragOverCategoryId = null;
+		}
+	}
+
+	async function handleCategoryDrop(event: DragEvent, targetCategoryId: string) {
+		event.preventDefault();
+		const sourceCategoryId = draggedCategoryId;
+		draggedCategoryId = null;
+		dragOverCategoryId = null;
+
+		if (!sourceCategoryId || sourceCategoryId === targetCategoryId || !$activeCommunity) {
+			return;
+		}
+
+		const orderedIds = [...$activeCommunityCategories]
+			.sort((a, b) => a.position - b.position)
+			.map((cat) => cat.id);
+
+		const sourceIndex = orderedIds.indexOf(sourceCategoryId);
+		const targetIndex = orderedIds.indexOf(targetCategoryId);
+		if (sourceIndex < 0 || targetIndex < 0) {
+			return;
+		}
+
+		orderedIds.splice(sourceIndex, 1);
+		orderedIds.splice(targetIndex, 0, sourceCategoryId);
+
+		isReorderingCategories = true;
+		try {
+			await api.reorderCategories($activeCommunity.id, orderedIds);
+			await loadChannelsAndCategories();
+		} catch (err: unknown) {
+			console.error('Failed to reorder folders:', err);
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to reorder folders') });
+		} finally {
+			isReorderingCategories = false;
+		}
+	}
+
+	function handleCategoryDragEnd() {
+		draggedCategoryId = null;
+		dragOverCategoryId = null;
 	}
 
 	function handleChannelContextMenu(event: MouseEvent, channel: Channel) {
@@ -648,13 +714,19 @@
 				<!-- Categorized channels -->
 				{#each $activeCommunityCategories.sort((a, b) => a.position - b.position) as category (category.id)}
 				{@const categoryChannels = channelsByCategory[category.id] || []}
-				{@const isCollapsed = collapsedCategories.includes(category.id)}
+				{@const isCollapsed = collapsedCategories.has(category.id)}
 
 				<div class="mb-2">
 					<button
 						onclick={() => toggleCategory(category.id)}
 						oncontextmenu={(event) => handleCategoryContextMenu(event, category)}
-						class="w-full px-2 py-1 flex items-center gap-1 text-xs font-semibold text-text-muted uppercase tracking-wider hover:text-text-secondary group"
+						draggable={canManageChannels && !isReorderingCategories}
+						ondragstart={(event) => handleCategoryDragStart(event, category.id)}
+						ondragover={(event) => handleCategoryDragOver(event, category.id)}
+						ondragleave={() => handleCategoryDragLeave(category.id)}
+						ondrop={(event) => handleCategoryDrop(event, category.id)}
+						ondragend={handleCategoryDragEnd}
+						class="w-full px-2 py-1 flex items-center gap-1 text-xs font-semibold text-text-muted uppercase tracking-wider hover:text-text-secondary group {dragOverCategoryId === category.id ? 'ring-1 ring-primary rounded' : ''}"
 					>
 						{#if isCollapsed}
 							<ChevronRight size={12} />

@@ -819,6 +819,13 @@ class ApiClient {
 		await this.request(`/channels/categories/${categoryId}`, { method: 'DELETE' });
 	}
 
+	async reorderCategories(communityId: string, categoryIds: string[]): Promise<void> {
+		await this.request(`/channels/communities/${communityId}/categories/reorder`, {
+			method: 'PUT',
+			body: JSON.stringify({ categoryIds })
+		});
+	}
+
 	// Channel type definition endpoints
 	async getChannelTypes(): Promise<ChannelTypeDefinition[]> {
 		const result = await this.request<ApiResponse<ChannelTypeDefinition[]>>('/channel-types');

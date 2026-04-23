@@ -240,7 +240,9 @@
 			clearSkipAutoPortableAuth();
 			resetCaptchaWidget();
 
-			if (response.verificationSent) {
+			if (!response.requiresEmailVerification) {
+				showToast('success', response.message || 'Account created successfully. You can now log in.');
+			} else if (response.verificationSent) {
 				showToast('success', response.message || 'Account created. Check your inbox to verify your email.');
 			} else {
 				showToast('warning', response.message || 'Account created but verification email could not be sent.');

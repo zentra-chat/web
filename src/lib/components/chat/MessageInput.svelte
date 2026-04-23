@@ -551,13 +551,59 @@
 			addAttachments(droppedFiles);
 		}
 
+		function handleGlobalPaste(e: ClipboardEvent) {
+			const clipboardData = e.clipboardData;
+			if (!clipboardData) return;
+
+			const target = e.target as HTMLElement;
+			const isInInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+			const items = Array.from(clipboardData.items);
+			const fileItems = items.filter(item => item.kind === 'file');
+			
+			if (fileItems.length > 0) {
+				e.preventDefault();
+
+				if (!isInInput) {
+					textareaRef?.focus();
+				}
+
+				const files: File[] = [];
+				for (const item of fileItems) {
+					const file = item.getAsFile();
+					if (file) {
+						files.push(file);
+					}
+				}
+				
+				if (files.length > 0) {
+					addAttachments(files);
+				}
+			} else if (!isInInput) {
+				e.preventDefault();
+				textareaRef?.focus();
+				const text = clipboardData.getData('text');
+				if (text && textareaRef) {
+					const pos = content.length;
+					content = content + text;
+					requestAnimationFrame(() => {
+						textareaRef?.focus();
+						const newPos = content.length;
+						textareaRef?.setSelectionRange(newPos, newPos);
+					});
+				}
+			}
+		}
+
 		window.addEventListener('keydown', handleGlobalKeydown, true);
 		window.addEventListener('dragover', handleGlobalDragOver, true);
 		window.addEventListener('drop', handleGlobalDrop, true);
+		window.addEventListener('paste', handleGlobalPaste, true);
 		return () => {
 			window.removeEventListener('keydown', handleGlobalKeydown, true);
 			window.removeEventListener('dragover', handleGlobalDragOver, true);
 			window.removeEventListener('drop', handleGlobalDrop, true);
+			window.removeEventListener('paste', handleGlobalPaste, true);
 		};
 	});
 </script>

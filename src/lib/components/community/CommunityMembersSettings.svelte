@@ -12,9 +12,8 @@
 		memberHasPermission
 	} from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { CommunityMember, Role } from '$lib/types';
-
-	type ApiErrorLike = { error?: string; message?: string };
 
 	interface Props {
 		communityId: string;
@@ -135,8 +134,7 @@
 			addToast({ type: 'success', message: `${displayName} has been kicked` });
 			await loadMembers();
 		} catch (err) {
-			const msg = (err as ApiErrorLike)?.error || (err as ApiErrorLike)?.message || 'Failed to kick member';
-			addToast({ type: 'error', message: msg });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to kick member') });
 		}
 	}
 
@@ -161,8 +159,7 @@
 			closeBanModal();
 			await loadMembers();
 		} catch (err) {
-			const msg = (err as ApiErrorLike)?.error || (err as ApiErrorLike)?.message || 'Failed to ban member';
-			addToast({ type: 'error', message: msg });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to ban member') });
 		} finally {
 			isProcessingBan = false;
 		}

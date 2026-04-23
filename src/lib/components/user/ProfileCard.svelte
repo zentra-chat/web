@@ -17,6 +17,7 @@
 	import { setActiveDmConversationId, upsertDmConversation } from '$lib/stores/dm';
 	import { loadFriendsData } from '$lib/stores/friends';
 	import { api } from '$lib/api';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import { format } from 'date-fns';
 	import type { RelationshipStatus } from '$lib/types';
 
@@ -91,7 +92,7 @@
 			await refreshRelationship();
 			addToast({ type: 'success', message: successMessage });
 		} catch (err: any) {
-			addToast({ type: 'error', message: err?.error || err?.message || errorMessage });
+			addToast({ type: 'error', message: getErrorMessage(err, errorMessage) });
 		} finally {
 			isFriendActionLoading = false;
 		}
@@ -118,7 +119,7 @@
 			console.error('Failed to start DM:', err);
 			addToast({
 				type: 'error',
-				message: 'Failed to start DM'
+				message: getErrorMessage(err, 'Failed to start DM')
 			});
 		} finally {
 			isStartingDm = false;

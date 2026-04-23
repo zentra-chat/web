@@ -30,6 +30,7 @@
 		addToast
 	} from '$lib/stores/ui';
 	import InstanceSelector from '../instance/InstanceSelector.svelte';
+	import { getErrorMessage } from '$lib/utils/apiError';
 
 	let { children }: { children: Snippet } = $props();
 	let isPaneRoute = $derived(
@@ -53,7 +54,7 @@
 			const members = await api.getCommunityMembers($activeCommunity.id);
 			setMembers($activeCommunity.id, members);
 		} catch (err: any) {
-			addToast({ type: 'error', message: err?.error || err?.message || 'Failed to ban member' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to ban member') });
 		} finally {
 			isBanning = false;
 		}

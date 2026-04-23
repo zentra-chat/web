@@ -5,6 +5,7 @@
 	import { Hash, Megaphone, Lock, Users } from 'lucide-svelte';
 	import { getChannelHeaderActions, getChannelIcon as getRegistryChannelIcon } from '$lib/channelTypes';
 	import MessageItem from './MessageItem.svelte';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import {
 		activeChannel,
 		messages,
@@ -164,7 +165,7 @@
 			// Scroll to bottom after initial load
 			await forceScrollToBottom();
 		} catch (err) {
-			error = 'Failed to load messages';
+			error = getErrorMessage(err, 'Failed to load messages');
 			console.error('Failed to load messages:', err);
 		} finally {
 			isLoading = false;
@@ -210,6 +211,7 @@
 			}
 		} catch (err) {
 			console.error('Failed to load more messages:', err);
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to load more messages') });
 		} finally {
 			isLoadingMore = false;
 		}
@@ -267,7 +269,7 @@
 			pinnedMessages = await api.getPinnedMessages(channelId) || [];
 		} catch (err) {
 			console.error('Failed to load pinned messages:', err);
-			pinnedError = 'Failed to load pinned messages';
+			pinnedError = getErrorMessage(err, 'Failed to load pinned messages');
 		} finally {
 			isLoadingPinned = false;
 		}

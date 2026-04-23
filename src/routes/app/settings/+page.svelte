@@ -20,9 +20,8 @@
 	import { api } from '$lib/api';
 	import { updateMemberUser } from '$lib/stores/community';
 	import { updateDmUser } from '$lib/stores/dm';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { InstanceSelectorMode } from '$lib/types';
-
-	type ApiErrorLike = { error?: string; message?: string };
 
 	let displayName = $state('');
 	let username = $state('');
@@ -77,7 +76,7 @@
 			console.error('Failed to change password:', err);
 			addToast({
 				type: 'error',
-				message: 'Failed to change password'
+				message: getErrorMessage(err, 'Failed to change password')
 			});
 		}
 	}
@@ -105,7 +104,7 @@
 				addToast({ type: 'success', message: '2FA enabled successfully!' });
 			} catch (err) {
 				console.error('Failed to enable 2FA:', err);
-				addToast({ type: 'error', message: 'Failed to enable 2FA' });
+				addToast({ type: 'error', message: getErrorMessage(err, 'Failed to enable 2FA') });
 			}
 		}
 	}
@@ -122,7 +121,7 @@
 			addToast({ type: 'success', message: 'Appearance updated' });
 		} catch (err) {
 			console.error('Failed to update appearance settings:', err);
-			addToast({ type: 'error', message: 'Failed to update appearance settings' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to update appearance settings') });
 		} finally {
 			isSavingAppearance = false;
 		}
@@ -148,7 +147,7 @@
 			addToast({ type: 'success', message: `Developer mode ${enabled ? 'enabled' : 'disabled'}` });
 		} catch (err) {
 			console.error('Failed to update developer mode:', err);
-			addToast({ type: 'error', message: 'Failed to update developer mode' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to update developer mode') });
 		} finally {
 			isSavingDeveloperMode = false;
 		}
@@ -258,9 +257,8 @@
 			updateDmUser(user.id, user);
 			addToast({ type: 'success', message: 'Profile updated!' });
 		} catch (err: unknown) {
-			const error = err as ApiErrorLike;
 			console.error('Failed to update profile:', err);
-			errors = { submit: error.error || error.message || 'Failed to update profile. Please try again.' };
+			errors = { submit: getErrorMessage(err, 'Failed to update profile. Please try again.') };
 		} finally {
 			isSubmitting = false;
 		}
@@ -284,7 +282,7 @@
 			goto('/login');
 		} catch (err) {
 			console.error('Failed to delete account:', err);
-			addToast({ type: 'error', message: 'Failed to delete account' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to delete account') });
 		}
 	}
 

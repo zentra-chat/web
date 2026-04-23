@@ -7,6 +7,7 @@
 	import { api } from '$lib/api';
 	import { showToast } from '$lib/stores/ui';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
+	import { getErrorMessage } from '$lib/utils/apiError';
 
 	let email = $state('');
 	let isVerifying = $state(false);
@@ -39,8 +40,7 @@
 			statusMessage = response.message || 'Email verified successfully.';
 			showToast('success', 'Email verified. You can now sign in.');
 		} catch (err) {
-			const apiError = err as { error?: string; code?: string };
-			errorMessage = apiError.error || 'Verification link is invalid or expired.';
+			errorMessage = getErrorMessage(err, 'Verification link is invalid or expired.');
 			statusMessage = 'Verification failed.';
 		} finally {
 			isVerifying = false;
@@ -61,8 +61,7 @@
 			statusMessage = response.message || 'Verification email sent.';
 			showToast('success', 'If an account exists, a verification email has been sent.');
 		} catch (err) {
-			const apiError = err as { error?: string };
-			errorMessage = apiError.error || 'Unable to resend verification right now.';
+			errorMessage = getErrorMessage(err, 'Unable to resend verification right now.');
 		} finally {
 			isResending = false;
 		}

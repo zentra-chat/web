@@ -6,9 +6,8 @@
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 	import { getAllRegisteredTypes } from '$lib/channelTypes';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { Channel } from '$lib/types';
-
-	type ApiErrorLike = { error?: string; message?: string };
 
 	let name = $state('');
 	let description = $state('');
@@ -88,9 +87,8 @@
 			});
 			handleClose();
 		} catch (err: unknown) {
-			const error = err as ApiErrorLike;
 			console.error('Failed to create channel:', err);
-			errors = { submit: error.error || error.message || 'Failed to create channel. Please try again.' };
+			errors = { submit: getErrorMessage(err, 'Failed to create channel. Please try again.') };
 		} finally {
 			isSubmitting = false;
 		}

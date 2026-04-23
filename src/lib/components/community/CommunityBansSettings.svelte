@@ -3,9 +3,8 @@
 	import { Gavel, UserX } from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { addToast } from '$lib/stores/ui';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { CommunityBan } from '$lib/types';
-
-	type ApiErrorLike = { error?: string; message?: string };
 
 	interface Props {
 		communityId: string;
@@ -44,8 +43,7 @@
 			bans = bans.filter((item) => item.userId !== userId);
 			addToast({ type: 'success', message: 'User unbanned' });
 		} catch (err) {
-			const msg = (err as ApiErrorLike)?.error || (err as ApiErrorLike)?.message || 'Failed to unban user';
-			addToast({ type: 'error', message: msg });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to unban user') });
 		}
 	}
 

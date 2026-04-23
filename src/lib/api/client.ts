@@ -49,6 +49,7 @@ import type {
 	PluginAuditEntry
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
+import { normalizeApiError } from '$lib/utils/apiError';
 
 interface RetryableApiError extends ApiError {
 	shouldRetry?: boolean;
@@ -172,13 +173,16 @@ class ApiClient {
 		if (!response.ok) {
 			let error: ApiError;
 			try {
-				error = await response.json();
+				const payload = await response.json();
+				error = normalizeApiError(payload, response.statusText || 'Request failed');
 			} catch {
-				error = {
-					error: 'Network error',
-					code: 'NETWORK_ERROR'
-				};
+				error = normalizeApiError(
+					{ error: response.statusText || 'Request failed', code: `HTTP_${response.status}` },
+					'Request failed'
+				);
 			}
+
+			(error as ApiError & { status?: number }).status = response.status;
 
 			// Handle token expiration
 			if (includeAuth && response.status === 401) {
@@ -236,7 +240,8 @@ class ApiClient {
 				});
 				return await this.handleResponse<T>(response, includeAuth);
 			}
-			throw error;
+
+			throw normalizeApiError(error, 'Network error');
 		}
 	}
 

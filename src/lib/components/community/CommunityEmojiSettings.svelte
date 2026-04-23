@@ -4,9 +4,8 @@
 	import { api } from '$lib/api';
 	import { addToast } from '$lib/stores/ui';
 	import { refreshCustomEmojis } from '$lib/stores/emoji';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { CustomEmoji } from '$lib/types';
-
-	type ApiErrorLike = { error?: string; message?: string };
 
 	interface Props {
 		communityId: string;
@@ -97,8 +96,7 @@
 			await loadEmojis();
 			refreshCustomEmojis();
 		} catch (err) {
-			const msg = (err as ApiErrorLike)?.message || (err as ApiErrorLike)?.error || 'Failed to upload emoji';
-			addToast({ type: 'error', message: msg });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to upload emoji') });
 		} finally {
 			isUploadingEmoji = false;
 		}
@@ -123,8 +121,7 @@
 			await loadEmojis();
 			refreshCustomEmojis();
 		} catch (err) {
-			const msg = (err as ApiErrorLike)?.message || (err as ApiErrorLike)?.error || 'Failed to rename emoji';
-			addToast({ type: 'error', message: msg });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to rename emoji') });
 		}
 	}
 
@@ -135,8 +132,8 @@
 			addToast({ type: 'success', message: `Emoji :${emojiName}: deleted` });
 			await loadEmojis();
 			refreshCustomEmojis();
-		} catch {
-			addToast({ type: 'error', message: 'Failed to delete emoji' });
+		} catch (err) {
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to delete emoji') });
 		}
 	}
 </script>

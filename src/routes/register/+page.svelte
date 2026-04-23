@@ -15,6 +15,7 @@
 	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
+	import { getErrorMessage, getFieldErrors, normalizeApiError } from '$lib/utils/apiError';
 	import { onDestroy, onMount } from 'svelte';
 
 	let username = $state('');
@@ -26,6 +27,7 @@
 	let acceptTerms = $state(false);
 	let isLoading = $state(false);
 	let errors = $state<Record<string, string>>({});
+	let formError = $state('');
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
 	let captchaContainer = $state<HTMLDivElement | null>(null);
@@ -105,6 +107,7 @@
 
 	function validateForm(): boolean {
 		errors = {};
+		formError = '';
 
 		if (!username.trim()) {
 			errors.username = 'Username is required';
@@ -225,6 +228,7 @@
 		if (!validateForm()) return;
 
 		isLoading = true;
+		formError = '';
 
 		try {
 			const response = await api.register({
@@ -250,20 +254,34 @@
 			const targetEmail = response.email || email.trim();
 			goto(`/verify-email?email=${encodeURIComponent(targetEmail)}`);
 		} catch (err) {
-			const apiError = err as {
-				error?: string;
-				code?: string;
-				details?: Record<string, string[] | string>;
-			};
-			if (apiError.details) {
-				for (const [field, messages] of Object.entries(apiError.details)) {
-					errors[field] = Array.isArray(messages) ? messages[0] : messages;
+			const normalizedError = normalizeApiError(err, 'Failed to create account. Please try again.');
+			const fieldErrors = getFieldErrors(err);
+			const knownFieldKeys = new Set([
+				'username',
+				'email',
+				'password',
+				'confirmPassword',
+				'acceptTerms',
+				'captchatoken',
+				'captchaToken'
+			]);
+
+			errors = {};
+			for (const [field, message] of Object.entries(fieldErrors)) {
+				if (knownFieldKeys.has(field)) {
+					errors[field] = message;
 				}
-			} else if (apiError.code === 'CAPTCHA_REQUIRED' || apiError.code === 'CAPTCHA_INVALID') {
-				errors.captchatoken = apiError.error || 'Please complete the captcha challenge';
+			}
+
+			if (normalizedError.code === 'CAPTCHA_REQUIRED' || normalizedError.code === 'CAPTCHA_INVALID') {
+				errors.captchatoken = normalizedError.error || 'Please complete the captcha challenge';
 				resetCaptchaWidget();
-			} else {
-				showToast('error', apiError.error || 'Failed to create account. Please try again.');
+				return;
+			}
+
+			if (Object.keys(errors).length === 0) {
+				formError = getErrorMessage(err, 'Failed to create account. Please try again.');
+				showToast('error', formError);
 			}
 		} finally {
 			isLoading = false;
@@ -387,6 +405,10 @@
 				</label>
 				{#if errors.acceptTerms}
 					<p class="text-xs text-error">{errors.acceptTerms}</p>
+				{/if}
+
+				{#if formError}
+					<p class="text-sm text-danger text-center">{formError}</p>
 				{/if}
 
 				<Button type="submit" class="w-full" loading={isLoading}>Create Account</Button>

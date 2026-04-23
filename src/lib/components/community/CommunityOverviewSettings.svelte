@@ -7,8 +7,7 @@
 	import { addToast } from '$lib/stores/ui';
 	import { activeCommunity, removeCommunity, updateCommunity } from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
-
-	type ApiErrorLike = { error?: string; message?: string; response?: { data?: { message?: string } } };
+	import { getErrorMessage } from '$lib/utils/apiError';
 
 	interface Props {
 		communityId: string;
@@ -115,13 +114,8 @@
 			updateCommunity(communityId, updatedCommunity);
 			addToast({ type: 'success', message: 'Community updated!' });
 		} catch (err: unknown) {
-			const error = err as ApiErrorLike;
 			console.error('Failed to update community:', err);
-			if (error.response?.data?.message) {
-				errors = { submit: error.response.data.message };
-			} else {
-				errors = { submit: error.error || error.message || 'Failed to update community. Please try again.' };
-			}
+			errors = { submit: getErrorMessage(err, 'Failed to update community. Please try again.') };
 		} finally {
 			isSubmitting = false;
 		}
@@ -140,7 +134,7 @@
 			goto(resolve('/app'));
 		} catch (err) {
 			console.error('Failed to delete community:', err);
-			addToast({ type: 'error', message: 'Failed to delete community' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to delete community') });
 		}
 	}
 
@@ -157,7 +151,7 @@
 			goto(resolve('/app'));
 		} catch (err) {
 			console.error('Failed to leave community:', err);
-			addToast({ type: 'error', message: 'Failed to leave community' });
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to leave community') });
 		}
 	}
 </script>

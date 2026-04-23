@@ -32,6 +32,7 @@
 	let textareaRef: HTMLTextAreaElement | null = $state(null);
 	let fileInputRef: HTMLInputElement | null = $state(null);
 	const MESSAGE_INPUT_MAX_HEIGHT = 192;
+	const MAX_ATTACHMENTS = 10;
 
 	function resizeTextarea() {
 		const textarea = textareaRef;
@@ -444,13 +445,37 @@
 	function handleFileSelect(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (input.files) {
-			const newFiles = Array.from(input.files);
-			// Limit to 10 attachments
-			const remaining = 10 - attachments.length;
-			attachments = [...attachments, ...newFiles.slice(0, remaining)];
+			addAttachments(Array.from(input.files));
 		}
 		// Reset input
 		if (fileInputRef) fileInputRef.value = '';
+	}
+
+	function addAttachments(files: File[]) {
+		if (files.length === 0) return;
+
+		const remaining = Math.max(0, MAX_ATTACHMENTS - attachments.length);
+		if (remaining === 0) {
+			addToast({
+				type: 'error',
+				message: `You can attach up to ${MAX_ATTACHMENTS} files`
+			});
+			return;
+		}
+
+		const filesToAdd = files.slice(0, remaining);
+		attachments = [...attachments, ...filesToAdd];
+
+		if (filesToAdd.length < files.length) {
+			addToast({
+				type: 'error',
+				message: `Only ${MAX_ATTACHMENTS} attachments are allowed per message`
+			});
+		}
+	}
+
+	function dragEventHasFiles(e: DragEvent): boolean {
+		return Array.from(e.dataTransfer?.types ?? []).includes('Files');
 	}
 
 	function removeAttachment(index: number) {
@@ -509,8 +534,30 @@
 			}
 		}
 
+		function handleGlobalDragOver(e: DragEvent) {
+			if (!dragEventHasFiles(e)) return;
+			e.preventDefault();
+			if (e.dataTransfer) {
+				e.dataTransfer.dropEffect = 'copy';
+			}
+		}
+
+		function handleGlobalDrop(e: DragEvent) {
+			if (!dragEventHasFiles(e)) return;
+			e.preventDefault();
+
+			const droppedFiles = Array.from(e.dataTransfer?.files ?? []);
+			addAttachments(droppedFiles);
+		}
+
 		window.addEventListener('keydown', handleGlobalKeydown, true);
-		return () => window.removeEventListener('keydown', handleGlobalKeydown, true);
+		window.addEventListener('dragover', handleGlobalDragOver, true);
+		window.addEventListener('drop', handleGlobalDrop, true);
+		return () => {
+			window.removeEventListener('keydown', handleGlobalKeydown, true);
+			window.removeEventListener('dragover', handleGlobalDragOver, true);
+			window.removeEventListener('drop', handleGlobalDrop, true);
+		};
 	});
 </script>
 

@@ -26,6 +26,7 @@ import type {
 	CommunityBan,
 	AuditLogEntry,
 	Channel,
+	ChannelPermission,
 	ChannelCategory,
 	ChannelTypeDefinition,
 	CommunityMember,
@@ -758,6 +759,32 @@ class ApiClient {
 		await this.request(`/channels/communities/${communityId}/channels/reorder`, {
 			method: 'PUT',
 			body: JSON.stringify({ channelIds })
+		});
+	}
+
+	async getChannelPermissions(channelId: string): Promise<ChannelPermission[]> {
+		const result = await this.request<ApiResponse<ChannelPermission[]>>(`/channels/${channelId}/permissions`);
+		return result.data || [];
+	}
+
+	async setChannelPermission(
+		channelId: string,
+		data: {
+			targetType: 'role' | 'member';
+			targetId: string;
+			allowPermissions: number;
+			denyPermissions: number;
+		}
+	): Promise<void> {
+		await this.request(`/channels/${channelId}/permissions`, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		});
+	}
+
+	async deleteChannelPermission(channelId: string, targetType: 'role' | 'member', targetId: string): Promise<void> {
+		await this.request(`/channels/${channelId}/permissions/${targetType}/${targetId}`, {
+			method: 'DELETE'
 		});
 	}
 

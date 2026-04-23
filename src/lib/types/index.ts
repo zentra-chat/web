@@ -355,6 +355,15 @@ export interface PermissionOverwrite {
 	deny: number;
 }
 
+export interface ChannelPermission {
+	id: string;
+	channelId: string;
+	targetType: 'role' | 'member';
+	targetId: string;
+	allowPermissions: number;
+	denyPermissions: number;
+}
+
 // Instance management
 export interface Instance {
 	id: string;

@@ -1,23 +1,69 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import {
 		isLoggedIn,
 		activeInstance,
-		activeAuth,
-		instances,
-		setActiveInstance
+		updateCurrentUser
 	} from '$lib/stores/instance';
-	import { websocket } from '$lib/api';
-	import { ToastContainer } from '$lib/components/ui';
+	import { api, websocket } from '$lib/api';
+	import { ToastContainer, Button, Textarea, Spinner } from '$lib/components/ui';
 	import CommunitySidebar from './CommunitySidebar.svelte';
 	import ChannelSidebar from './ChannelSidebar.svelte';
 	import MemberSidebar from './MemberSidebar.svelte';
-	import { activeCommunityId, activeChannelId } from '$lib/stores/community';
-	import { showMemberSidebar, isMobileMenuOpen, closeMobileMenu } from '$lib/stores/ui';
+	import UserContextMenu from '$lib/components/user/UserContextMenu.svelte';
+	import { activeCommunityId, activeCommunity, activeChannelId, setMembers } from '$lib/stores/community';
+	import {
+		showMemberSidebar,
+		isMobileMenuOpen,
+		closeMobileMenu,
+		applyUserSettings,
+		contextMenuOpen,
+		contextMenuUser,
+		contextMenuPosition,
+		closeContextMenu,
+		banModalOpen,
+		banModalTargetId,
+		closeBanModal,
+		addToast
+	} from '$lib/stores/ui';
+	import InstanceSelector from '../instance/InstanceSelector.svelte';
+	import { getErrorMessage } from '$lib/utils/apiError';
 
 	let { children }: { children: Snippet } = $props();
+	let isPaneRoute = $derived(
+		$page.url.pathname.startsWith('/app/discover') ||
+		$page.url.pathname.startsWith('/app/settings') ||
+		$page.url.pathname.startsWith('/app/community-settings')
+	);
+
+	let banReason = $state('');
+	let isBanning = $state(false);
+
+	async function confirmBan() {
+		if (!$activeCommunity || !$banModalTargetId || isBanning) return;
+		isBanning = true;
+		try {
+			await api.banMember($activeCommunity.id, $banModalTargetId, banReason.trim() || undefined);
+			addToast({ type: 'success', message: 'Member banned' });
+			closeBanModal();
+			banReason = '';
+			// Refresh members list
+			const members = await api.getCommunityMembers($activeCommunity.id);
+			setMembers($activeCommunity.id, members);
+		} catch (err: any) {
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to ban member') });
+		} finally {
+			isBanning = false;
+		}
+	}
+
+	function handleCloseBanModal() {
+		closeBanModal();
+		banReason = '';
+	}
 
 	onMount(() => {
 		// Redirect if not logged in
@@ -25,6 +71,14 @@
 			goto('/login');
 			return;
 		}
+
+		api.getCurrentUser()
+			.then((user) => updateCurrentUser(user))
+			.catch((err) => console.error('Failed to refresh user:', err));
+
+		api.getUserSettings()
+			.then((settings) => applyUserSettings(settings))
+			.catch((err) => console.error('Failed to load user settings:', err));
 
 		// Connect to WebSocket
 		websocket.connect();
@@ -34,71 +88,17 @@
 		};
 	});
 
-	// Handle instance switching
-	function handleInstanceClick(instanceId: string) {
-		if (instanceId !== $activeInstance?.id) {
-			websocket.disconnect();
-			setActiveInstance(instanceId);
-			// Reconnect will happen automatically due to reactive auth
-			setTimeout(() => websocket.connect(), 100);
-		}
-	}
 </script>
 
 <div class="h-screen flex bg-background overflow-hidden">
 	<!-- Instance selector (leftmost bar) -->
-	<div
-		class="hidden md:flex flex-col w-18 bg-background-secondary border-r border-border py-3 items-center gap-2 z-30"
-	>
-		{#each $instances as instance (instance.id)}
-			{@const isActive = instance.id === $activeInstance?.id}
-			<button
-				onclick={() => handleInstanceClick(instance.id)}
-				class="relative w-12 h-12 rounded-2xl {isActive
-					? 'rounded-xl bg-primary text-background'
-					: 'bg-surface hover:bg-surface-hover text-text-secondary hover:text-text-primary'} transition-all duration-200 flex items-center justify-center font-bold text-lg group"
-				title={instance.name}
-			>
-				{#if instance.iconUrl}
-					<img
-						src={instance.iconUrl}
-						alt={instance.name}
-						class="w-full h-full rounded-[inherit] object-cover"
-					/>
-				{:else}
-					{instance.name.charAt(0).toUpperCase()}
-				{/if}
-				{#if isActive}
-					<div
-						class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-5.5 w-4 h-12 rounded-r-full bg-white rounded-full"
-					></div>
-				{:else}
-					<div
-						class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3.25 w-1.5 h-2 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
-					></div>
-				{/if}
-				<span
-					class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background-secondary {instance.isOnline
-						? 'bg-success'
-						: 'bg-text-muted'}"
-				></span>
-			</button>
-		{/each}
-
-		<a
-			href="/"
-			class="w-12 h-12 rounded-2xl border-2 border-dashed border-border hover:border-primary text-text-muted hover:text-primary transition-all duration-200 flex items-center justify-center text-2xl"
-			title="Add Instance"
-		>
-			+
-		</a>
-	</div>
+	<InstanceSelector />
 
 	<!-- Community sidebar -->
 	<CommunitySidebar />
 
 	<!-- Channel sidebar -->
-	{#if $activeCommunityId}
+	{#if $activeCommunityId && !isPaneRoute}
 		<ChannelSidebar />
 	{/if}
 
@@ -108,7 +108,7 @@
 	</main>
 
 	<!-- Member sidebar -->
-	{#if $activeChannelId && $showMemberSidebar}
+	{#if $activeChannelId && $showMemberSidebar && !isPaneRoute}
 		<MemberSidebar />
 	{/if}
 </div>
@@ -123,3 +123,51 @@
 {/if}
 
 <ToastContainer />
+
+<!-- User context menu (right-click) -->
+{#if $contextMenuOpen && $contextMenuUser}
+	<UserContextMenu
+		user={$contextMenuUser}
+		x={$contextMenuPosition.x}
+		y={$contextMenuPosition.y}
+		onclose={closeContextMenu}
+		onban={(userId) => {
+			closeContextMenu();
+			banModalTargetId.set(userId);
+			banModalOpen.set(true);
+		}}
+	/>
+{/if}
+
+<!-- Ban confirmation modal -->
+{#if $banModalOpen}
+	<div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[200]" role="dialog">
+		<div class="bg-surface rounded-xl p-6 w-full max-w-md shadow-xl border border-border">
+			<h3 class="text-lg font-semibold text-text-primary mb-2">Ban Member</h3>
+			<p class="text-sm text-text-muted mb-4">This will remove the user from the community and prevent them from rejoining.</p>
+
+			<div class="mb-4">
+				<label for="global-ban-reason" class="block text-sm text-text-muted mb-1">Reason (optional)</label>
+				<Textarea
+					id="global-ban-reason"
+					bind:value={banReason}
+					placeholder="Why is this user being banned?"
+					rows={3}
+					maxlength={512}
+				/>
+			</div>
+
+			<div class="flex justify-end gap-2">
+				<Button variant="ghost" onclick={handleCloseBanModal}>Cancel</Button>
+				<Button variant="danger" onclick={confirmBan} disabled={isBanning}>
+					{#if isBanning}
+						<Spinner size="sm" />
+						Banning...
+					{:else}
+						Ban Member
+					{/if}
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}

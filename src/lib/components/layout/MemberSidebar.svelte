@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Avatar } from '$lib/components/ui';
-	import { Crown, Search, PanelRight } from '$lib/components/icons';
+	import { Crown, Search, PanelRight } from 'lucide-svelte';
 	import {
 		activeCommunity,
 		activeCommunityMembers,
-		setMembers
+		setMembers,
+		getMemberNameColor
 	} from '$lib/stores/community';
-	import { userPresence, toggleMemberSidebar } from '$lib/stores/ui';
+	import { userPresence, toggleMemberSidebar, openProfileCard, openContextMenu } from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import type { CommunityMember, UserStatus } from '$lib/types';
 
@@ -65,6 +66,11 @@
 	function getMemberStatus(member: CommunityMember): UserStatus {
 		return $userPresence[member.userId]?.status || member.user?.status || 'offline';
 	}
+
+	function getNameStyle(member: CommunityMember): string | undefined {
+		const color = getMemberNameColor(member);
+		return color ? `color: ${color}` : undefined;
+	}
 </script>
 
 <aside class="w-60 bg-surface-hover hidden lg:flex flex-col border-l border-border">
@@ -114,6 +120,8 @@
 					{#each groupedMembers.online as member (member.userId)}
 						<button
 							class="w-full flex items-center gap-2 p-1.5 rounded hover:bg-surface transition-colors group"
+							onclick={(e) => member.user && openProfileCard(member.user, e)}
+							oncontextmenu={(e) => member.user && openContextMenu(member.user, e)}
 						>
 							<Avatar
 								user={member.user}
@@ -121,7 +129,7 @@
 								status={getMemberStatus(member)}
 							/>
 							<div class="flex-1 min-w-0 text-left">
-								<p class="text-sm text-text-primary truncate flex items-center gap-1">
+								<p class="text-sm text-text-primary truncate flex items-center gap-1" style={getNameStyle(member)}>
 									{getDisplayName(member)}
 									{#if member.userId === $activeCommunity?.ownerId}
 										<Crown size={12} class="text-warning shrink-0" />
@@ -145,6 +153,8 @@
 					{#each groupedMembers.offline as member (member.userId)}
 						<button
 							class="w-full flex items-center gap-2 p-1.5 rounded hover:bg-surface transition-colors group opacity-60"
+							onclick={(e) => member.user && openProfileCard(member.user, e)}
+							oncontextmenu={(e) => member.user && openContextMenu(member.user, e)}
 						>
 							<Avatar
 								user={member.user}
@@ -152,7 +162,7 @@
 								status="offline"
 							/>
 							<div class="flex-1 min-w-0 text-left">
-								<p class="text-sm text-text-primary truncate flex items-center gap-1">
+								<p class="text-sm text-text-primary truncate flex items-center gap-1" style={getNameStyle(member)}>
 									{getDisplayName(member)}
 									{#if member.userId === $activeCommunity?.ownerId}
 										<Crown size={12} class="text-warning shrink-0" />

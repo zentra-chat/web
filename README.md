@@ -1,38 +1,49 @@
-# sv
+# Zentra Web
+The frontend web-ui for zentra made in svelte
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+## Submodule setup
 
-## Creating a project
+The frontend uses submodules for docs (`frontend/docs`) and the built-in default plugin (`frontend/default-plugin`).
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```bash
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Initialize/update both submodules:
 
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+git submodule update --init --recursive docs default-plugin
 ```
 
-## Building
+## Deploy build + host binary
 
-To create a production version of your app:
+Run:
 
 ```bash
-npm run build
+./scripts/deploy-frontend.sh deploy \
+	--instance-url https://zentra-main.abstractmelon.net \
+	--instance-name "Zentra Main" \
+	--port 4173
 ```
 
-You can preview the production build with `npm run preview`.
+The script will:
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+- create/update `.env`
+- build the frontend static files into `build/`
+- compile a Go binary at `dist/zentra-frontend-host`
+- generate a launcher at `dist/run-frontend.sh`
+
+## Fast update (pull + rebuild frontend only)
+
+To pull latest changes and update frontend assets without recreating everything:
+
+```bash
+./scripts/deploy-frontend.sh update --branch main
+```
+
+Optional update flags:
+- `--instance-url <url>` and `--instance-name <name>` to update `.env`
+- `--port <port>` to regenerate `dist/run-frontend.sh` with a different host port
+- `--rebuild-go-host` if you also want to rebuild the Go host binary
+
+Start the hosted frontend with:
+
+```bash
+./dist/run-frontend.sh
+```

@@ -1,43 +1,187 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Smile, Search } from '$lib/components/icons';
+	import { Smile, Search, ImageIcon } from 'lucide-svelte';
+	import {
+		EMOJI_CATEGORIES,
+		searchEmojis,
+		getEmojiById,
+		type EmojiCategory,
+		type EmojiEntry
+	} from '$lib/utils/emoji';
+	import { customEmojisByCommunity, customEmojis } from '$lib/stores/emoji';
+	import type { CustomEmojiWithCommunity } from '$lib/types';
 
 	interface Props {
-		onSelect: (emoji: string) => void;
+		onSelect: (emoji: string, options?: { keepOpen?: boolean }) => void;
 		onClose?: () => void;
+		align?: 'left' | 'right';
+		customEmojiFormat?: 'shortcode' | 'reaction';
 	}
 
-	let { onSelect, onClose }: Props = $props();
+	let { onSelect, onClose, align = 'right', customEmojiFormat = 'shortcode' }: Props = $props();
 
 	let searchQuery = $state('');
 	let containerRef: HTMLDivElement | null = $state(null);
+	let scrollRef: HTMLDivElement | null = $state(null);
+	let selectedCategoryId = $state<string>('people');
+	let sectionRefs = $state<Record<string, HTMLDivElement | null>>({});
+	let recentEmojiIds = $state<string[]>([]);
 
-	const categories = [
-		{ name: 'Recent', icon: '🕒', emojis: ['👍', '❤️', '🔥', '😂', '😮', '😢', '🎉', '💯'] },
-		{ name: 'Smileys', icon: '😀', emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'] },
-		{ name: 'Gestures', icon: '👋', emojis: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾'] },
-		{ name: 'Hearts', icon: '❤️', emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'] },
-		{ name: 'Animals', icon: '🐶', emojis: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🦍', '🦧', '🐶', '🐕', '🦮', '🐕‍🦺', '🐩', '🐺', '🦊', '🦝', '🐱', '🐈', '🐈‍⬛', '🦁', '🐯', '🐅', '🐆', '🐴', '🐎', '🦄', '🦓', '🦌', '🦬', '🐮', '🐂', '🐃', '🐄', '🐷', '🐖', '🐗', '🐽', '🐏', '🐑', '🐐', '🐪', '🐫', '🦙', '🦒', '🐘', '🦣', '🦏', '🦛', '🐭', '🖱️', '🐀', '🐹', '🐰', '🐇', '🐿️', '🦫', '🦔', '🦇', '🐻', '🐻‍❄️', '🐨', '🐼', '🦥', '🦦', '🦨', '🦘', '🦡', '🐾'] }
-	];
+	const RECENT_KEY = 'zentra.recent-emojis';
+	const RECENT_LIMIT = 24;
 
-	let filteredEmojis = $derived.by(() => {
-		if (!searchQuery) return null;
-		const query = searchQuery.toLowerCase();
-		const all = categories.flatMap(c => c.emojis);
-		return [...new Set(all)].filter(e => e.includes(query)); // Basic filtering, could be improved with emoji names
+	let recentCategory = $derived.by((): EmojiCategory => {
+		const emojis = recentEmojiIds
+			.map((emojiId) => getEmojiById(emojiId))
+			.filter((emoji): emoji is EmojiEntry => Boolean(emoji));
+
+		return {
+			id: 'recent',
+			label: 'Recent',
+			emojis
+		};
 	});
 
-	function handleEmojiClick(emoji: string) {
-		onSelect(emoji);
+	// Build the combined list: custom emoji groups first, then standard categories
+	let allSections = $derived.by(() => {
+		const sections: Array<{
+			id: string;
+			label: string;
+			type: 'native' | 'custom';
+			nativeEmojis?: EmojiEntry[];
+			customEmojis?: CustomEmojiWithCommunity[];
+		}> = [];
+
+		// Recent native emojis
+		if (recentCategory.emojis.length > 0) {
+			sections.push({
+				id: 'recent',
+				label: 'Recent',
+				type: 'native',
+				nativeEmojis: recentCategory.emojis
+			});
+		}
+
+		// Custom emojis grouped by community
+		for (const group of $customEmojisByCommunity) {
+			sections.push({
+				id: `custom-${group.communityId}`,
+				label: group.communityName,
+				type: 'custom',
+				customEmojis: group.emojis
+			});
+		}
+
+		// Standard unicode categories
+		for (const category of EMOJI_CATEGORIES) {
+			sections.push({
+				id: category.id,
+				label: category.label,
+				type: 'native',
+				nativeEmojis: category.emojis
+			});
+		}
+
+		return sections;
+	});
+
+	// Search results for custom emojis
+	let filteredCustomEmojis = $derived.by(() => {
+		if (!searchQuery.trim()) return [];
+		const q = searchQuery.trim().toLowerCase();
+		return $customEmojis.filter(
+			(e) => e.name.toLowerCase().includes(q) || e.communityName.toLowerCase().includes(q)
+		);
+	});
+
+	let filteredNativeEmojis = $derived.by(() => {
+		if (!searchQuery.trim()) return [];
+		return searchEmojis(searchQuery);
+	});
+
+	let hasSearchResults = $derived(filteredCustomEmojis.length > 0 || filteredNativeEmojis.length > 0);
+
+	function saveRecents() {
+		if (typeof localStorage === 'undefined') return;
+		localStorage.setItem(RECENT_KEY, JSON.stringify(recentEmojiIds));
+	}
+
+	function loadRecents() {
+		if (typeof localStorage === 'undefined') return;
+		const raw = localStorage.getItem(RECENT_KEY);
+		if (!raw) return;
+
+		try {
+			const parsed = JSON.parse(raw);
+			if (!Array.isArray(parsed)) return;
+			recentEmojiIds = parsed.filter((item): item is string => typeof item === 'string').slice(0, RECENT_LIMIT);
+		} catch {
+			recentEmojiIds = [];
+		}
+	}
+
+	function registerRecent(emoji: EmojiEntry) {
+		recentEmojiIds = [emoji.id, ...recentEmojiIds.filter((id) => id !== emoji.id)].slice(0, RECENT_LIMIT);
+		saveRecents();
+	}
+
+	function handleNativeEmojiClick(emoji: EmojiEntry, event: MouseEvent) {
+		registerRecent(emoji);
+		onSelect(emoji.native, { keepOpen: event.shiftKey });
+	}
+
+	function handleCustomEmojiClick(emoji: CustomEmojiWithCommunity, event: MouseEvent) {
+		const keepOpen = event.shiftKey;
+		if (customEmojiFormat === 'reaction') {
+			onSelect(`<:${emoji.name}:${emoji.id}>`, { keepOpen });
+			return;
+		}
+
+		// Insert the shortcode, MessageInput will expand it to <:name:id> on send
+		onSelect(`:${emoji.name}:`, { keepOpen });
+	}
+
+	function jumpToCategory(categoryId: string) {
+		selectedCategoryId = categoryId;
+		const section = sectionRefs[categoryId];
+		if (section) {
+			section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+		}
+	}
+
+	function handleScroll() {
+		if (!scrollRef) return;
+		if (searchQuery.trim()) return;
+
+		const scrollTop = scrollRef.scrollTop;
+		let bestId = selectedCategoryId;
+		let bestDistance = Number.POSITIVE_INFINITY;
+
+		for (const section of allSections) {
+			const ref = sectionRefs[section.id];
+			if (!ref) continue;
+			const distance = Math.abs(ref.offsetTop - scrollTop - 4);
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				bestId = section.id;
+			}
+		}
+
+		selectedCategoryId = bestId;
 	}
 
 	function handleOutsideClick(e: MouseEvent) {
+		const target = e.target;
+		if (target instanceof Element && target.closest('[data-emoji-picker-trigger="true"]')) {
+			return;
+		}
 		if (containerRef && !containerRef.contains(e.target as Node)) {
 			onClose?.();
 		}
 	}
 
 	onMount(() => {
+		loadRecents();
 		document.addEventListener('mousedown', handleOutsideClick);
 		return () => document.removeEventListener('mousedown', handleOutsideClick);
 	});
@@ -45,7 +189,9 @@
 
 <div
 	bind:this={containerRef}
-	class="absolute bottom-full right-0 mb-2 w-72 bg-surface border border-border rounded-lg shadow-xl overflow-hidden flex flex-col z-50 animate-in fade-in slide-in-from-bottom-2"
+	class="absolute bottom-full {align === 'left'
+		? 'left-0'
+		: 'right-0'} mb-2 w-72 bg-surface border border-border rounded-lg shadow-xl overflow-hidden flex flex-col z-50 animate-in fade-in slide-in-from-bottom-2"
 >
 	<!-- Search -->
 	<div class="p-2 border-b border-border">
@@ -61,48 +207,110 @@
 	</div>
 
 	<!-- Content -->
-	<div class="flex-1 overflow-y-auto max-h-64 p-2 custom-scrollbar">
-		{#if filteredEmojis}
-			<div class="grid grid-cols-8 gap-1">
-				{#each filteredEmojis as emoji}
-					<button
-						onclick={() => handleEmojiClick(emoji)}
-						class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
-					>
-						{emoji}
-					</button>
-				{/each}
-			</div>
-			{#if filteredEmojis.length === 0}
+	<div bind:this={scrollRef} onscroll={handleScroll} class="flex-1 overflow-y-auto max-h-72 p-2 custom-scrollbar">
+		{#if searchQuery.trim()}
+			<!-- Custom emoji search results -->
+			{#if filteredCustomEmojis.length > 0}
+				<div class="mb-3">
+					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">Custom</h3>
+					<div class="grid grid-cols-8 gap-1">
+						{#each filteredCustomEmojis as emoji (emoji.id)}
+							<button
+								onclick={(event) => handleCustomEmojiClick(emoji, event)}
+								title={`:${emoji.name}: (${emoji.communityName})`}
+								class="w-8 h-8 flex items-center justify-center hover:bg-surface-hover rounded transition-colors"
+							>
+								<img
+									src={emoji.imageUrl}
+									alt={emoji.name}
+									class="w-6 h-6 object-contain"
+									loading="lazy"
+								/>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Native emoji search results -->
+			{#if filteredNativeEmojis.length > 0}
+				<div class="mb-3">
+					{#if filteredCustomEmojis.length > 0}
+						<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">Standard</h3>
+					{/if}
+					<div class="grid grid-cols-8 gap-1">
+						{#each filteredNativeEmojis as emoji (emoji.id)}
+							<button
+								onclick={(event) => handleNativeEmojiClick(emoji, event)}
+								title={emoji.name}
+								class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
+							>
+								{emoji.native}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			{#if !hasSearchResults}
 				<p class="text-center py-4 text-sm text-text-muted">No emojis found</p>
 			{/if}
 		{:else}
-			{#each categories as category}
-				<div class="mb-3">
-					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">{category.name}</h3>
+			{#each allSections as section (section.id)}
+				<div bind:this={sectionRefs[section.id]} class="mb-3 scroll-mt-1">
+					<h3 class="text-[10px] font-bold text-text-muted uppercase px-1 mb-1">{section.label}</h3>
 					<div class="grid grid-cols-8 gap-1">
-						{#each category.emojis as emoji}
-							<button
-								onclick={() => handleEmojiClick(emoji)}
-								class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
-							>
-								{emoji}
-							</button>
-						{/each}
+						{#if section.type === 'custom' && section.customEmojis}
+							{#each section.customEmojis as emoji (emoji.id)}
+								<button
+									onclick={(event) => handleCustomEmojiClick(emoji, event)}
+									title={`:${emoji.name}:`}
+									class="w-8 h-8 flex items-center justify-center hover:bg-surface-hover rounded transition-colors"
+								>
+									<img
+										src={emoji.imageUrl}
+										alt={emoji.name}
+										class="w-6 h-6 object-contain"
+										loading="lazy"
+									/>
+								</button>
+							{/each}
+						{:else if section.nativeEmojis}
+							{#each section.nativeEmojis as emoji (emoji.id)}
+								<button
+									onclick={(event) => handleNativeEmojiClick(emoji, event)}
+									title={emoji.name}
+									class="w-8 h-8 flex items-center justify-center text-xl hover:bg-surface-hover rounded transition-colors"
+								>
+									{emoji.native}
+								</button>
+							{/each}
+						{/if}
 					</div>
 				</div>
 			{/each}
 		{/if}
 	</div>
 
-	<!-- Bottom categories -->
-	<div class="flex border-t border-border p-1 bg-surface-hover/50">
-		{#each categories as category}
+	<!-- Bottom category tabs -->
+	<div class="flex border-t border-border p-1 bg-surface-hover/50 overflow-x-auto">
+		{#each allSections as section (section.id)}
 			<button
-				class="flex-1 h-8 flex items-center justify-center grayscale hover:grayscale-0 transition-all opacity-60 hover:opacity-100"
-				title={category.name}
+				onclick={() => jumpToCategory(section.id)}
+				class="shrink-0 h-8 w-8 flex items-center justify-center rounded transition-all {selectedCategoryId === section.id && !searchQuery.trim()
+					? 'bg-surface text-text-primary'
+					: 'text-text-muted hover:text-text-primary'}"
+				title={section.label}
 			>
-				{category.icon}
+				{#if section.id === 'recent'}
+					🕒
+				{:else if section.type === 'custom' && section.customEmojis?.[0]}
+					<img src={section.customEmojis[0].imageUrl} alt="" class="w-5 h-5 object-contain" />
+				{:else if section.nativeEmojis?.[0]}
+					{section.nativeEmojis[0].native}
+				{:else}
+					🙂
+				{/if}
 			</button>
 		{/each}
 	</div>

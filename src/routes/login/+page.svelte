@@ -1,11 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { Button, Input } from '$lib/components/ui';
-	import { Mail, Lock, ArrowLeft, Server } from '$lib/components/icons';
+	import { Mail, Lock, ArrowLeft, Server } from 'lucide-svelte';
 	import { api } from '$lib/api';
-	import { activeInstance, setInstanceAuth, isLoggedIn, instanceAuth } from '$lib/stores/instance';
+	import {
+		activeInstance,
+		setInstanceAuth,
+		isLoggedIn,
+		instanceAuth,
+		shouldSkipAutoPortableAuth,
+		clearSkipAutoPortableAuth
+	} from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';
+	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
+	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
+	import { getErrorMessage, normalizeApiError } from '$lib/utils/apiError';
 	import { onMount } from 'svelte';
 
 	let login = $state('');
@@ -14,18 +25,83 @@
 	let isLoading = $state(false);
 	let requires2FA = $state(false);
 	let error = $state('');
+	let errorCode = $state('');
 	let showInstanceModal = $state(false);
+	let pendingInvite = $state<string | null>(null);
+	let isAddAccountMode = $derived($page.url.searchParams.get('addAccount') === '1');
+	let attemptedPortableAuth = false;
+	let skipAutoPortableAuth = false;
 
 	onMount(() => {
+		const authNotice = sessionStorage.getItem('zentra_auth_notice');
+		if (authNotice === 'expired') {
+			error = 'Your session expired. Please sign in again.';
+			sessionStorage.removeItem('zentra_auth_notice');
+		}
+
+		skipAutoPortableAuth = shouldSkipAutoPortableAuth();
+
+		// Check for pending invite
+		pendingInvite = sessionStorage.getItem('pendingInvite');
+
 		// Check if already logged in
-		if ($isLoggedIn && $activeInstance) {
-			goto('/app');
+		if ($isLoggedIn && $activeInstance && !isAddAccountMode) {
+			handleRedirectAfterLogin();
 		}
 		// If no instance selected, show modal
 		if (!$activeInstance) {
 			showInstanceModal = true;
 		}
+
+		attemptPortableAuth();
 	});
+
+	function canTryPortableAuth(): boolean {
+		return Boolean(
+			$activeInstance &&
+			!attemptedPortableAuth &&
+			!isAddAccountMode &&
+			!skipAutoPortableAuth &&
+			hasPortableProfile()
+		);
+	}
+
+	async function attemptPortableAuth() {
+		if (!canTryPortableAuth()) return;
+
+		attemptedPortableAuth = true;
+		isLoading = true;
+		error = '';
+		errorCode = '';
+
+		try {
+			const response = await api.portableAuth();
+
+			setInstanceAuth($activeInstance!.id, {
+				instanceId: $activeInstance!.id,
+				accessToken: response.accessToken,
+				refreshToken: response.refreshToken,
+				expiresAt: response.expiresAt,
+				user: response.user
+			});
+
+			showToast('success', `Signed in as ${response.user.displayName || response.user.username}`);
+			handleRedirectAfterLogin();
+		} catch {
+			// No-op; user can continue with normal login.
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	function handleRedirectAfterLogin() {
+		if (pendingInvite) {
+			sessionStorage.removeItem('pendingInvite');
+			goto(`/invite/${pendingInvite}`);
+		} else {
+			goto('/app');
+		}
+	}
 
 	async function handleLogin() {
 		if (!$activeInstance) {
@@ -66,12 +142,14 @@
 				expiresAt: response.expiresAt,
 				user: response.user
 			});
+			clearSkipAutoPortableAuth();
 
 			showToast('success', `Welcome back, ${response.user.displayName || response.user.username}!`);
-			goto('/app');
+			handleRedirectAfterLogin();
 		} catch (err) {
-			const apiError = err as { error?: string; code?: string };
-			error = apiError.error || 'Failed to login. Please check your credentials.';
+			const normalizedError = normalizeApiError(err, 'Failed to login. Please check your credentials.');
+			errorCode = normalizedError.code || '';
+			error = getErrorMessage(err, 'Failed to login. Please check your credentials.');
 		} finally {
 			isLoading = false;
 		}
@@ -82,14 +160,33 @@
 	<title>Login - Zentra</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background flex items-center justify-center p-4">
-	<div class="w-full max-w-md">
+<div class="relative min-h-screen bg-background flex items-center justify-center p-4 overflow-hidden">
+	<AnimatedBackground particleCountDesktop={220} particleCountMobile={70} />
+	<div class="absolute inset-0 bg-background/80 z-0"></div>
+
+	<div class="relative z-10 w-full max-w-md">
 		<div class="text-center mb-8">
 			<a href="/" class="inline-block">
 				<h1 class="text-4xl font-bold text-gradient glow-text">Zentra</h1>
 			</a>
-			<p class="text-text-secondary mt-2">Welcome back</p>
+			<p class="text-text-secondary mt-2">{isAddAccountMode ? 'Add another account' : 'Welcome back'}</p>
 		</div>
+
+		{#if isAddAccountMode}
+			<div class="mb-4 p-3 bg-surface border border-border rounded-lg">
+				<p class="text-sm text-text-secondary text-center">
+					Sign in with another account on this instance to enable quick switching.
+				</p>
+			</div>
+		{/if}
+
+		{#if pendingInvite}
+			<div class="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+				<p class="text-sm text-primary text-center">
+					Log in to accept your community invite
+				</p>
+			</div>
+		{/if}
 
 		{#if $activeInstance}
 			<div class="mb-6 p-3 bg-surface rounded-lg border border-border flex items-center gap-3">
@@ -146,7 +243,17 @@
 				{/if}
 
 				{#if error}
-					<p class="text-sm text-danger text-center">{error}</p>
+					<div class="space-y-2 text-center">
+						<p class="text-sm text-danger">{error}</p>
+						{#if errorCode === 'EMAIL_NOT_VERIFIED'}
+							<a
+								href={`/verify-email?email=${encodeURIComponent(login.trim())}`}
+								class="text-xs text-primary hover:underline"
+							>
+								Verify email and resend link
+							</a>
+						{/if}
+					</div>
 				{/if}
 
 				<Button type="submit" class="w-full" loading={isLoading}>
@@ -170,6 +277,13 @@
 				</div>
 			{/if}
 		</div>
+
+		<p class="text-center mt-4 text-xs text-text-muted">
+			By continuing, you agree to the
+			<a href="/terms" class="text-primary hover:underline">Terms of Service</a>
+			and
+			<a href="/privacy" class="text-primary hover:underline">Privacy Policy</a>.
+		</p>
 
 		<p class="text-center mt-6 text-sm text-text-muted">
 			<a href="/" class="hover:text-text-secondary">Back to home</a>

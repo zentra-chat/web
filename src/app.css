@@ -22,6 +22,7 @@
 	--color-warning: #f59e0b;
 	--color-success: #10b981;
 	--color-info: #3b82f6;
+	--color-error: #f87171;
 
 	/* Font family */
 	--font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -42,6 +43,20 @@ html {
 body {
 	min-height: 100vh;
 	overflow-x: hidden;
+}
+
+/* Interactive cursor styles */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+a[href],
+summary,
+label[for] {
+	cursor: pointer;
+}
+
+button:disabled,
+[role='button'][aria-disabled='true'] {
+	cursor: not-allowed;
 }
 
 /* Scrollbar styling */
@@ -91,8 +106,109 @@ body {
 	overflow-wrap: break-word;
 }
 
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+	color: var(--color-text-primary);
+	font-weight: 600;
+	line-height: 1.2;
+	margin: 0.75rem 0 0.5rem;
+}
+
+.message-content h1 {
+	font-size: 1.5rem;
+}
+
+.message-content h2 {
+	font-size: 1.25rem;
+}
+
+.message-content h3 {
+	font-size: 1.1rem;
+}
+
+.message-content h4 {
+	font-size: 1rem;
+}
+
+.message-content h5 {
+	font-size: 0.95rem;
+}
+
+.message-content h6 {
+	font-size: 0.9rem;
+	color: var(--color-text-muted);
+}
+
+.message-content ul,
+.message-content ol {
+	margin: 0.5rem 0 0.5rem 1.25rem;
+	padding: 0;
+}
+
+.message-content ul {
+	list-style: disc;
+}
+
+.message-content ol {
+	list-style: decimal;
+}
+
+.message-content li {
+	margin: 0.2rem 0;
+}
+
+.message-content blockquote {
+	border-left: 3px solid var(--color-border-light);
+	padding: 0.25rem 0.75rem;
+	margin: 0.5rem 0;
+	color: var(--color-text-muted);
+	background: var(--color-background-secondary);
+	border-radius: 0.35rem;
+}
+
+.message-content blockquote p {
+	margin: 0.25rem 0;
+}
+
+.message-content table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 0.75rem 0;
+	font-size: 0.9rem;
+}
+
+.message-content th,
+.message-content td {
+	border: 1px solid var(--color-border);
+	padding: 0.4rem 0.6rem;
+	text-align: left;
+}
+
+.message-content th {
+	background: var(--color-background-secondary);
+	color: var(--color-text-primary);
+}
+
+.message-content img {
+	display: block;
+	max-width: 100%;
+	max-height: 20rem;
+	border-radius: 0.5rem;
+	border: 1px solid var(--color-border);
+	margin: 0.5rem 0;
+	object-fit: contain;
+}
+
+.message-content ins {
+	text-decoration: underline;
+}
+
 .message-content code {
-	background: var(--color-background);
+	background: var(--color-background-tertiary);
 	padding: 0.125rem 0.375rem;
 	border-radius: 0.25rem;
 	font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
@@ -100,7 +216,8 @@ body {
 }
 
 .message-content pre {
-	background: var(--color-background);
+	background: var(--color-background-secondary);
+	border: 1px solid var(--color-border-light);
 	padding: 0.75rem;
 	border-radius: 0.5rem;
 	overflow-x: auto;
@@ -110,6 +227,88 @@ body {
 .message-content pre code {
 	background: transparent;
 	padding: 0;
+	display: block;
+	color: var(--color-text-secondary);
+}
+
+.message-content .hljs-keyword,
+.message-content .hljs-selector-tag,
+.message-content .hljs-literal,
+.message-content .hljs-section {
+	color: var(--color-primary);
+}
+
+.message-content .hljs-string,
+.message-content .hljs-symbol,
+.message-content .hljs-bullet,
+.message-content .hljs-template-variable,
+.message-content .hljs-link {
+	color: var(--color-success);
+}
+
+.message-content .hljs-number,
+.message-content .hljs-type,
+.message-content .hljs-built_in,
+.message-content .hljs-class .hljs-title,
+.message-content .hljs-attribute,
+.message-content .hljs-selector-class,
+.message-content .hljs-selector-attr,
+.message-content .hljs-selector-pseudo,
+.message-content .hljs-regexp,
+.message-content .hljs-meta .hljs-string {
+	color: var(--color-info);
+}
+
+.message-content .hljs-title.function_,
+.message-content .hljs-title.function,
+.message-content .hljs-title,
+.message-content .hljs-function .hljs-title,
+.message-content .hljs-variable,
+.message-content .hljs-variable.language_ {
+	color: var(--color-warning);
+}
+
+.message-content .hljs-meta,
+.message-content .hljs-doctag,
+.message-content .hljs-template-tag {
+	color: var(--color-secondary);
+}
+
+.message-content .hljs-property,
+.message-content .hljs-params,
+.message-content .hljs-punctuation,
+.message-content .hljs-operator,
+.message-content .hljs-subst {
+	color: var(--color-primary-hover);
+}
+
+.message-content .hljs-attr,
+.message-content .hljs-selector-id,
+.message-content .hljs-selector-attr,
+.message-content .hljs-selector-pseudo {
+	color: var(--color-secondary);
+}
+
+.message-content .hljs-comment,
+.message-content .hljs-quote,
+.message-content .hljs-deletion {
+	color: var(--color-text-muted);
+}
+
+.message-content .hljs-deletion {
+	color: var(--color-danger);
+}
+
+.message-content .hljs-addition {
+	color: var(--color-success);
+}
+
+.message-content .hljs-emphasis {
+	font-style: italic;
+}
+
+.message-content .hljs-strong {
+	font-weight: 700;
 }
 
 .message-content a {
@@ -120,4 +319,54 @@ body {
 
 .message-content a:hover {
 	color: var(--color-primary-hover);
+}
+
+/* Mention styling */
+.mention {
+	display: inline;
+	padding: 0 0.25rem;
+	border-radius: 0.25rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color 150ms;
+}
+
+.mention-user,
+.mention-role {
+	background-color: rgba(0, 255, 169, 0.15);
+	color: var(--color-primary);
+}
+
+.mention-user:hover,
+.mention-role:hover {
+	background-color: rgba(0, 255, 169, 0.3);
+}
+
+.mention-everyone,
+.mention-here {
+	background-color: rgba(245, 158, 11, 0.18);
+	color: var(--color-warning);
+}
+
+.mention-everyone:hover,
+.mention-here:hover {
+	background-color: rgba(245, 158, 11, 0.32);
+}
+
+/* Custom emoji inline images */
+.message-content img.custom-emoji {
+	display: inline-block;
+	width: 1.375em;
+	height: 1.375em;
+	vertical-align: -0.3em;
+	object-fit: contain;
+	margin: 0 0.05em;
+	white-space: nowrap;
+	/* Override the generic .message-content img block styles */
+	border: none;
+	border-radius: 0;
+	background: none;
+	max-height: unset;
+	max-width: unset;
+	line-height: 1;
 }

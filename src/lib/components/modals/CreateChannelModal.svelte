@@ -1,18 +1,34 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
-	import { Hash, Megaphone, Image, Lock } from '$lib/components/icons';
-	import { createChannelModalOpen, closeCreateChannelModal, addToast, modalState } from '$lib/stores/ui';
-	import { activeCommunity, addChannel } from '$lib/stores/community';
+	import { Hash, Megaphone, Image, Lock, Volume2 } from 'lucide-svelte';
+	import { createChannelModalOpen, closeCreateChannelModal, addToast, createChannelModalData } from '$lib/stores/ui';
+	import { activeCommunity, activeCommunityMembers, addChannel, memberHasPermission, Permission } from '$lib/stores/community';
+	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
+	import { getAllRegisteredTypes } from '$lib/channelTypes';
+	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { Channel } from '$lib/types';
 
 	let name = $state('');
 	let description = $state('');
-	let type = $state<Channel['type']>('text');
+	let type = $state<string>('text');
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 
-	let categoryId = $derived($modalState.type === 'createChannel' ? ($modalState.data as any)?.categoryId : null);
+	let categoryId = $derived($createChannelModalData.categoryId);
+	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
+	let isOwner = $derived(Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId));
+	let canManageChannels = $derived(isOwner || memberHasPermission(myMember, Permission.ManageChannels));
+
+	// Pull channel types from the registry so new types show up automatically
+	let channelTypes = $derived(
+		getAllRegisteredTypes().map(({ id, registration }) => ({
+			value: id,
+			label: registration.label,
+			icon: registration.icon,
+			description: registration.description
+		}))
+	);
 
 	function handleClose() {
 		closeCreateChannelModal();
@@ -49,6 +65,10 @@
 
 	async function handleSubmit() {
 		if (!validate() || isSubmitting || !$activeCommunity) return;
+		if (!canManageChannels) {
+			errors = { submit: 'Insufficient permissions' };
+			return;
+		}
 
 		isSubmitting = true;
 
@@ -63,50 +83,19 @@
 			addChannel($activeCommunity.id, channel);
 			addToast({
 				type: 'success',
-				message: `Channel #${channel.name} created!`
+				message: `Channel ${channel.name} created!`
 			});
 			handleClose();
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('Failed to create channel:', err);
-			if (err.response?.data?.message) {
-				errors = { submit: err.response.data.message };
-			} else {
-				errors = { submit: 'Failed to create channel. Please try again.' };
-			}
+			errors = { submit: getErrorMessage(err, 'Failed to create channel. Please try again.') };
 		} finally {
 			isSubmitting = false;
 		}
 	}
-
-	const channelTypes: { value: Channel['type']; label: string; icon: any; description: string }[] = [
-		{
-			value: 'text',
-			label: 'Text',
-			icon: Hash,
-			description: 'Send messages, images, and files'
-		},
-		{
-			value: 'announcement',
-			label: 'Announcement',
-			icon: Megaphone,
-			description: 'Only admins can send messages'
-		},
-		{
-			value: 'gallery',
-			label: 'Gallery',
-			icon: Image,
-			description: 'Specialized for media sharing'
-		},
-		{
-			value: 'forum',
-			label: 'Forum',
-			icon: Hash,
-			description: 'Structured discussion threads'
-		}
-	];
 </script>
 
-<Modal isOpen={$createChannelModalOpen} onclose={handleClose} title="Create Channel">
+<Modal isOpen={$createChannelModalOpen} onclose={handleClose} title="Create Channel" size="sm">
 	<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
 		<!-- Channel type selection -->
 		<div>

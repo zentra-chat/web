@@ -1,9 +1,45 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Community, Channel, ChannelCategory, CommunityMember, Message } from '$lib/types';
-import { activeInstance, currentUserId } from './instance';
+import type { Community, Channel, ChannelCategory, CommunityMember, Message, User, Role } from '$lib/types';
+import { activeInstance } from './instance';
+import { clearReplyingTo } from './ui';
+
+export const Permission = {
+	ViewChannels: 1 << 0,
+	SendMessages: 1 << 1,
+	ManageMessages: 1 << 2,
+	ManageChannels: 1 << 3,
+	ManageCommunity: 1 << 4,
+	ManageRoles: 1 << 5,
+	KickMembers: 1 << 6,
+	BanMembers: 1 << 7,
+	CreateInvites: 1 << 8,
+	AttachFiles: 1 << 9,
+	AddReactions: 1 << 10,
+	MentionEveryone: 1 << 11,
+	PinMessages: 1 << 12,
+	ManageWebhooks: 1 << 13,
+	ViewAuditLog: 1 << 14,
+	Administrator: 1 << 15,
+	VoiceConnect: 1 << 16,
+	VoiceSpeak: 1 << 17,
+	VoiceMuteOthers: 1 << 18,
+	VoiceDeafenOthers: 1 << 19,
+	ManageEmojis: 1 << 20
+} as const;
+
+export function getMemberPermissions(member: CommunityMember | null): number {
+	if (!member?.roles?.length) return 0;
+	return member.roles.reduce((acc, role) => acc | (role.permissions || 0), 0);
+}
+
+export function memberHasPermission(member: CommunityMember | null, permission: number): boolean {
+	const perms = getMemberPermissions(member);
+	if ((perms & Permission.Administrator) !== 0) return true;
+	return (perms & permission) === permission;
+}
 
 // Currently selected community
-export const activeCommunityId = writable<string | null>(null);
+export const activeCommunityId = writable<string | null | undefined>(undefined);
 
 // Currently selected channel
 export const activeChannelId = writable<string | null>(null);
@@ -33,26 +69,20 @@ export const isLoadingMessages = writable(false);
 
 // Derived stores
 export const activeCommunity = derived(
-	[communitiesCache, activeCommunityId],
-	([$cache, $activeId]) => {
+	[communitiesCache, activeCommunityId, activeInstance],
+	([$cache, $activeId, $activeInstance]) => {
 		if (!$activeId) return null;
-		for (const communities of Object.values($cache)) {
-			const found = communities.find((c) => c.id === $activeId);
-			if (found) return found;
-		}
-		return null;
+		if (!$activeInstance) return null;
+		return ($cache[$activeInstance.id] || []).find((c) => c.id === $activeId) || null;
 	}
 );
 
 export const activeChannel = derived(
-	[channelsCache, activeChannelId],
-	([$cache, $activeId]) => {
+	[channelsCache, activeChannelId, activeCommunityId],
+	([$cache, $activeId, $communityId]) => {
 		if (!$activeId) return null;
-		for (const channels of Object.values($cache)) {
-			const found = channels.find((c) => c.id === $activeId);
-			if (found) return found;
-		}
-		return null;
+		if (!$communityId) return null;
+		return ($cache[$communityId] || []).find((c) => c.id === $activeId) || null;
 	}
 );
 
@@ -130,15 +160,18 @@ export function removeCommunity(communityId: string): void {
 
 	// Clear related caches
 	channelsCache.update((cache) => {
-		const { [communityId]: _, ...rest } = cache;
+		const { [communityId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 	categoriesCache.update((cache) => {
-		const { [communityId]: _, ...rest } = cache;
+		const { [communityId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 	membersCache.update((cache) => {
-		const { [communityId]: _, ...rest } = cache;
+		const { [communityId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 }
@@ -174,7 +207,8 @@ export function removeChannel(communityId: string, channelId: string): void {
 
 	// Clear messages cache
 	messagesCache.update((cache) => {
-		const { [channelId]: _, ...rest } = cache;
+		const { [channelId]: removed, ...rest } = cache;
+		void removed;
 		return rest;
 	});
 }
@@ -191,6 +225,61 @@ export function setMembers(communityId: string, members: CommunityMember[]): voi
 		...cache,
 		[communityId]: members
 	}));
+}
+
+export function updateMemberRoles(communityId: string, userId: string, roles: Role[]): void {
+	membersCache.update((cache) => ({
+		...cache,
+		[communityId]: (cache[communityId] || []).map((member) =>
+			member.userId === userId ? { ...member, roles } : member
+		)
+	}));
+}
+
+export function getHighestRole(member: CommunityMember | null): Role | null {
+	if (!member || !member.roles || member.roles.length === 0) return null;
+	return [...member.roles].sort((a, b) => b.position - a.position)[0] || null;
+}
+
+export function getMemberNameColor(member: CommunityMember | null): string | null {
+	const role = getHighestRole(member);
+	return role?.color || null;
+}
+
+export function updateMemberUser(userId: string, updates: Partial<User>): void {
+	// Update members cache
+	membersCache.update((cache) => {
+		const newCache = { ...cache };
+		for (const communityId in newCache) {
+			newCache[communityId] = newCache[communityId].map((member) => {
+				if (member.userId === userId) {
+					return {
+						...member,
+						user: member.user ? { ...member.user, ...updates } : member.user
+					};
+				}
+				return member;
+			});
+		}
+		return newCache;
+	});
+
+	// Update messages cache (user info in messages)
+	messagesCache.update((cache) => {
+		const newCache = { ...cache };
+		for (const channelId in newCache) {
+			newCache[channelId] = newCache[channelId].map((msg) => {
+				if (msg.authorId === userId && msg.author) {
+					return {
+						...msg,
+						author: { ...msg.author, ...updates }
+					};
+				}
+				return msg;
+			});
+		}
+		return newCache;
+	});
 }
 
 export function setMessages(channelId: string, messages: Message[]): void {
@@ -235,9 +324,10 @@ export function addMessageReaction(
 	userId: string,
 	emoji: string
 ): void {
-	const currentId = get(currentUserId);
 	messagesCache.update((cache) => {
-		const channelMsgs = cache[channelId] || [];
+		const channelMsgs = cache[channelId];
+		if (!channelMsgs) return cache;
+
 		return {
 			...cache,
 			[channelId]: channelMsgs.map((m) => {
@@ -248,16 +338,19 @@ export function addMessageReaction(
 
 				if (existingIndex !== -1) {
 					const r = reactions[existingIndex];
-					reactions[existingIndex] = {
-						...r,
-						count: r.count + 1,
-						reacted: r.reacted || userId === currentId
-					};
+					// Only increment if we haven't already reacted
+					if (!r.reacted) {
+						reactions[existingIndex] = {
+							...r,
+							count: r.count + 1,
+							reacted: true
+						};
+					}
 				} else {
 					reactions.push({
 						emoji,
 						count: 1,
-						reacted: userId === currentId
+						reacted: true
 					});
 				}
 
@@ -273,9 +366,10 @@ export function removeMessageReaction(
 	userId: string,
 	emoji: string
 ): void {
-	const currentId = get(currentUserId);
 	messagesCache.update((cache) => {
-		const channelMsgs = cache[channelId] || [];
+		const channelMsgs = cache[channelId];
+		if (!channelMsgs) return cache;
+
 		return {
 			...cache,
 			[channelId]: channelMsgs.map((m) => {
@@ -284,11 +378,15 @@ export function removeMessageReaction(
 				const reactions = (m.reactions || [])
 					.map((r) => {
 						if (r.emoji !== emoji) return r;
-						return {
-							...r,
-							count: Math.max(0, r.count - 1),
-							reacted: userId === currentId ? false : r.reacted
-						};
+						// Only decrement if we had already reacted
+						if (r.reacted) {
+							return {
+								...r,
+								count: Math.max(0, r.count - 1),
+								reacted: false
+							};
+						}
+						return r;
 					})
 					.filter((r) => r.count > 0);
 
@@ -322,10 +420,12 @@ export function incrementUnread(channelId: string): void {
 export function selectCommunity(communityId: string | null): void {
 	activeCommunityId.set(communityId);
 	activeChannelId.set(null);
+	clearReplyingTo();
 }
 
 export function selectChannel(channelId: string | null): void {
 	activeChannelId.set(channelId);
+	clearReplyingTo();
 	if (channelId) {
 		clearUnread(channelId);
 	}
@@ -334,14 +434,27 @@ export function selectChannel(channelId: string | null): void {
 export function setActiveCommunity(community: Community | null): void {
 	activeCommunityId.set(community?.id || null);
 	activeChannelId.set(null);
+	clearReplyingTo();
 }
 
 export function setActiveChannel(channel: Channel | null): void {
 	activeChannelId.set(channel?.id || null);
+	clearReplyingTo();
 	if (channel?.id) {
 		clearUnread(channel.id);
 	}
 }
+
+let lastInstanceId: string | null = null;
+activeInstance.subscribe((instance) => {
+	const nextInstanceId = instance?.id || null;
+	if (nextInstanceId !== lastInstanceId) {
+		activeCommunityId.set(null);
+		activeChannelId.set(null);
+		clearReplyingTo();
+		lastInstanceId = nextInstanceId;
+	}
+});
 
 // Messages alias for direct access
 export const messages = messagesCache;

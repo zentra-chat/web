@@ -49,12 +49,12 @@
 	const statusValue = $derived(status ?? user?.status ?? null);
 </script>
 
-<div class="relative inline-flex shrink-0 {className}">
+<div class="relative flex shrink-0 leading-none {className}">
 	{#if avatarUrl}
 		<img
 			src={avatarUrl}
 			alt={displayName}
-			class="{sizeClasses[size]} rounded-full object-cover bg-surface"
+			class="{sizeClasses[size]} block rounded-full object-cover bg-surface"
 		/>
 	{:else}
 		<div

@@ -1,5 +1,13 @@
 import { get } from 'svelte/store';
-import { activeInstance, activeAuth, setInstanceAuth, clearInstanceAuth } from '$lib/stores/instance';
+import {
+	activeInstance,
+	activeAuth,
+	instances,
+	setInstanceAuth,
+	logout as logoutFromStore
+} from '$lib/stores/instance';
+import { showToast } from '$lib/stores/ui';
+import { applyProfileSync, getPortableProfileForAuth } from '$lib/stores/profile';
 import type {
 	ApiResponse,
 	PaginatedResponse,
@@ -7,23 +15,145 @@ import type {
 	AuthResponse,
 	LoginRequest,
 	RegisterRequest,
+	RegisterResponse,
 	FullUser,
 	User,
 	UserSettings,
+	FriendRequestsResponse,
+	UserRelationship,
 	Community,
+	CommunityInvite,
+	CommunityBan,
+	AuditLogEntry,
 	Channel,
+	ChannelPermission,
 	ChannelCategory,
+	ChannelTypeDefinition,
 	CommunityMember,
+	Role,
 	Message,
 	SendMessageRequest,
-	Attachment
+	CreateWebhookRequest,
+	UpdateWebhookRequest,
+	Webhook,
+	WebhookSecretResponse,
+	Attachment,
+	DMConversation,
+	Notification,
+	VoiceState,
+	CustomEmoji,
+	CustomEmojiWithCommunity,
+	GithubStats,
+	Plugin,
+	CommunityPlugin,
+	PluginSource,
+	PluginAuditEntry
 } from '$lib/types';
+import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
+import { normalizeApiError } from '$lib/utils/apiError';
+
+interface RetryableApiError extends ApiError {
+	shouldRetry?: boolean;
+}
 
 class ApiClient {
+	private authFailureHandled = false;
+	private refreshInFlight: Promise<boolean> | null = null;
+	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+	constructor() {
+		if (typeof window === 'undefined') return;
+
+		activeAuth.subscribe(() => {
+			this.scheduleSessionRefresh();
+		});
+
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') {
+				void this.refreshSessionIfNeeded();
+			}
+		});
+	}
+
+	private withCacheBuster(url?: string | null): string {
+		if (!url) return '';
+		const separator = url.includes('?') ? '&' : '?';
+		return `${url}${separator}v=${Date.now()}`;
+	}
+
+	private handleAuthFailure(): void {
+		if (this.authFailureHandled) return;
+		this.authFailureHandled = true;
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('zentra_auth_notice', 'expired');
+		}
+		logoutFromStore();
+		showToast('warning', 'Your session expired. Please sign in again.');
+	}
+
+	private getAuthExpiryMs(): number | null {
+		const auth = get(activeAuth);
+		if (!auth) return null;
+
+		const expiresAtMs = Date.parse(auth.expiresAt);
+		if (Number.isNaN(expiresAtMs)) return null;
+
+		return expiresAtMs;
+	}
+
+	private scheduleSessionRefresh(): void {
+		if (this.refreshTimer) {
+			clearTimeout(this.refreshTimer);
+			this.refreshTimer = null;
+		}
+
+		const expiresAtMs = this.getAuthExpiryMs();
+		if (!expiresAtMs) return;
+
+		const refreshLeadMs = 60_000;
+		const minDelayMs = 5_000;
+		const delayMs = Math.max(expiresAtMs - Date.now() - refreshLeadMs, minDelayMs);
+
+		this.refreshTimer = setTimeout(() => {
+			void this.refreshSessionIfNeeded();
+		}, delayMs);
+	}
+
+	async refreshSessionIfNeeded(): Promise<boolean> {
+		const expiresAtMs = this.getAuthExpiryMs();
+		if (!expiresAtMs) return false;
+
+		const refreshLeadMs = 60_000;
+		if (expiresAtMs > Date.now() + refreshLeadMs) {
+			return true;
+		}
+
+		return this.refreshToken();
+	}
+
 	private getBaseUrl(): string {
 		const instance = get(activeInstance);
 		if (!instance) throw new Error('No active instance');
 		return `${instance.url}/api/v1`;
+	}
+
+	private getPublicBaseUrl(): string {
+		const instance = get(activeInstance);
+		if (instance?.url) {
+			return instance.url.replace(/\/+$/, '');
+		}
+
+		const configuredInstances = get(instances);
+		const fallbackInstanceUrl = configuredInstances[0]?.url;
+		if (fallbackInstanceUrl) {
+			return fallbackInstanceUrl.replace(/\/+$/, '');
+		}
+
+		if (typeof window !== 'undefined' && window.location?.origin) {
+			return window.location.origin.replace(/\/+$/, '');
+		}
+
+		throw new Error('No backend instance configured');
 	}
 
 	private getHeaders(includeAuth = true): Headers {
@@ -40,20 +170,23 @@ class ApiClient {
 		return headers;
 	}
 
-	private async handleResponse<T>(response: Response): Promise<T> {
+	private async handleResponse<T>(response: Response, includeAuth = true): Promise<T> {
 		if (!response.ok) {
 			let error: ApiError;
 			try {
-				error = await response.json();
+				const payload = await response.json();
+				error = normalizeApiError(payload, response.statusText || 'Request failed');
 			} catch {
-				error = {
-					error: 'Network error',
-					code: 'NETWORK_ERROR'
-				};
+				error = normalizeApiError(
+					{ error: response.statusText || 'Request failed', code: `HTTP_${response.status}` },
+					'Request failed'
+				);
 			}
 
+			(error as ApiError & { status?: number }).status = response.status;
+
 			// Handle token expiration
-			if (response.status === 401) {
+			if (includeAuth && response.status === 401) {
 				const refreshed = await this.refreshToken();
 				if (!refreshed) {
 					throw error;
@@ -93,9 +226,9 @@ class ApiClient {
 				headers: { ...Object.fromEntries(headers.entries()), ...options.headers }
 			});
 
-			return await this.handleResponse<T>(response);
+			return await this.handleResponse<T>(response, includeAuth);
 		} catch (error) {
-			if (retry && (error as any).shouldRetry) {
+			if (retry && (error as RetryableApiError).shouldRetry) {
 				// Retry the request after token refresh
 				const newHeaders = this.getHeaders(includeAuth);
 				if (options.body instanceof FormData) {
@@ -106,13 +239,26 @@ class ApiClient {
 					...options,
 					headers: { ...Object.fromEntries(newHeaders.entries()), ...options.headers }
 				});
-				return await this.handleResponse<T>(response);
+				return await this.handleResponse<T>(response, includeAuth);
 			}
-			throw error;
+
+			throw normalizeApiError(error, 'Network error');
 		}
 	}
 
 	private async refreshToken(): Promise<boolean> {
+		if (this.refreshInFlight) {
+			return this.refreshInFlight;
+		}
+
+		this.refreshInFlight = this.performRefreshToken().finally(() => {
+			this.refreshInFlight = null;
+		});
+
+		return this.refreshInFlight;
+	}
+
+	private async performRefreshToken(): Promise<boolean> {
 		const auth = get(activeAuth);
 		const instance = get(activeInstance);
 		if (!auth || !instance) return false;
@@ -124,31 +270,68 @@ class ApiClient {
 				body: JSON.stringify({ refreshToken: auth.refreshToken })
 			});
 
-			if (!response.ok) return false;
+			if (!response.ok) {
+				if (response.status === 401) {
+					this.handleAuthFailure();
+				}
+				return false;
+			}
 
 			const result: ApiResponse<AuthResponse> = await response.json();
+			applyProfileSync(result.data.profileSync);
 			setInstanceAuth(instance.id, {
 				instanceId: instance.id,
 				accessToken: result.data.accessToken,
 				refreshToken: result.data.refreshToken,
 				expiresAt: result.data.expiresAt,
-				user: result.data.user
+				user: result.data.user ?? auth.user
 			});
+			this.authFailureHandled = false;
+			this.scheduleSessionRefresh();
 
 			return true;
-		} catch {
-			clearInstanceAuth(instance.id);
+		} catch (error) {
+			console.warn('Token refresh request failed:', error);
 			return false;
 		}
 	}
 
 	// Auth endpoints
-	async register(data: RegisterRequest): Promise<AuthResponse> {
-		const result = await this.request<ApiResponse<AuthResponse>>(
+	async register(data: RegisterRequest): Promise<RegisterResponse> {
+		const payload: RegisterRequest = {
+			...data,
+			portableProfile: data.portableProfile ?? getPortableProfileForAuth()
+		};
+
+		const result = await this.request<ApiResponse<RegisterResponse>>(
 			'/auth/register',
 			{
 				method: 'POST',
-				body: JSON.stringify(data)
+				body: JSON.stringify(payload)
+			},
+			false
+		);
+		return result.data;
+	}
+
+	async verifyEmail(token: string): Promise<{ message: string }> {
+		const result = await this.request<ApiResponse<{ message: string }>>(
+			'/auth/verify-email',
+			{
+				method: 'POST',
+				body: JSON.stringify({ token })
+			},
+			false
+		);
+		return result.data;
+	}
+
+	async resendVerificationEmail(email: string): Promise<{ message: string }> {
+		const result = await this.request<ApiResponse<{ message: string }>>(
+			'/auth/resend-verification',
+			{
+				method: 'POST',
+				body: JSON.stringify({ email })
 			},
 			false
 		);
@@ -156,14 +339,40 @@ class ApiClient {
 	}
 
 	async login(data: LoginRequest): Promise<AuthResponse> {
+		const payload: LoginRequest = {
+			...data,
+			portableProfile: data.portableProfile ?? getPortableProfileForAuth()
+		};
+
 		const result = await this.request<ApiResponse<AuthResponse>>(
 			'/auth/login',
 			{
 				method: 'POST',
-				body: JSON.stringify(data)
+				body: JSON.stringify(payload)
 			},
 			false
 		);
+		this.authFailureHandled = false;
+		applyProfileSync(result.data.profileSync);
+		return result.data;
+	}
+
+	async portableAuth(): Promise<AuthResponse> {
+		const portableProfile = getPortableProfileForAuth();
+		if (!portableProfile) {
+			throw { error: 'Portable profile not available', code: 'PROFILE_REQUIRED' };
+		}
+
+		const result = await this.request<ApiResponse<AuthResponse>>(
+			'/auth/portable',
+			{
+				method: 'POST',
+				body: JSON.stringify({ portableProfile })
+			},
+			false
+		);
+		this.authFailureHandled = false;
+		applyProfileSync(result.data.profileSync);
 		return result.data;
 	}
 
@@ -171,10 +380,7 @@ class ApiClient {
 		try {
 			await this.request('/auth/logout', { method: 'POST' });
 		} finally {
-			const instance = get(activeInstance);
-			if (instance) {
-				clearInstanceAuth(instance.id);
-			}
+			logoutFromStore({ removeSavedAccount: true });
 		}
 	}
 
@@ -182,6 +388,11 @@ class ApiClient {
 	async getCurrentUser(): Promise<FullUser> {
 		const result = await this.request<ApiResponse<FullUser>>('/users/me');
 		return result.data;
+	}
+
+	async getCurrentUserId(): Promise<string> {
+		const result = await this.request<ApiResponse<{ id: string }>>('/users/me/id');
+		return result.data.id;
 	}
 
 	async updateProfile(data: Partial<{ displayName: string; bio: string; customStatus: string }>): Promise<FullUser> {
@@ -210,7 +421,7 @@ class ApiClient {
 			body: formData
 		});
 
-		return result.data.url;
+		return this.withCacheBuster(result.data.url);
 	}
 
 	async removeAvatar(): Promise<void> {
@@ -241,6 +452,40 @@ class ApiClient {
 		return this.request<PaginatedResponse<User>>(
 			`/users/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=${pageSize}`
 		);
+	}
+
+	async getFriends(): Promise<User[]> {
+		const result = await this.request<ApiResponse<User[]>>('/users/me/friends');
+		return result.data || [];
+	}
+
+	async getFriendRequests(): Promise<FriendRequestsResponse> {
+		const result = await this.request<ApiResponse<FriendRequestsResponse>>('/users/me/friends/requests');
+		return {
+			incoming: result.data?.incoming || [],
+			outgoing: result.data?.outgoing || []
+		};
+	}
+
+	async sendFriendRequest(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/requests/${userId}`, { method: 'POST' });
+	}
+
+	async acceptFriendRequest(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/requests/${userId}/accept`, { method: 'POST' });
+	}
+
+	async removeFriendRequest(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/requests/${userId}`, { method: 'DELETE' });
+	}
+
+	async removeFriend(userId: string): Promise<void> {
+		await this.request(`/users/me/friends/${userId}`, { method: 'DELETE' });
+	}
+
+	async getRelationship(userId: string): Promise<UserRelationship> {
+		const result = await this.request<ApiResponse<UserRelationship>>(`/users/me/relationships/${userId}`);
+		return result.data;
 	}
 
 	async getUser(userId: string): Promise<User> {
@@ -299,13 +544,13 @@ class ApiClient {
 		return result.data;
 	}
 
-	async createCommunity(data: { name: string; description?: string; isPrivate?: boolean }): Promise<Community> {
+	async createCommunity(data: { name: string; description?: string; isPublic: boolean }): Promise<Community> {
 		const result = await this.request<ApiResponse<Community>>('/communities', {
 			method: 'POST',
 			body: JSON.stringify({
 				name: data.name,
 				description: data.description,
-				isPublic: !data.isPrivate,
+				isPublic: data.isPublic,
 				isOpen: true // Default to true
 			})
 		});
@@ -336,24 +581,33 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('icon', file);
 
-		const result = await this.request<ApiResponse<{ url: string }>>(`/media/communities/${communityId}/icon`, {
+		const result = await this.request<ApiResponse<{ iconUrl?: string; url?: string }>>(`/media/communities/${communityId}/icon`, {
 			method: 'POST',
 			body: formData
 		});
 
-		return result.data.url;
+		return this.withCacheBuster(result.data.iconUrl ?? result.data.url);
 	}
 
 	async removeCommunityIcon(communityId: string): Promise<void> {
 		await this.request(`/communities/${communityId}/icon`, { method: 'DELETE' });
 	}
 
-	async createInvite(communityId: string, options?: { maxUses?: number; expiresAt?: string }): Promise<{ code: string }> {
-		const result = await this.request<ApiResponse<{ code: string }>>(`/communities/${communityId}/invites`, {
+	async createInvite(communityId: string, options?: { maxUses?: number; expiresIn?: number }): Promise<CommunityInvite> {
+		const result = await this.request<ApiResponse<CommunityInvite>>(`/communities/${communityId}/invites`, {
 			method: 'POST',
 			body: JSON.stringify(options || {})
 		});
 		return result.data;
+	}
+
+	async getInvites(communityId: string): Promise<CommunityInvite[]> {
+		const result = await this.request<ApiResponse<CommunityInvite[]>>(`/communities/${communityId}/invites`);
+		return result.data;
+	}
+
+	async deleteInvite(communityId: string, inviteId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/invites/${inviteId}`, { method: 'DELETE' });
 	}
 
 	async joinWithInvite(code: string): Promise<Community> {
@@ -379,6 +633,87 @@ class ApiClient {
 		return result.data;
 	}
 
+	async getRoles(communityId: string): Promise<Role[]> {
+		const result = await this.request<ApiResponse<Role[]>>(`/communities/${communityId}/roles`);
+		return result.data;
+	}
+
+	async createRole(communityId: string, data: { name: string; color?: string | null; permissions: number }): Promise<Role> {
+		const result = await this.request<ApiResponse<Role>>(`/communities/${communityId}/roles`, {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+		return result.data;
+	}
+
+	async deleteRole(communityId: string, roleId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/roles/${roleId}`, { method: 'DELETE' });
+	}
+
+	async updateRole(
+		communityId: string,
+		roleId: string,
+		data: Partial<{ name: string; color: string | null; permissions: number }>
+	): Promise<Role> {
+		const payload: Record<string, unknown> = {};
+		if (data.name !== undefined) payload.name = data.name;
+		if (data.color !== undefined) payload.color = data.color;
+		if (data.permissions !== undefined) payload.permissions = data.permissions;
+
+		const result = await this.request<ApiResponse<Role>>(`/communities/${communityId}/roles/${roleId}`, {
+			method: 'PATCH',
+			body: JSON.stringify(payload)
+		});
+		return result.data;
+	}
+
+	async getMemberRoles(communityId: string, userId: string): Promise<Role[]> {
+		const result = await this.request<ApiResponse<Role[]>>(
+			`/communities/${communityId}/members/${userId}/roles`
+		);
+		return result.data;
+	}
+
+	async setMemberRoles(communityId: string, userId: string, roleIds: string[]): Promise<void> {
+		await this.request(`/communities/${communityId}/members/${userId}/roles`, {
+			method: 'PUT',
+			body: JSON.stringify({ roleIds })
+		});
+	}
+
+	async kickMember(communityId: string, userId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/members/${userId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	// Ban management
+	async banMember(communityId: string, userId: string, reason?: string): Promise<void> {
+		await this.request(`/communities/${communityId}/bans/${userId}`, {
+			method: 'POST',
+			body: JSON.stringify({ reason: reason || null })
+		});
+	}
+
+	async unbanMember(communityId: string, userId: string): Promise<void> {
+		await this.request(`/communities/${communityId}/bans/${userId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async getBans(communityId: string): Promise<CommunityBan[]> {
+		const result = await this.request<ApiResponse<CommunityBan[]>>(`/communities/${communityId}/bans`);
+		return result.data;
+	}
+
+	// Audit log
+	async getAuditLog(communityId: string, page = 1, pageSize = 50): Promise<{ data: AuditLogEntry[]; total: number }> {
+		const result = await this.request<PaginatedResponse<AuditLogEntry>>(
+			`/communities/${communityId}/audit-log?page=${page}&pageSize=${pageSize}`
+		);
+		return { data: result.data, total: result.total };
+	}
+
 	// Channel endpoints
 	async getChannels(communityId: string): Promise<Channel[]> {
 		const result = await this.request<ApiResponse<Channel[]>>(`/channels/communities/${communityId}/channels`);
@@ -390,7 +725,7 @@ class ApiClient {
 		return result.data;
 	}
 
-	async createChannel(communityId: string, data: { name: string; type?: string; topic?: string; categoryId?: string; isNsfw?: boolean }): Promise<Channel> {
+	async createChannel(communityId: string, data: { name: string; type?: string; topic?: string; categoryId?: string; isNsfw?: boolean; metadata?: Record<string, unknown> }): Promise<Channel> {
 		const result = await this.request<ApiResponse<Channel>>(`/channels/communities/${communityId}/channels`, {
 			method: 'POST',
 			body: JSON.stringify({
@@ -399,14 +734,15 @@ class ApiClient {
 				topic: data.topic,
 				categoryId: data.categoryId,
 				isNsfw: !!data.isNsfw,
-				slowmodeSeconds: 0
+				slowmodeSeconds: 0,
+				metadata: data.metadata || {}
 			})
 		});
 		return result.data;
 	}
 
 	async updateChannel(channelId: string, data: Partial<{ name: string; topic: string; categoryId: string | null; isNsfw: boolean; slowmodeSeconds: number }>): Promise<Channel> {
-		const payload: any = {};
+		const payload: Record<string, unknown> = {};
 		if (data.name !== undefined) payload.name = data.name;
 		if (data.topic !== undefined) payload.topic = data.topic;
 		if (data.categoryId !== undefined) payload.categoryId = data.categoryId;
@@ -424,6 +760,39 @@ class ApiClient {
 		await this.request(`/channels/${channelId}`, { method: 'DELETE' });
 	}
 
+	async reorderChannels(communityId: string, channelIds: string[]): Promise<void> {
+		await this.request(`/channels/communities/${communityId}/channels/reorder`, {
+			method: 'PUT',
+			body: JSON.stringify({ channelIds })
+		});
+	}
+
+	async getChannelPermissions(channelId: string): Promise<ChannelPermission[]> {
+		const result = await this.request<ApiResponse<ChannelPermission[]>>(`/channels/${channelId}/permissions`);
+		return result.data || [];
+	}
+
+	async setChannelPermission(
+		channelId: string,
+		data: {
+			targetType: 'role' | 'member';
+			targetId: string;
+			allowPermissions: number;
+			denyPermissions: number;
+		}
+	): Promise<void> {
+		await this.request(`/channels/${channelId}/permissions`, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		});
+	}
+
+	async deleteChannelPermission(channelId: string, targetType: 'role' | 'member', targetId: string): Promise<void> {
+		await this.request(`/channels/${channelId}/permissions/${targetType}/${targetId}`, {
+			method: 'DELETE'
+		});
+	}
+
 	// Category endpoints
 	async getCategories(communityId: string): Promise<ChannelCategory[]> {
 		const result = await this.request<ApiResponse<ChannelCategory[]>>(`/channels/communities/${communityId}/categories`);
@@ -435,6 +804,66 @@ class ApiClient {
 			method: 'POST',
 			body: JSON.stringify({ name })
 		});
+		return result.data;
+	}
+
+	async updateCategory(categoryId: string, name: string): Promise<ChannelCategory> {
+		const result = await this.request<ApiResponse<ChannelCategory>>(`/channels/categories/${categoryId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ name })
+		});
+		return result.data;
+	}
+
+	async deleteCategory(categoryId: string): Promise<void> {
+		await this.request(`/channels/categories/${categoryId}`, { method: 'DELETE' });
+	}
+
+	async reorderCategories(communityId: string, categoryIds: string[]): Promise<void> {
+		await this.request(`/channels/communities/${communityId}/categories/reorder`, {
+			method: 'PUT',
+			body: JSON.stringify({ categoryIds })
+		});
+	}
+
+	// Channel type definition endpoints
+	async getChannelTypes(): Promise<ChannelTypeDefinition[]> {
+		const result = await this.request<ApiResponse<ChannelTypeDefinition[]>>('/channel-types');
+		return result.data || [];
+	}
+
+	async getChannelType(typeId: string): Promise<ChannelTypeDefinition> {
+		const result = await this.request<ApiResponse<ChannelTypeDefinition>>(`/channel-types/${typeId}`);
+		return result.data;
+	}
+
+	// Voice endpoints
+	async getVoiceStates(channelId: string): Promise<VoiceState[]> {
+		const result = await this.request<ApiResponse<VoiceState[]>>(`/voice/channels/${channelId}/states`);
+		return result.data || [];
+	}
+
+	async joinVoiceChannel(channelId: string): Promise<VoiceState> {
+		const result = await this.request<ApiResponse<VoiceState>>(`/voice/channels/${channelId}/join`, {
+			method: 'POST'
+		});
+		return result.data;
+	}
+
+	async leaveVoiceChannel(channelId: string): Promise<void> {
+		await this.request(`/voice/channels/${channelId}/leave`, { method: 'POST' });
+	}
+
+	async updateVoiceState(channelId: string, data: { isSelfMuted?: boolean; isSelfDeafened?: boolean }): Promise<VoiceState> {
+		const result = await this.request<ApiResponse<VoiceState>>(`/voice/channels/${channelId}/state`, {
+			method: 'PATCH',
+			body: JSON.stringify(data)
+		});
+		return result.data;
+	}
+
+	async getMyVoiceState(): Promise<VoiceState | null> {
+		const result = await this.request<ApiResponse<VoiceState | null>>(`/voice/me`);
 		return result.data;
 	}
 
@@ -474,6 +903,25 @@ class ApiClient {
 		await this.request(`/messages/${messageId}`, { method: 'DELETE' });
 	}
 
+	async pinMessage(messageId: string): Promise<void> {
+		await this.request(`/messages/${messageId}/pin`, {
+			method: 'POST'
+		});
+	}
+
+	async unpinMessage(messageId: string): Promise<void> {
+		await this.request(`/messages/${messageId}/pin`, {
+			method: 'DELETE'
+		});
+	}
+
+	async getPinnedMessages(channelId: string): Promise<Message[]> {
+		const result = await this.request<ApiResponse<Message[]>>(
+			`/messages/channels/${channelId}/messages/pinned`
+		);
+		return result.data;
+	}
+
 	async addReaction(messageId: string, emoji: string): Promise<void> {
 		await this.request(`/messages/${messageId}/reactions`, {
 			method: 'POST',
@@ -493,6 +941,145 @@ class ApiClient {
 		});
 	}
 
+	// Webhook endpoints
+	async createWebhook(channelId: string, data: CreateWebhookRequest): Promise<WebhookSecretResponse> {
+		const result = await this.request<ApiResponse<WebhookSecretResponse>>(
+			`/webhooks/channels/${channelId}`,
+			{
+				method: 'POST',
+				body: JSON.stringify(data)
+			}
+		);
+		return result.data;
+	}
+
+	async uploadWebhookAvatar(channelId: string, file: File): Promise<string> {
+		const formData = new FormData();
+		formData.append('avatar', file);
+
+		const result = await this.request<ApiResponse<{ url: string }>>(`/webhooks/channels/${channelId}/avatar`, {
+			method: 'POST',
+			body: formData
+		});
+
+		return this.withCacheBuster(result.data.url);
+	}
+
+	async getChannelWebhooks(channelId: string): Promise<Webhook[]> {
+		const result = await this.request<ApiResponse<Webhook[]>>(`/webhooks/channels/${channelId}`);
+		return result.data || [];
+	}
+
+	async updateWebhook(webhookId: string, data: UpdateWebhookRequest): Promise<Webhook> {
+		const result = await this.request<ApiResponse<Webhook>>(`/webhooks/${webhookId}`, {
+			method: 'PATCH',
+			body: JSON.stringify(data)
+		});
+		return result.data;
+	}
+
+	async rotateWebhookToken(webhookId: string): Promise<WebhookSecretResponse> {
+		const result = await this.request<ApiResponse<WebhookSecretResponse>>(
+			`/webhooks/${webhookId}/rotate`,
+			{
+				method: 'POST'
+			}
+		);
+		return result.data;
+	}
+
+	async deleteWebhook(webhookId: string): Promise<void> {
+		await this.request(`/webhooks/${webhookId}`, { method: 'DELETE' });
+	}
+
+	// DM endpoints
+	async getDmConversations(): Promise<DMConversation[]> {
+		const result = await this.request<ApiResponse<RawDmConversation[]>>('/dms/conversations');
+		return (result.data || []).map((conversation) => ({
+			...conversation,
+			lastMessage: conversation.lastMessage ? mapDmMessage(conversation.lastMessage) : undefined
+		}));
+	}
+
+	async getDmConversation(conversationId: string): Promise<DMConversation> {
+		const result = await this.request<ApiResponse<RawDmConversation>>(`/dms/conversations/${conversationId}`);
+		const conversation = result.data;
+		return {
+			...conversation,
+			lastMessage: conversation.lastMessage ? mapDmMessage(conversation.lastMessage) : undefined
+		};
+	}
+
+	async createDmConversation(userId: string): Promise<DMConversation> {
+		const result = await this.request<ApiResponse<RawDmConversation>>('/dms/conversations', {
+			method: 'POST',
+			body: JSON.stringify({ userId })
+		});
+		const conversation = result.data;
+		return {
+			...conversation,
+			lastMessage: conversation.lastMessage ? mapDmMessage(conversation.lastMessage) : undefined
+		};
+	}
+
+	async markDmRead(conversationId: string): Promise<void> {
+		await this.request(`/dms/conversations/${conversationId}/read`, { method: 'POST' });
+	}
+
+	async getDmMessages(
+		conversationId: string,
+		options?: { limit?: number; before?: string; after?: string }
+	): Promise<Message[]> {
+		const params = new URLSearchParams();
+		if (options?.limit) params.set('limit', String(options.limit));
+		if (options?.before) params.set('before', options.before);
+		if (options?.after) params.set('after', options.after);
+
+		const result = await this.request<ApiResponse<RawDmMessage[]>>(
+			`/dms/conversations/${conversationId}/messages?${params}`
+		);
+		return (result.data || []).map((msg) => mapDmMessage(msg));
+	}
+
+	async sendDmMessage(
+		conversationId: string,
+		data: { content: string; attachments?: string[]; replyToId?: string }
+	): Promise<Message> {
+		const result = await this.request<ApiResponse<RawDmMessage>>(
+			`/dms/conversations/${conversationId}/messages`,
+			{
+				method: 'POST',
+				body: JSON.stringify(data)
+			}
+		);
+		return mapDmMessage(result.data);
+	}
+
+	async editDmMessage(messageId: string, content: string): Promise<Message> {
+		const result = await this.request<ApiResponse<RawDmMessage>>(`/dms/messages/${messageId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ content })
+		});
+		return mapDmMessage(result.data);
+	}
+
+	async deleteDmMessage(messageId: string): Promise<void> {
+		await this.request(`/dms/messages/${messageId}`, { method: 'DELETE' });
+	}
+
+	async addDmReaction(messageId: string, emoji: string): Promise<void> {
+		await this.request(`/dms/messages/${messageId}/reactions`, {
+			method: 'POST',
+			body: JSON.stringify({ emoji })
+		});
+	}
+
+	async removeDmReaction(messageId: string, emoji: string): Promise<void> {
+		await this.request(`/dms/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
+			method: 'DELETE'
+		});
+	}
+
 	// Media endpoints
 	async uploadAttachment(file: File, channelId: string): Promise<Attachment> {
 		const formData = new FormData();
@@ -500,6 +1087,19 @@ class ApiClient {
 		formData.append('channelId', channelId);
 
 		const result = await this.request<ApiResponse<Attachment>>('/media/attachments', {
+			method: 'POST',
+			body: formData
+		});
+
+		return result.data;
+	}
+
+	async uploadDmAttachment(file: File, conversationId: string): Promise<Attachment> {
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('conversationId', conversationId);
+
+		const result = await this.request<ApiResponse<Attachment>>('/media/attachments/dm', {
 			method: 'POST',
 			body: formData
 		});
@@ -518,6 +1118,220 @@ class ApiClient {
 		} catch {
 			return false;
 		}
+	}
+
+	// Public endpoints
+	async getGithubStats(): Promise<GithubStats> {
+		const response = await fetch(`${this.getPublicBaseUrl()}/api/v1/public/github/stats`, {
+			method: 'GET'
+		});
+
+		const result = await this.handleResponse<ApiResponse<GithubStats>>(response, false);
+		return {
+			stars: result.data?.stars ?? 0,
+			forks: result.data?.forks ?? 0,
+			contributors: Array.isArray(result.data?.contributors) ? result.data.contributors : [],
+			updatedAt: result.data?.updatedAt
+		};
+	}
+
+	// Notification endpoints
+	async getNotifications(page = 1, limit = 50): Promise<PaginatedResponse<Notification>> {
+		return this.request<PaginatedResponse<Notification>>(
+			`/notifications?page=${page}&limit=${limit}`
+		);
+	}
+
+	async getUnreadNotificationCount(): Promise<number> {
+		const result = await this.request<ApiResponse<{ count: number }>>('/notifications/unread-count');
+		return result.data.count;
+	}
+
+	async markNotificationRead(notificationId: string): Promise<void> {
+		await this.request(`/notifications/${notificationId}/read`, { method: 'POST' });
+	}
+
+	async markAllNotificationsRead(): Promise<void> {
+		await this.request('/notifications/read-all', { method: 'POST' });
+	}
+
+	async deleteNotification(notificationId: string): Promise<void> {
+		await this.request(`/notifications/${notificationId}`, { method: 'DELETE' });
+	}
+
+	// Custom emoji endpoints
+
+	async getAccessibleEmojis(): Promise<CustomEmojiWithCommunity[]> {
+		const result = await this.request<ApiResponse<CustomEmojiWithCommunity[]>>('/emojis');
+		return result.data;
+	}
+
+	async getCommunityEmojis(communityId: string): Promise<CustomEmoji[]> {
+		const result = await this.request<ApiResponse<CustomEmoji[]>>(
+			`/emojis/communities/${communityId}`
+		);
+		return result.data;
+	}
+
+	async createEmoji(communityId: string, name: string, image: File): Promise<CustomEmoji> {
+		const formData = new FormData();
+		formData.append('name', name);
+		formData.append('image', image);
+
+		const result = await this.request<ApiResponse<CustomEmoji>>(
+			`/emojis/communities/${communityId}`,
+			{
+				method: 'POST',
+				body: formData
+			}
+		);
+		return result.data;
+	}
+
+	async updateEmoji(emojiId: string, name: string): Promise<CustomEmoji> {
+		const result = await this.request<ApiResponse<CustomEmoji>>(`/emojis/${emojiId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ name })
+		});
+		return result.data;
+	}
+
+	async deleteEmoji(emojiId: string): Promise<void> {
+		await this.request(`/emojis/${emojiId}`, { method: 'DELETE' });
+	}
+
+	// Plugin endpoints
+
+	async listPlugins(source?: string): Promise<Plugin[]> {
+		const params = source ? `?source=${encodeURIComponent(source)}` : '';
+		const result = await this.request<ApiResponse<Plugin[]>>(`/plugins${params}`);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async searchPlugins(query: string): Promise<Plugin[]> {
+		const result = await this.request<ApiResponse<Plugin[]>>(
+			`/plugins/search?q=${encodeURIComponent(query)}`
+		);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async getPlugin(pluginId: string): Promise<Plugin> {
+		const result = await this.request<ApiResponse<Plugin>>(`/plugins/${pluginId}`);
+		return result.data;
+	}
+
+	// Per-community plugin management
+
+	async getCommunityPlugins(communityId: string): Promise<CommunityPlugin[]> {
+		const result = await this.request<ApiResponse<CommunityPlugin[]>>(
+			`/plugins/communities/${communityId}`
+		);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async getCommunityPlugin(communityId: string, pluginId: string): Promise<CommunityPlugin> {
+		const result = await this.request<ApiResponse<CommunityPlugin>>(
+			`/plugins/communities/${communityId}/${pluginId}`
+		);
+		return result.data;
+	}
+
+	async installPlugin(
+		communityId: string,
+		pluginId: string,
+		grantedPermissions: number
+	): Promise<CommunityPlugin> {
+		const result = await this.request<ApiResponse<CommunityPlugin>>(
+			`/plugins/communities/${communityId}/install`,
+			{
+				method: 'POST',
+				body: JSON.stringify({
+					pluginId,
+					grantedPermissions
+				})
+			}
+		);
+		return result.data;
+	}
+
+	async uninstallPlugin(communityId: string, pluginId: string): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async togglePlugin(communityId: string, pluginId: string, enabled: boolean): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}/toggle`, {
+			method: 'PATCH',
+			body: JSON.stringify({ enabled })
+		});
+	}
+
+	async updatePluginConfig(
+		communityId: string,
+		pluginId: string,
+		config: Record<string, unknown>
+	): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}/config`, {
+			method: 'PATCH',
+			body: JSON.stringify({ config })
+		});
+	}
+
+	async updatePluginPermissions(
+		communityId: string,
+		pluginId: string,
+		grantedPermissions: number
+	): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/${pluginId}/permissions`, {
+			method: 'PATCH',
+			body: JSON.stringify({ grantedPermissions })
+		});
+	}
+
+	// Plugin sources (apt-like repos)
+
+	async getPluginSources(communityId: string): Promise<PluginSource[]> {
+		const result = await this.request<ApiResponse<PluginSource[]>>(
+			`/plugins/communities/${communityId}/sources`
+		);
+		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	async addPluginSource(
+		communityId: string,
+		name: string,
+		url: string
+	): Promise<PluginSource> {
+		const result = await this.request<ApiResponse<PluginSource>>(
+			`/plugins/communities/${communityId}/sources`,
+			{
+				method: 'POST',
+				body: JSON.stringify({ name, url })
+			}
+		);
+		return result.data;
+	}
+
+	async removePluginSource(communityId: string, sourceId: string): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/sources/${sourceId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async syncPluginSource(communityId: string, sourceId: string): Promise<void> {
+		await this.request(`/plugins/communities/${communityId}/sources/${sourceId}/sync`, {
+			method: 'POST'
+		});
+	}
+
+	// Plugin audit log
+
+	async getPluginAuditLog(communityId: string): Promise<PluginAuditEntry[]> {
+		const result = await this.request<ApiResponse<PluginAuditEntry[]>>(
+			`/plugins/communities/${communityId}/audit-log`
+		);
+		return Array.isArray(result.data) ? result.data : [];
 	}
 }
 

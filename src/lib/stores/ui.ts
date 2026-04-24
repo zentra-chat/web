@@ -1,5 +1,12 @@
 import { writable, derived } from 'svelte/store';
-import type { ModalState, ToastMessage, UserStatus, Message } from '$lib/types';
+import type {
+	ToastMessage,
+	UserStatus,
+	Message,
+	User,
+	UserSettings,
+	InstanceSelectorMode
+} from '$lib/types';
 
 // Sidebar states
 export const isCommunitySidebarCollapsed = writable(false);
@@ -9,22 +16,30 @@ export const isMobileMenuOpen = writable(false);
 // Modal states
 export const instanceModalOpen = writable(false);
 export const createCommunityModalOpen = writable(false);
-export const discoverCommunitiesModalOpen = writable(false);
 export const createChannelModalOpen = writable(false);
-export const settingsModalOpen = writable(false);
-export const communitySettingsModalOpen = writable(false);
+export const profileCardOpen = writable(false);
+export const profileCardUser = writable<User | null>(null);
+export const profileCardPosition = writable({ x: 0, y: 0 });
 export const filePreviewOpen = writable(false);
-export const filePreviewData = writable<any | null>(null);
+export const filePreviewData = writable<unknown | null>(null);
 
-// Modal state (legacy)
-export const modalState = writable<ModalState>({
-	isOpen: false,
-	type: null,
-	data: undefined
-});
+export const createChannelModalData = writable<{ categoryId: string | null }>({ categoryId: null });
 
 // Toast notifications
 export const toasts = writable<ToastMessage[]>([]);
+
+// Notification previews (Discord-style message preview cards)
+export interface NotificationPreview {
+	id: string;
+	actorAvatarUrl: string | null;
+	actorName: string;
+	title: string;
+	body: string | null;
+	duration: number;
+	onClick?: () => void;
+}
+
+export const notificationPreviews = writable<NotificationPreview[]>([]);
 
 // Quick switcher (Ctrl+K)
 export const isQuickSwitcherOpen = writable(false);
@@ -44,36 +59,137 @@ export const onlineUsers = writable<Record<string, string[]>>({});
 // User presence cache
 export const userPresence = writable<Record<string, { status: UserStatus; customStatus?: string }>>({});
 
-// Theme
-export const theme = writable<'dark' | 'light'>('dark');
+// Instance selector visibility
+export const instanceSelectorMode = writable<InstanceSelectorMode>('disabled');
 
-// Compact mode
-export const compactMode = writable(false);
+// User settings cache
+export const userSettings = writable<UserSettings | null>(null);
 
-// Sound enabled
-export const soundEnabled = writable(true);
+// Developer-mode channel view overrides
+// channelId -> true means force render with text channel view
+export const devTextChannelOverrides = writable<Record<string, boolean>>({});
+
+export function setDevTextChannelOverride(channelId: string, enabled: boolean): void {
+	devTextChannelOverrides.update((current) => {
+		if (!enabled && !current[channelId]) {
+			return current;
+		}
+
+		if (!enabled) {
+			const { [channelId]: _removed, ...rest } = current;
+			return rest;
+		}
+
+		return {
+			...current,
+			[channelId]: true
+		};
+	});
+}
+
+export function toggleDevTextChannelOverride(channelId: string): void {
+	devTextChannelOverrides.update((current) => {
+		if (current[channelId]) {
+			const { [channelId]: _removed, ...rest } = current;
+			return rest;
+		}
+
+		return {
+			...current,
+			[channelId]: true
+		};
+	});
+}
+
+function normalizeInstanceSelectorMode(value: unknown): InstanceSelectorMode {
+	if (value === 'auto' || value === 'show' || value === 'disabled') {
+		return value;
+	}
+	return 'disabled';
+}
+
+export function applyUserSettings(settings: UserSettings): void {
+	userSettings.set(settings);
+	instanceSelectorMode.set(normalizeInstanceSelectorMode(settings.settings?.instanceSelectorMode));
+}
 
 // Modal functions
 export function openModal(type: string, data?: unknown): void {
-	modalState.set({ isOpen: true, type, data });
-
 	// Map to specific stores for consistency
 	if (type === 'createCommunity') createCommunityModalOpen.set(true);
-	if (type === 'discoverCommunities') discoverCommunitiesModalOpen.set(true);
-	if (type === 'createChannel') createChannelModalOpen.set(true);
-	if (type === 'settings' || type === 'profile') settingsModalOpen.set(true);
-	if (type === 'communitySettings') communitySettingsModalOpen.set(true);
+	if (type === 'createChannel') {
+		const maybeCategoryId =
+			data && typeof data === 'object' && 'categoryId' in data
+				? (data as { categoryId?: unknown }).categoryId
+				: null;
+		createChannelModalData.set({
+			categoryId: typeof maybeCategoryId === 'string' ? maybeCategoryId : null
+		});
+		createChannelModalOpen.set(true);
+	}
 	if (type === 'instance') instanceModalOpen.set(true);
 }
 
 export function closeModal(): void {
-	modalState.set({ isOpen: false, type: null, data: undefined });
 	createCommunityModalOpen.set(false);
-	discoverCommunitiesModalOpen.set(false);
 	createChannelModalOpen.set(false);
-	settingsModalOpen.set(false);
-	communitySettingsModalOpen.set(false);
 	instanceModalOpen.set(false);
+}
+
+export function openProfileCard(user: User, event?: MouseEvent): void {
+	profileCardUser.set(user);
+	if (event) {
+		// Calculate position, ensuring it's not off-screen
+		let x = event.clientX;
+		let y = event.clientY;
+
+		// Basic adjustment to keep within viewport
+		// These values need to be changed later
+		const cardWidth = 300;
+		const cardHeight = 400;
+
+		if (x + cardWidth > window.innerWidth) x = window.innerWidth - cardWidth - 20;
+		if (y + cardHeight > window.innerHeight) y = window.innerHeight - cardHeight - 20;
+
+		profileCardPosition.set({ x, y });
+	}
+	profileCardOpen.set(true);
+}
+
+export function closeProfileCard(): void {
+	profileCardOpen.set(false);
+	profileCardUser.set(null);
+}
+
+// User context menu state (right-click)
+export const contextMenuOpen = writable(false);
+export const contextMenuUser = writable<User | null>(null);
+export const contextMenuPosition = writable({ x: 0, y: 0 });
+
+export function openContextMenu(user: User, event: MouseEvent): void {
+	event.preventDefault();
+	contextMenuUser.set(user);
+	contextMenuPosition.set({ x: event.clientX, y: event.clientY });
+	contextMenuOpen.set(true);
+}
+
+export function closeContextMenu(): void {
+	contextMenuOpen.set(false);
+	contextMenuUser.set(null);
+}
+
+// Ban modal state (shared across the app)
+export const banModalOpen = writable(false);
+export const banModalTargetId = writable<string | null>(null);
+
+export function openBanModal(userId: string): void {
+	banModalTargetId.set(userId);
+	banModalOpen.set(true);
+}
+
+export function closeBanModal(): void {
+	banModalOpen.set(false);
+	banModalTargetId.set(null);
 }
 
 // Toast functions
@@ -106,6 +222,23 @@ export function addToast(options: {
 
 export function dismissToast(id: string): void {
 	toasts.update((list) => list.filter((t) => t.id !== id));
+}
+
+let notifPreviewIdCounter = 0;
+
+export function showNotificationPreview(
+	preview: Omit<NotificationPreview, 'id'>
+): string {
+	const id = `notif_${++notifPreviewIdCounter}`;
+	notificationPreviews.update((list) => [...list, { ...preview, id }]);
+	if (preview.duration > 0) {
+		setTimeout(() => dismissNotificationPreview(id), preview.duration);
+	}
+	return id;
+}
+
+export function dismissNotificationPreview(id: string): void {
+	notificationPreviews.update((list) => list.filter((n) => n.id !== id));
 }
 
 // Typing indicator functions
@@ -148,6 +281,11 @@ export function setUserPresence(userId: string, status: UserStatus, customStatus
 		...current,
 		[userId]: { status, customStatus }
 	}));
+
+	// Also update in community members list
+	import('./community').then((m) => {
+		m.updateMemberUser(userId, { status, customStatus });
+	});
 }
 
 export function setOnlineUsers(communityId: string, userIds: string[]): void {
@@ -223,14 +361,6 @@ export function closeCreateCommunityModal(): void {
 	createCommunityModalOpen.set(false);
 }
 
-export function openDiscoverCommunitiesModal(): void {
-	discoverCommunitiesModalOpen.set(true);
-}
-
-export function closeDiscoverCommunitiesModal(): void {
-	discoverCommunitiesModalOpen.set(false);
-}
-
 export function openCreateChannelModal(): void {
 	createChannelModalOpen.set(true);
 }
@@ -239,18 +369,3 @@ export function closeCreateChannelModal(): void {
 	createChannelModalOpen.set(false);
 }
 
-export function openSettingsModal(): void {
-	settingsModalOpen.set(true);
-}
-
-export function closeSettingsModal(): void {
-	settingsModalOpen.set(false);
-}
-
-export function openCommunitySettingsModal(): void {
-	communitySettingsModalOpen.set(true);
-}
-
-export function closeCommunitySettingsModal(): void {
-	communitySettingsModalOpen.set(false);
-}

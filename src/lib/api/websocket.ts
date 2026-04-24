@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { activeInstance, activeAuth } from '$lib/stores/instance';
+import { activeInstance, activeAuth, updateCurrentUser, currentUserId } from '$lib/stores/instance';
 import {
 	addMessage,
 	updateMessage,
@@ -8,10 +8,27 @@ import {
 	updateChannel,
 	removeChannel,
 	updateCommunity,
+	updateMemberUser,
 	addMessageReaction,
 	removeMessageReaction
 } from '$lib/stores/community';
-import { setTyping, setUserPresence, showToast } from '$lib/stores/ui';
+import {
+	addDmMessage,
+	updateDmMessage,
+	removeDmMessage,
+	updateDmConversationFromMessage,
+	upsertDmConversation,
+	clearDmUnread,
+	activeDmConversationId,
+	dmConversationsCache,
+	updateDmUser,
+	addDmMessageReaction,
+	removeDmMessageReaction
+} from '$lib/stores/dm';
+import { loadFriendsData } from '$lib/stores/friends';
+import { setTyping, setUserPresence, showToast, showNotificationPreview } from '$lib/stores/ui';
+import { prependNotification, markNotificationReadLocal, markAllNotificationsReadLocal } from '$lib/stores/notification';
+import { sendNativeNotification } from '$lib/utils/nativeNotification';
 import type {
 	WebSocketEvent,
 	ReadyEvent,
@@ -19,8 +36,13 @@ import type {
 	Channel,
 	Community,
 	TypingEvent,
-	PresenceEvent
+	PresenceEvent,
+	User,
+	Notification,
+	FriendStateEvent
 } from '$lib/types';
+import { mapDmMessage, type RawDmMessage } from '$lib/utils/dm';
+import { api } from './client';
 
 type EventHandler = (data: unknown) => void;
 
@@ -30,10 +52,31 @@ class WebSocketManager {
 	private maxReconnectAttempts = 10;
 	private reconnectDelay = 1000;
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+	private idleTimeout: ReturnType<typeof setTimeout> | null = null;
 	private eventHandlers: Map<string, EventHandler[]> = new Map();
 	private messageQueue: string[] = [];
 	private isConnecting = false;
 	private activeSubscriptions: Set<string> = new Set();
+	private subscriptionRefCounts: Map<string, number> = new Map();
+	private isPresenceTracking = false;
+	private currentPresenceStatus: 'online' | 'away' | 'offline' | null = null;
+	private lastActivityAt = 0;
+	private readonly idleThresholdMs = 2 * 60 * 1000;
+	private readonly activityHandler = () => {
+		this.handleUserActivity();
+	};
+	private readonly visibilityHandler = () => {
+		this.handleVisibilityChange();
+	};
+	private readonly windowBlurHandler = () => {
+		this.setAutoPresence('away');
+	};
+
+	private withCacheBuster(url: string | null | undefined): string | null | undefined {
+		if (!url) return url;
+		const separator = url.includes('?') ? '&' : '?';
+		return `${url}${separator}v=${Date.now()}`;
+	}
 
 	connect(): void {
 		const instance = get(activeInstance);
@@ -72,6 +115,7 @@ class WebSocketManager {
 			this.isConnecting = false;
 			this.reconnectAttempts = 0;
 			this.startHeartbeat();
+			this.startPresenceTracking();
 			this.flushMessageQueue();
 
 			// Resubscribe to active channels
@@ -81,11 +125,18 @@ class WebSocketManager {
 		};
 
 		this.ws.onmessage = (event) => {
-			try {
-				const message: WebSocketEvent = JSON.parse(event.data);
-				this.handleEvent(message);
-			} catch (error) {
-				console.error('Failed to parse WebSocket message:', error);
+			// Server may batch multiple JSON messages in one frame separated by newlines
+			// Split them and parse individually
+			// This allows us to handle multiple events in a single WebSocket message efficiently
+			const parts = (event.data as string).split('\n');
+			for (const part of parts) {
+				if (!part) continue;
+				try {
+					const message: WebSocketEvent = JSON.parse(part);
+					this.handleEvent(message);
+				} catch (error) {
+					console.error('Failed to parse WebSocket message:', error);
+				}
 			}
 		};
 
@@ -97,6 +148,7 @@ class WebSocketManager {
 			console.log('WebSocket closed:', event.code, event.reason);
 			this.isConnecting = false;
 			this.stopHeartbeat();
+			this.stopPresenceTracking();
 
 			// Don't reconnect on intentional close
 			if (event.code !== 1000) {
@@ -124,6 +176,25 @@ class WebSocketManager {
 			case 'MESSAGE_DELETE':
 				this.handleMessageDelete(event.data as { channelId: string; messageId: string });
 				break;
+			case 'DM_MESSAGE_CREATE':
+				void this.handleDmMessageCreate(event.data as RawDmMessage);
+				break;
+			case 'DM_MESSAGE_UPDATE':
+				this.handleDmMessageUpdate(event.data as RawDmMessage);
+				break;
+			case 'DM_MESSAGE_DELETE':
+				this.handleDmMessageDelete(event.data as { conversationId: string; messageId: string });
+				break;
+			case 'DM_REACTION_ADD':
+				this.handleDmReactionAdd(
+					event.data as { conversationId: string; messageId: string; userId: string; emoji: string }
+				);
+				break;
+			case 'DM_REACTION_REMOVE':
+				this.handleDmReactionRemove(
+					event.data as { conversationId: string; messageId: string; userId: string; emoji: string }
+				);
+				break;
 			case 'TYPING_START':
 				this.handleTypingStart(event.data as TypingEvent);
 				break;
@@ -142,6 +213,9 @@ class WebSocketManager {
 			case 'COMMUNITY_UPDATE':
 				this.handleCommunityUpdate(event.data as Community);
 				break;
+			case 'USER_UPDATE':
+				this.handleUserUpdate(event.data as User);
+				break;
 			case 'REACTION_ADD':
 				this.handleReactionAdd(
 					event.data as { channelId: string; messageId: string; userId: string; emoji: string }
@@ -151,6 +225,15 @@ class WebSocketManager {
 				this.handleReactionRemove(
 					event.data as { channelId: string; messageId: string; userId: string; emoji: string }
 				);
+				break;
+			case 'NOTIFICATION':
+				this.handleNotification(event.data as Notification);
+				break;
+			case 'NOTIFICATION_READ':
+				this.handleNotificationRead(event.data as { notificationId?: string; all?: boolean });
+				break;
+			case 'FRIEND_STATE_UPDATE':
+				void this.handleFriendStateUpdate(event.data as FriendStateEvent);
 				break;
 		}
 	}
@@ -169,6 +252,48 @@ class WebSocketManager {
 
 	private handleMessageDelete(data: { channelId: string; messageId: string }): void {
 		removeMessage(data.channelId, data.messageId);
+	}
+
+	private async handleDmMessageCreate(message: RawDmMessage): Promise<void> {
+		const mapped = mapDmMessage(message);
+
+		const instance = get(activeInstance);
+		if (instance) {
+			const conversations = get(dmConversationsCache)[instance.id] || [];
+			const hasConversation = conversations.some((conversation) => conversation.id === mapped.channelId);
+			if (!hasConversation) {
+				try {
+					const conversation = await api.getDmConversation(mapped.channelId);
+					upsertDmConversation(conversation);
+				} catch (error) {
+					console.warn('Failed to load DM conversation for incoming message:', error);
+				}
+			}
+		}
+
+		addDmMessage(mapped.channelId, mapped);
+		updateDmConversationFromMessage(mapped.channelId, mapped);
+		if (get(activeDmConversationId) === mapped.channelId) {
+			clearDmUnread(mapped.channelId);
+		}
+	}
+
+	private handleDmMessageUpdate(message: RawDmMessage): void {
+		const mapped = mapDmMessage(message);
+		updateDmMessage(mapped.channelId, mapped.id, mapped);
+		updateDmConversationFromMessage(mapped.channelId, mapped);
+	}
+
+	private handleDmMessageDelete(data: { conversationId: string; messageId: string }): void {
+		removeDmMessage(data.conversationId, data.messageId);
+	}
+
+	private handleDmReactionAdd(data: { conversationId: string; messageId: string; userId: string; emoji: string }): void {
+		addDmMessageReaction(data.conversationId, data.messageId, data.userId, data.emoji);
+	}
+
+	private handleDmReactionRemove(data: { conversationId: string; messageId: string; userId: string; emoji: string }): void {
+		removeDmMessageReaction(data.conversationId, data.messageId, data.userId, data.emoji);
 	}
 
 	private handleTypingStart(data: TypingEvent): void {
@@ -192,7 +317,26 @@ class WebSocketManager {
 	}
 
 	private handleCommunityUpdate(community: Community): void {
-		updateCommunity(community.id, community);
+		updateCommunity(community.id, {
+			...community,
+			iconUrl: this.withCacheBuster(community.iconUrl)
+		});
+	}
+
+	private handleUserUpdate(user: User): void {
+		const nextUser: User = {
+			...user,
+			avatarUrl: this.withCacheBuster(user.avatarUrl) ?? null
+		};
+
+		// Update current user if it's us
+		if (nextUser.id === get(currentUserId)) {
+			updateCurrentUser(nextUser);
+		}
+		// Update user in all member lists and messages
+		updateMemberUser(nextUser.id, nextUser);
+		// Update user in DM conversations and messages
+		updateDmUser(nextUser.id, nextUser);
 	}
 
 	private handleReactionAdd(data: {
@@ -213,6 +357,42 @@ class WebSocketManager {
 		removeMessageReaction(data.channelId, data.messageId, data.userId, data.emoji);
 	}
 
+	private handleNotification(notification: Notification): void {
+		prependNotification(notification);
+		showNotificationPreview({
+			actorAvatarUrl: notification.actor?.avatarUrl ?? null,
+			actorName: notification.actor?.displayName ?? notification.actor?.username ?? 'Zentra',
+			title: notification.title,
+			body: notification.body ?? null,
+			duration: 5000
+		});
+		sendNativeNotification(notification.title, { body: notification.body ?? undefined });
+	}
+
+	private handleNotificationRead(data: { notificationId?: string; all?: boolean }): void {
+		if (data.all) {
+			markAllNotificationsReadLocal();
+		} else if (data.notificationId) {
+			markNotificationReadLocal(data.notificationId);
+		}
+	}
+
+	private async handleFriendStateUpdate(data: FriendStateEvent): Promise<void> {
+		const me = get(currentUserId);
+		if (!me) return;
+
+		const affected = Array.isArray(data?.affectedUserIds) ? data.affectedUserIds : [];
+		if (affected.length > 0 && !affected.includes(me)) {
+			return;
+		}
+
+		try {
+			await loadFriendsData({ force: true });
+		} catch (error) {
+			console.warn('Failed to refresh friend state after websocket update:', error);
+		}
+	}
+
 	private startHeartbeat(): void {
 		this.heartbeatInterval = setInterval(() => {
 			this.send({ type: 'HEARTBEAT', data: {} });
@@ -224,6 +404,108 @@ class WebSocketManager {
 			clearInterval(this.heartbeatInterval);
 			this.heartbeatInterval = null;
 		}
+	}
+
+	private startPresenceTracking(): void {
+		if (typeof window === 'undefined' || typeof document === 'undefined' || this.isPresenceTracking) {
+			return;
+		}
+
+		this.isPresenceTracking = true;
+		this.lastActivityAt = Date.now();
+
+		window.addEventListener('mousemove', this.activityHandler, { passive: true });
+		window.addEventListener('mousedown', this.activityHandler, { passive: true });
+		window.addEventListener('keydown', this.activityHandler);
+		window.addEventListener('touchstart', this.activityHandler, { passive: true });
+		window.addEventListener('scroll', this.activityHandler, { passive: true });
+		window.addEventListener('focus', this.activityHandler);
+		window.addEventListener('blur', this.windowBlurHandler);
+		document.addEventListener('visibilitychange', this.visibilityHandler);
+
+		this.handleVisibilityChange();
+	}
+
+	private stopPresenceTracking(): void {
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('mousemove', this.activityHandler);
+			window.removeEventListener('mousedown', this.activityHandler);
+			window.removeEventListener('keydown', this.activityHandler);
+			window.removeEventListener('touchstart', this.activityHandler);
+			window.removeEventListener('scroll', this.activityHandler);
+			window.removeEventListener('focus', this.activityHandler);
+			window.removeEventListener('blur', this.windowBlurHandler);
+		}
+
+		if (typeof document !== 'undefined') {
+			document.removeEventListener('visibilitychange', this.visibilityHandler);
+		}
+
+		if (this.idleTimeout) {
+			clearTimeout(this.idleTimeout);
+			this.idleTimeout = null;
+		}
+
+		this.isPresenceTracking = false;
+		this.currentPresenceStatus = null;
+		this.lastActivityAt = 0;
+	}
+
+	private handleUserActivity(): void {
+		this.lastActivityAt = Date.now();
+
+		if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+			this.setAutoPresence('online');
+		}
+
+		this.scheduleIdleTransition();
+	}
+
+	private handleVisibilityChange(): void {
+		if (typeof document === 'undefined') return;
+
+		if (document.visibilityState === 'visible') {
+			this.handleUserActivity();
+			return;
+		}
+
+		this.setAutoPresence('away');
+		if (this.idleTimeout) {
+			clearTimeout(this.idleTimeout);
+			this.idleTimeout = null;
+		}
+	}
+
+	private scheduleIdleTransition(): void {
+		if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+			return;
+		}
+
+		if (this.idleTimeout) {
+			clearTimeout(this.idleTimeout);
+		}
+
+		const elapsed = Date.now() - this.lastActivityAt;
+		const delay = Math.max(this.idleThresholdMs - elapsed, 1000);
+
+		this.idleTimeout = setTimeout(() => {
+			const now = Date.now();
+			if (now - this.lastActivityAt >= this.idleThresholdMs) {
+				this.setAutoPresence('away');
+				return;
+			}
+
+			this.scheduleIdleTransition();
+		}, delay);
+	}
+
+	private setAutoPresence(status: 'online' | 'away' | 'offline'): void {
+		if (this.currentPresenceStatus === status) {
+			return;
+		}
+
+		this.currentPresenceStatus = status;
+		this.updatePresence(status);
 	}
 
 	private scheduleReconnect(): void {
@@ -266,13 +548,28 @@ class WebSocketManager {
 	}
 
 	subscribe(channelId: string): void {
-		this.activeSubscriptions.add(channelId);
-		this.send({ type: 'SUBSCRIBE', data: { channelId } });
+		const currentCount = this.subscriptionRefCounts.get(channelId) || 0;
+		const nextCount = currentCount + 1;
+		this.subscriptionRefCounts.set(channelId, nextCount);
+
+		if (currentCount === 0) {
+			this.activeSubscriptions.add(channelId);
+			this.send({ type: 'SUBSCRIBE', data: { channelId } });
+		}
 	}
 
 	unsubscribe(channelId: string): void {
-		this.activeSubscriptions.delete(channelId);
-		this.send({ type: 'UNSUBSCRIBE', data: { channelId } });
+		const currentCount = this.subscriptionRefCounts.get(channelId) || 0;
+		if (currentCount <= 1) {
+			this.subscriptionRefCounts.delete(channelId);
+			if (this.activeSubscriptions.has(channelId)) {
+				this.activeSubscriptions.delete(channelId);
+				this.send({ type: 'UNSUBSCRIBE', data: { channelId } });
+			}
+			return;
+		}
+
+		this.subscriptionRefCounts.set(channelId, currentCount - 1);
 	}
 
 	sendTyping(channelId: string): void {
@@ -280,7 +577,11 @@ class WebSocketManager {
 	}
 
 	updatePresence(status: string): void {
-		this.send({ type: 'PRESENCE_UPDATE', data: { status } });
+		if (this.ws?.readyState !== WebSocket.OPEN) {
+			return;
+		}
+
+		this.ws.send(JSON.stringify({ type: 'PRESENCE_UPDATE', data: { status } }));
 	}
 
 	on(event: string, handler: EventHandler): () => void {
@@ -300,11 +601,18 @@ class WebSocketManager {
 
 	disconnect(): void {
 		this.stopHeartbeat();
+		this.stopPresenceTracking();
 		if (this.ws) {
+			if (this.ws.readyState === WebSocket.OPEN) {
+				this.updatePresence('offline');
+			}
+
 			this.ws.close(1000, 'User disconnected');
 			this.ws = null;
 		}
 		this.messageQueue = [];
+		this.subscriptionRefCounts.clear();
+		this.activeSubscriptions.clear();
 	}
 
 	isConnected(): boolean {

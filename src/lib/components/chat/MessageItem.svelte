@@ -1,27 +1,129 @@
 <script lang="ts">
-	import { formatDistanceToNow, format, isToday, isYesterday, isSameDay } from 'date-fns';
-	import { Avatar, Spinner } from '$lib/components/ui';
-	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from '$lib/components/icons';
-	import type { Message, User } from '$lib/types';
+	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
+	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
+	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from 'lucide-svelte';
+	import type { Attachment, Message } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
-	import { editingMessageId, replyingToMessage, setEditingMessage, setReplyingTo, filePreviewOpen, filePreviewData } from '$lib/stores/ui';
+	import {
+		activeCommunityMembers,
+		activeChannelId,
+		getMemberNameColor,
+		memberHasPermission,
+		Permission,
+		updateMessage
+	} from '$lib/stores/community';
+	import { activeDmConversation } from '$lib/stores/dm';
+	import {
+		setEditingMessage,
+		setReplyingTo,
+		filePreviewOpen,
+		filePreviewData,
+		openProfileCard,
+		openContextMenu,
+		addToast
+	} from '$lib/stores/ui';
 	import { api } from '$lib/api';
 	import EmojiPicker from './EmojiPicker.svelte';
+	import { renderMarkdown, type MentionResolver, type EmojiResolver } from '$lib/utils/markdown';
+	import { customEmojiById } from '$lib/stores/emoji';
 
 	interface Props {
 		message: Message;
 		previousMessage?: Message;
 		onDelete?: (messageId: string) => void;
+		onDeleteRequest?: (messageId: string) => Promise<void>;
+		onReactionToggle?: (messageId: string, emoji: string, reacted: boolean) => Promise<void>;
+		onJumpToMessage?: (messageId: string) => Promise<void> | void;
+		enableReactions?: boolean;
+		enableReply?: boolean;
+		isDm?: boolean;
 	}
 
-	let { message, previousMessage, onDelete }: Props = $props();
+	let {
+		message,
+		previousMessage,
+		onDelete,
+		onDeleteRequest,
+		onReactionToggle,
+		onJumpToMessage,
+		enableReactions = true,
+		enableReply = true,
+		isDm = false
+	}: Props = $props();
 
 	let isHovered = $state(false);
 	let isDeleting = $state(false);
-	let showEmojiPicker = $state(false);
+	let isPinning = $state(false);
+	let showActionBarPicker = $state(false);
+	let showReactionsPicker = $state(false);
+	let showDeleteConfirm = $state(false);
 
 	let isOwnMessage = $derived(message.authorId === $currentUserId);
-	let isEditing = $derived($editingMessageId === message.id);
+	let hasContent = $derived(!!message.content && message.content.trim().length > 0);
+	let myMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
+	let canModerateMessages = $derived(!isDm && memberHasPermission(myMember, Permission.ManageMessages));
+	let canPinMessages = $derived(!isDm && memberHasPermission(myMember, Permission.PinMessages));
+	let canDeleteMessage = $derived(isOwnMessage || canModerateMessages);
+	let authorMember = $derived.by(() => $activeCommunityMembers.find((m) => m.userId === message.authorId) || null);
+	let authorColor = $derived(getMemberNameColor(authorMember));
+	let replyColor = $derived.by(() => {
+		if (!message.replyTo?.authorId) return null;
+		const replyMember = $activeCommunityMembers.find((m) => m.userId === message.replyTo?.authorId) || null;
+		return getMemberNameColor(replyMember);
+	});
+	let replyTargetId = $derived(message.replyTo?.id || message.replyToId || null);
+
+	// Mention resolver for markdown rendering
+	let mentionResolver = $derived.by((): MentionResolver => {
+		if (isDm) {
+			const participants = $activeDmConversation?.participants ?? [];
+			return {
+				getUserName: (id) => {
+					const user = participants.find((participant) => participant.id === id);
+					return user ? (user.displayName ?? user.username) : null;
+				},
+				getRoleName: () => null
+			};
+		}
+
+		const members = $activeCommunityMembers;
+		// Collect all unique roles from members
+		const rolesById = new Map<string, string>();
+		for (const m of members) {
+			for (const r of m.roles ?? []) {
+				rolesById.set(r.id, r.name);
+			}
+		}
+		return {
+			getUserName: (id) => {
+				const m = members.find((x) => x.userId === id);
+				return m ? (m.nickname ?? m.user?.displayName ?? m.user?.username ?? null) : null;
+			},
+			getRoleName: (id) => rolesById.get(id) ?? null
+		};
+	});
+
+	// Custom emoji resolver for rendering <:name:id> tokens in messages
+	let emojiResolver = $derived.by((): EmojiResolver => {
+		const lookup = $customEmojiById;
+		// Build a name-based lookup for :shortcode: resolution too
+		const byName = new Map<string, typeof lookup extends Map<string, infer V> ? V : never>();
+		for (const [, emoji] of lookup) {
+			byName.set(emoji.name.toLowerCase(), emoji);
+		}
+		return {
+			getCustomEmoji: (id) => {
+				const emoji = lookup.get(id);
+				if (!emoji) return null;
+				return { name: emoji.name, imageUrl: emoji.imageUrl };
+			},
+			getCustomEmojiByName: (name) => {
+				const emoji = byName.get(name.toLowerCase());
+				if (!emoji) return null;
+				return { name: emoji.name, imageUrl: emoji.imageUrl };
+			}
+		};
+	});
 
 	// Check if we should show the header (avatar + name)
 	let showHeader = $derived.by(() => {
@@ -56,12 +158,14 @@
 		return format(date, 'MMMM d, yyyy');
 	}
 
-	async function handleDelete() {
-		if (!confirm('Are you sure you want to delete this message?')) return;
-
+	async function performDelete() {
 		isDeleting = true;
 		try {
-			await api.deleteMessage(message.id);
+			if (onDeleteRequest) {
+				await onDeleteRequest(message.id);
+			} else {
+				await api.deleteMessage(message.id);
+			}
 			onDelete?.(message.id);
 		} catch (err) {
 			console.error('Failed to delete message:', err);
@@ -70,25 +174,81 @@
 		}
 	}
 
+	function requestDelete(event?: MouseEvent) {
+		if (isDeleting) return;
+		if (event?.shiftKey) {
+			showDeleteConfirm = false;
+			void performDelete();
+			return;
+		}
+		showDeleteConfirm = true;
+	}
+
 	function handleEdit() {
 		setEditingMessage(message.id);
 	}
 
 	function handleReply() {
+		if (!enableReply) return;
 		setReplyingTo(message);
 	}
 
-	async function handleReactionSelect(emoji: string) {
-		showEmojiPicker = false;
+	async function handleReplyJump() {
+		if (!replyTargetId || !onJumpToMessage) return;
+		await onJumpToMessage(replyTargetId);
+	}
+
+	function getReplyPreview(messageRef: Message): string {
+		const content = messageRef.content?.trim();
+		if (content) return content;
+		if (messageRef.attachments?.length) return '[Attachment message]';
+		if (messageRef.linkPreviews?.length) return '[Link preview]';
+		return '[Message unavailable]';
+	}
+
+	async function handlePinToggle() {
+		if (isDm || !canPinMessages || isPinning) return;
+
+		isPinning = true;
+		const nextPinnedState = !message.isPinned;
+
 		try {
-			await api.addReaction(message.id, emoji);
+			if (nextPinnedState) {
+				await api.pinMessage(message.id);
+			} else {
+				await api.unpinMessage(message.id);
+			}
+
+			if ($activeChannelId) {
+				updateMessage($activeChannelId, message.id, { isPinned: nextPinnedState });
+			}
 		} catch (err) {
-			console.error('Failed to add reaction:', err);
+			console.error('Failed to toggle pin state:', err);
+			addToast({
+				type: 'error',
+				message: nextPinnedState ? 'Failed to pin message' : 'Failed to unpin message'
+			});
+		} finally {
+			isPinning = false;
 		}
 	}
 
+	async function handleReactionSelect(emoji: string, options?: { keepOpen?: boolean }) {
+		if (!options?.keepOpen) {
+			showActionBarPicker = false;
+			showReactionsPicker = false;
+		}
+		const existingReaction = message.reactions?.find((r) => r.emoji === emoji);
+		await handleToggleReaction(emoji, !!existingReaction?.reacted);
+	}
+
 	async function handleToggleReaction(emoji: string, reacted: boolean) {
+		if (!enableReactions) return;
 		try {
+			if (onReactionToggle) {
+				await onReactionToggle(message.id, emoji, reacted);
+				return;
+			}
 			if (reacted) {
 				await api.removeReaction(message.id, emoji);
 			} else {
@@ -99,9 +259,9 @@
 		}
 	}
 
-	function handleFileClick(event: MouseEvent, attachment: any) {
+	function handleFileClick(event: MouseEvent, attachment: Attachment) {
 		const previewableTypes = ['text/', 'application/json', 'application/javascript', 'application/x-typescript'];
-		const contentType = attachment.contentType || attachment.mimeType || '';
+		const contentType = attachment.contentType || '';
 		const isPreviewable = previewableTypes.some(type => contentType.startsWith(type));
 
 		if (isPreviewable) {
@@ -111,20 +271,34 @@
 		}
 	}
 
-	function getFileIcon(mimeType: string) {
-		if (mimeType.startsWith('image/')) return Image;
-		return File;
-	}
-
 	function formatFileSize(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
+
+	function isVideoAttachment(attachment: Attachment): boolean {
+		const contentType = attachment.contentType?.toLowerCase() ?? '';
+		return contentType.startsWith('video/');
+	}
+
+	function isAudioAttachment(attachment: Attachment): boolean {
+		const contentType = attachment.contentType?.toLowerCase() ?? '';
+		return contentType.startsWith('audio/');
+	}
+
+	function getPreviewSite(url: string, siteName?: string | null): string {
+		if (siteName && siteName.trim().length > 0) return siteName;
+		try {
+			return new URL(url).hostname;
+		} catch {
+			return url;
+		}
+	}
 </script>
 
 {#if showDateDivider}
-	<div class="flex items-center gap-4 py-2 px-4">
+	<div class="flex items-center gap-4 py-2 px-4 select-none">
 		<div class="flex-1 h-px bg-border"></div>
 		<span class="text-xs font-medium text-text-muted">
 			{formatDateDivider(new Date(message.createdAt))}
@@ -134,6 +308,7 @@
 {/if}
 
 <div
+	id="message-container-{message.id}"
 	class="group relative px-4 py-0.5 hover:bg-surface/50 transition-colors {showHeader ? 'mt-4' : ''}"
 	onmouseenter={() => (isHovered = true)}
 	onmouseleave={() => (isHovered = false)}
@@ -141,21 +316,39 @@
 >
 	<!-- Reply reference -->
 	{#if message.replyTo}
-		<div class="flex items-center gap-2 ml-12 mb-1 text-xs text-text-muted">
-			<Reply size={12} class="rotate-180" />
+		<button
+			type="button"
+			onclick={handleReplyJump}
+			disabled={!replyTargetId || !onJumpToMessage}
+			class="group/reply flex items-center gap-2 ml-12 mb-1 max-w-xl px-2 py-1 rounded-md border border-transparent text-xs text-text-muted transition-colors {!replyTargetId || !onJumpToMessage
+				? 'opacity-70 cursor-default'
+				: 'hover:bg-surface/70 hover:border-border cursor-pointer'}"
+			aria-label="Jump to replied message"
+			title={replyTargetId && onJumpToMessage ? 'Jump to replied message' : 'Original message is unavailable'}
+		>
+			<div class="h-4 w-0.5 rounded-full bg-border shrink-0"></div>
+			<Reply size={12} class="rotate-180 shrink-0" />
 			<Avatar user={message.replyTo.author} size="xs" />
-			<span class="font-medium">{message.replyTo.author?.displayName || message.replyTo.author?.username}</span>
-			<span class="truncate max-w-md">{message.replyTo.content}</span>
-		</div>
+			<span class="font-medium shrink-0" style={replyColor ? `color: ${replyColor}` : undefined}>
+				{message.replyTo.author?.displayName || message.replyTo.author?.username}
+			</span>
+			<span class="truncate min-w-0 text-left">{getReplyPreview(message.replyTo)}</span>
+		</button>
 	{/if}
 
-	<div class="flex gap-4">
+	<div class="flex items-start gap-4">
 		<!-- Avatar or timestamp -->
-		<div class="w-10 shrink-0">
+		<div class="w-10 shrink-0 flex justify-end {showHeader ? 'items-start pt-0.5' : 'self-stretch items-center'}">
 			{#if showHeader}
-				<Avatar user={message.author} size="md" />
+				<button 
+					class="block transition-transform active:scale-95" 
+					onclick={(e) => message.author && openProfileCard(message.author, e)}
+					oncontextmenu={(e) => message.author && openContextMenu(message.author, e)}
+				>
+					<Avatar user={message.author} size="md" />
+				</button>
 			{:else if isHovered}
-				<span class="text-[10px] text-text-muted">
+				<span class="text-[10px] leading-none whitespace-nowrap text-text-muted">
 					{format(new Date(message.createdAt), 'h:mm a')}
 				</span>
 			{/if}
@@ -165,9 +358,14 @@
 		<div class="flex-1 min-w-0">
 			{#if showHeader}
 				<div class="flex items-baseline gap-2 mb-1">
-					<span class="font-medium text-text-primary hover:underline cursor-pointer">
+					<button 
+						class="font-medium text-text-primary hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
+						style={authorColor ? `color: ${authorColor}` : undefined}
+						onclick={(e) => message.author && openProfileCard(message.author, e)}
+						oncontextmenu={(e) => message.author && openContextMenu(message.author, e)}
+					>
 						{message.author?.displayName || message.author?.username || 'Unknown'}
-					</span>
+					</button>
 					<span class="text-xs text-text-muted">
 						{formatTimestamp(new Date(message.createdAt))}
 					</span>
@@ -178,18 +376,62 @@
 			{/if}
 
 			<!-- Message content -->
-			<div class="text-text-secondary wrap-break-word whitespace-pre-wrap">
-				{message.content}
+			{#if hasContent}
+				<div class="message-content text-text-secondary">
+					{@html renderMarkdown(message.content || '', mentionResolver, emojiResolver)}
+				</div>
 				{#if message.isEdited}
-					<span class="text-xs text-text-muted ml-1">(edited)</span>
+					<div class="text-xs text-text-muted mt-1">(edited)</div>
 				{/if}
-			</div>
+			{/if}
+
+			<!-- Link previews -->
+			{#if message.linkPreviews && message.linkPreviews.length > 0}
+				<div class="mt-2 flex flex-col gap-2">
+					{#each message.linkPreviews as preview}
+						<a
+							href={preview.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="group/link-preview block max-w-xl rounded-lg border border-border bg-surface/60 hover:border-primary transition-colors"
+						>
+							<div class="flex gap-3 p-3">
+								{#if preview.imageUrl}
+									<img
+										src={preview.imageUrl}
+										alt={preview.title || getPreviewSite(preview.url, preview.siteName)}
+										class="h-24 w-auto rounded-md object-cover border border-border"
+									/>
+								{/if}
+								<div class="min-w-0">
+									<div class="flex items-center gap-2 text-xs text-text-muted">
+										{#if preview.faviconUrl}
+											<img src={preview.faviconUrl} alt="" class="h-4 w-4 rounded-sm" />
+										{/if}
+										<span class="truncate">{getPreviewSite(preview.url, preview.siteName)}</span>
+									</div>
+									{#if preview.title}
+										<div class="mt-1 text-sm font-semibold text-text-primary truncate">
+											{preview.title}
+										</div>
+									{/if}
+									{#if preview.description}
+										<p class="mt-1 text-xs text-text-muted">
+											{preview.description}
+										</p>
+									{/if}
+								</div>
+							</div>
+						</a>
+					{/each}
+				</div>
+			{/if}
 
 			<!-- Attachments -->
 			{#if message.attachments && message.attachments.length > 0}
-				<div class="mt-2 flex flex-wrap gap-2">
+				<div class="{hasContent ? 'mt-2' : ''} flex flex-wrap gap-2">
 					{#each message.attachments as attachment}
-						{#if (attachment.contentType || attachment.mimeType)?.startsWith('image/')}
+						{#if attachment.contentType?.startsWith('image/')}
 							<a
 								href={attachment.url}
 								target="_blank"
@@ -202,6 +444,36 @@
 									class="max-h-80 object-contain"
 								/>
 							</a>
+						{:else if isVideoAttachment(attachment)}
+							<div class="w-full max-w-xl rounded-lg overflow-hidden border border-border bg-surface/60">
+								<video
+									src={attachment.url}
+									controls
+									playsinline
+									preload="metadata"
+									class="w-full max-h-100 bg-background"
+								>
+									<track kind="captions" />
+									<a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+								</video>
+								<div class="px-3 py-2 border-t border-border">
+									<p class="text-sm text-text-primary truncate">{attachment.filename}</p>
+									<p class="text-xs text-text-muted">{formatFileSize(attachment.size)}</p>
+								</div>
+							</div>
+						{:else if isAudioAttachment(attachment)}
+							<div class="w-full max-w-xl p-3 bg-surface border border-border rounded-lg">
+								<p class="text-sm text-text-primary truncate mb-2">{attachment.filename}</p>
+								<audio
+									src={attachment.url}
+									controls
+									preload="metadata"
+									class="w-full"
+								>
+									<a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+								</audio>
+								<p class="text-xs text-text-muted mt-2">{formatFileSize(attachment.size)}</p>
+							</div>
 						{:else}
 							<a
 								href={attachment.url}
@@ -222,25 +494,37 @@
 			{/if}
 
 			<!-- Reactions -->
-			{#if message.reactions && message.reactions.length > 0}
+			{#if enableReactions && message.reactions && message.reactions.length > 0}
 				<div class="mt-2 flex flex-wrap gap-1">
 					{#each message.reactions as reaction}
+						{@const customMatch = reaction.emoji.match(/^<:([^:]+):([0-9a-f-]+)>$/)}
+						{@const customEmoji = customMatch ? $customEmojiById.get(customMatch[2]) : null}
 						<button
 							onclick={() => handleToggleReaction(reaction.emoji, reaction.reacted)}
 							class="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium transition-colors {reaction.reacted ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-muted hover:border-text-muted'}"
 						>
-							<span>{reaction.emoji}</span>
+							{#if customEmoji}
+								<img src={customEmoji.imageUrl} alt={`:${customEmoji.name}:`} class="w-4 h-4 object-contain" />
+							{:else}
+								<span>{reaction.emoji}</span>
+							{/if}
 							<span>{reaction.count}</span>
 						</button>
 					{/each}
 					<div class="relative">
-						{#if showEmojiPicker && !isHovered}
+						{#if showReactionsPicker}
 							<div class="absolute bottom-full left-0 mb-4 z-50">
-								<EmojiPicker onSelect={handleReactionSelect} onClose={() => (showEmojiPicker = false)} />
+								<EmojiPicker
+									align="left"
+									customEmojiFormat="reaction"
+									onSelect={handleReactionSelect}
+									onClose={() => (showReactionsPicker = false)}
+								/>
 							</div>
 						{/if}
 						<button
-							onclick={() => (showEmojiPicker = !showEmojiPicker)}
+							onclick={() => (showReactionsPicker = !showReactionsPicker)}
+							data-emoji-picker-trigger="true"
 							class="flex items-center justify-center w-7 h-6 rounded-full border border-border bg-surface text-text-muted hover:border-text-muted transition-colors"
 						>
 							<Smile size={14} />
@@ -252,27 +536,38 @@
 	</div>
 
 	<!-- Action buttons -->
-	{#if (isHovered || showEmojiPicker) && !isDeleting}
-		<div class="absolute -top-4 right-4 flex items-center bg-surface border border-border rounded shadow-lg z-10">
-			{#if showEmojiPicker}
+	{#if (isHovered || showActionBarPicker) && !isDeleting}
+		<div
+			class="absolute -top-4 right-4 flex items-center bg-surface border border-border rounded shadow-lg z-10"
+		>
+			{#if showActionBarPicker}
 				<div class="absolute bottom-full right-0 mb-2">
-					<EmojiPicker onSelect={handleReactionSelect} onClose={() => (showEmojiPicker = false)} />
+					<EmojiPicker
+						customEmojiFormat="reaction"
+						onSelect={handleReactionSelect}
+						onClose={() => (showActionBarPicker = false)}
+					/>
 				</div>
 			{/if}
-			<button
-				onclick={() => (showEmojiPicker = !showEmojiPicker)}
-				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
-				aria-label="Add Reaction"
-			>
-				<Smile size={16} />
-			</button>
-			<button
-				onclick={handleReply}
-				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
-				aria-label="Reply"
-			>
-				<Reply size={16} />
-			</button>
+			{#if enableReactions}
+				<button
+					onclick={() => (showActionBarPicker = !showActionBarPicker)}
+					data-emoji-picker-trigger="true"
+					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+					aria-label="Add Reaction"
+				>
+					<Smile size={16} />
+				</button>
+			{/if}
+			{#if enableReply}
+				<button
+					onclick={handleReply}
+					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+					aria-label="Reply"
+				>
+					<Reply size={16} />
+				</button>
+			{/if}
 			{#if isOwnMessage}
 				<button
 					onclick={handleEdit}
@@ -281,10 +576,26 @@
 				>
 					<Edit size={16} />
 				</button>
+			{/if}
+			{#if canPinMessages}
 				<button
-					onclick={handleDelete}
-					class="p-2 text-text-muted hover:text-error hover:bg-surface-hover transition-colors"
+					onclick={handlePinToggle}
+					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors {message.isPinned
+						? 'text-primary'
+						: ''}"
+					aria-label={message.isPinned ? 'Unpin Message' : 'Pin Message'}
+					title={message.isPinned ? 'Unpin Message' : 'Pin Message'}
+					disabled={isPinning}
+				>
+					<Pin size={16} />
+				</button>
+			{/if}
+			{#if canDeleteMessage}
+				<button
+					onclick={(e) => requestDelete(e)}
+					class="p-2 text-text-muted hover:text-danger hover:bg-surface-hover transition-colors"
 					aria-label="Delete"
+					title="Hold Shift to delete without confirmation"
 				>
 					<Trash size={16} />
 				</button>
@@ -298,3 +609,29 @@
 		</div>
 	{/if}
 </div>
+
+<Modal
+	isOpen={showDeleteConfirm}
+	onclose={() => (showDeleteConfirm = false)}
+	title="Delete Message"
+	size="sm"
+>
+	<div class="space-y-4">
+		<p class="text-sm text-text-secondary">Delete this message? This can’t be undone.</p>
+		<div class="flex justify-end gap-2">
+			<Button variant="ghost" onclick={() => (showDeleteConfirm = false)} disabled={isDeleting}>
+				Cancel
+			</Button>
+			<Button
+				variant="danger"
+				onclick={() => {
+					showDeleteConfirm = false;
+					void performDelete();
+				}}
+				disabled={isDeleting}
+			>
+				Delete
+			</Button>
+		</div>
+	</div>
+</Modal>

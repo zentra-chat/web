@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, Check, AlertCircle, AlertTriangle, Info } from '$lib/components/icons';
+	import { X, Check, AlertCircle, AlertTriangle, Info } from 'lucide-svelte';
 	import type { ToastMessage } from '$lib/types';
 
 	interface Props {

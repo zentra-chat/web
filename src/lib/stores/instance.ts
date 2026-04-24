@@ -1,10 +1,35 @@
 import { writable, derived, get } from 'svelte/store';
+import { PUBLIC_DEFAULT_INSTANCE_URL, PUBLIC_DEFAULT_INSTANCE_NAME } from '$env/static/public';
 import type { Instance, InstanceAuth, FullUser } from '$lib/types';
+import { upsertPortableProfileFromUser } from '$lib/stores/profile';
 
 // Storage keys
 const INSTANCES_KEY = 'zentra_instances';
 const AUTH_KEY = 'zentra_auth';
+const SAVED_ACCOUNTS_KEY = 'zentra_saved_accounts';
 const ACTIVE_INSTANCE_KEY = 'zentra_active_instance';
+const SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY = 'zentra_skip_auto_portable_auth_once';
+
+export interface SavedAccountSession {
+	userId: string;
+	username: string;
+	displayName: string;
+	avatarUrl: string | null;
+	email: string;
+	auth: InstanceAuth;
+	lastUsedAt: string;
+}
+
+// Default instance from environment
+const DEFAULT_INSTANCE: Instance | null = PUBLIC_DEFAULT_INSTANCE_URL
+	? {
+			id: 'default',
+			url: PUBLIC_DEFAULT_INSTANCE_URL,
+			name: PUBLIC_DEFAULT_INSTANCE_NAME || 'Default Instance',
+			isOnline: true,
+			lastChecked: new Date().toISOString()
+		}
+	: null;
 
 // Helper to safely access localStorage
 function getFromStorage<T>(key: string, defaultValue: T): T {
@@ -38,13 +63,25 @@ function persistentWritable<T>(key: string, defaultValue: T) {
 }
 
 // Instances store - list of all added backend instances
-export const instances = persistentWritable<Instance[]>(INSTANCES_KEY, []);
+export const instances = persistentWritable<Instance[]>(
+	INSTANCES_KEY,
+	DEFAULT_INSTANCE ? [DEFAULT_INSTANCE] : []
+);
 
 // Active instance ID
-export const activeInstanceId = persistentWritable<string | null>(ACTIVE_INSTANCE_KEY, null);
+export const activeInstanceId = persistentWritable<string | null>(
+	ACTIVE_INSTANCE_KEY,
+	DEFAULT_INSTANCE?.id || null
+);
 
 // Auth data per instance
 export const instanceAuth = persistentWritable<Record<string, InstanceAuth>>(AUTH_KEY, {});
+
+// Saved account sessions per instance (for quick account switch)
+export const savedAccounts = persistentWritable<Record<string, SavedAccountSession[]>>(
+	SAVED_ACCOUNTS_KEY,
+	{}
+);
 
 // Derived store for active instance
 export const activeInstance = derived(
@@ -69,10 +106,24 @@ export const currentUser = derived(activeAuth, ($activeAuth) => {
 	return $activeAuth?.user || null;
 });
 
+export const activeInstanceSavedAccounts = derived(
+	[savedAccounts, activeInstanceId, activeAuth],
+	([$savedAccounts, $activeInstanceId, $activeAuth]) => {
+		if (!$activeInstanceId) return [];
+		const accounts = $savedAccounts[$activeInstanceId] || [];
+		const activeUserId = $activeAuth?.user?.id || null;
+
+		return [...accounts].sort((a, b) => {
+			if (a.userId === activeUserId) return -1;
+			if (b.userId === activeUserId) return 1;
+			return new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime();
+		});
+	}
+);
+
 // Derived store to check if logged in to active instance
 export const isLoggedIn = derived(activeAuth, ($activeAuth) => {
-	if (!$activeAuth) return false;
-	return new Date($activeAuth.expiresAt) > new Date();
+	return !!$activeAuth;
 });
 
 // Instance management functions
@@ -89,7 +140,8 @@ export function addInstance(instance: Instance): void {
 export function removeInstance(instanceId: string): void {
 	instances.update((list) => list.filter((i) => i.id !== instanceId));
 	instanceAuth.update((auth) => {
-		const { [instanceId]: _, ...rest } = auth;
+		const { [instanceId]: removed, ...rest } = auth;
+		void removed;
 		return rest;
 	});
 
@@ -115,16 +167,76 @@ export function setInstanceAuth(instanceId: string, auth: InstanceAuth): void {
 		...current,
 		[instanceId]: auth
 	}));
+
+	upsertPortableProfileFromUser(auth.user);
+
+	const user = auth.user;
+	const now = new Date().toISOString();
+	savedAccounts.update((current) => {
+		const instanceAccounts = current[instanceId] || [];
+		const nextSession: SavedAccountSession = {
+			userId: user.id,
+			username: user.username,
+			displayName: user.displayName || user.username,
+			avatarUrl: user.avatarUrl || null,
+			email: user.email || '',
+			auth,
+			lastUsedAt: now
+		};
+
+		const nextInstanceAccounts = [
+			nextSession,
+			...instanceAccounts.filter((account) => account.userId !== user.id)
+		];
+
+		return {
+			...current,
+			[instanceId]: nextInstanceAccounts
+		};
+	});
 }
 
 export function clearInstanceAuth(instanceId: string): void {
 	instanceAuth.update((current) => {
-		const { [instanceId]: _, ...rest } = current;
+		const { [instanceId]: removed, ...rest } = current;
+		void removed;
 		return rest;
 	});
 }
 
+export function removeSavedAccount(instanceId: string, userId: string): void {
+	savedAccounts.update((current) => {
+		const instanceAccounts = current[instanceId] || [];
+		const nextInstanceAccounts = instanceAccounts.filter((account) => account.userId !== userId);
+
+		if (nextInstanceAccounts.length === 0) {
+			const { [instanceId]: removed, ...rest } = current;
+			void removed;
+			return rest;
+		}
+
+		return {
+			...current,
+			[instanceId]: nextInstanceAccounts
+		};
+	});
+}
+
+export function switchActiveAccount(userId: string): boolean {
+	const instanceId = get(activeInstanceId);
+	if (!instanceId) return false;
+
+	const instanceAccounts = get(savedAccounts)[instanceId] || [];
+	const selected = instanceAccounts.find((account) => account.userId === userId);
+	if (!selected) return false;
+
+	setInstanceAuth(instanceId, selected.auth);
+	return true;
+}
+
 export function updateInstanceUser(instanceId: string, user: FullUser): void {
+	upsertPortableProfileFromUser(user);
+
 	instanceAuth.update((current) => {
 		if (!current[instanceId]) return current;
 		return {
@@ -162,22 +274,77 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 	const activeId = get(activeInstanceId);
 	if (!activeId) return;
 
+	const current = get(instanceAuth)[activeId]?.user;
+	if (current) {
+		upsertPortableProfileFromUser({ ...current, ...updates } as FullUser);
+	}
+
 	instanceAuth.update((current) => {
-		if (!current[activeId] || !current[activeId].user) return current;
+		if (!current[activeId]) return current;
+		const baseUser = current[activeId].user ?? ({} as FullUser);
 		return {
 			...current,
 			[activeId]: {
 				...current[activeId],
-				user: { ...current[activeId].user, ...updates } as FullUser
+				user: { ...baseUser, ...updates } as FullUser
 			}
+		};
+	});
+
+	savedAccounts.update((current) => {
+		const instanceAccounts = current[activeId] || [];
+		if (instanceAccounts.length === 0) return current;
+
+		const nextAccounts = instanceAccounts.map((account) => {
+			if (account.userId !== updates.id) return account;
+			return {
+				...account,
+				username: updates.username ?? account.username,
+				displayName: updates.displayName ?? account.displayName,
+				avatarUrl: updates.avatarUrl ?? account.avatarUrl,
+				email: updates.email ?? account.email,
+				lastUsedAt: new Date().toISOString(),
+				auth: {
+					...account.auth,
+					user: {
+						...account.auth.user,
+						...updates
+					}
+				}
+			};
+		});
+
+		return {
+			...current,
+			[activeId]: nextAccounts
 		};
 	});
 }
 
+export function shouldSkipAutoPortableAuth(): boolean {
+	if (typeof window === 'undefined') return false;
+	return sessionStorage.getItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY) === '1';
+}
+
+export function clearSkipAutoPortableAuth(): void {
+	if (typeof window === 'undefined') return;
+	sessionStorage.removeItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY);
+}
+
 // Logout from current instance
-export function logout(): void {
+export function logout(options?: { removeSavedAccount?: boolean }): void {
+	if (typeof window !== 'undefined') {
+		sessionStorage.setItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY, '1');
+	}
+
 	const activeId = get(activeInstanceId);
 	if (activeId) {
+		if (options?.removeSavedAccount) {
+			const auth = get(activeAuth);
+			if (auth?.user?.id) {
+				removeSavedAccount(activeId, auth.user.id);
+			}
+		}
 		clearInstanceAuth(activeId);
 	}
 }

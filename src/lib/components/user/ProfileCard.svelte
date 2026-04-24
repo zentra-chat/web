@@ -1,0 +1,342 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { fade, scale } from 'svelte/transition';
+	import { clickOutside } from '$lib/utils/clickOutside';
+	import { Button, Avatar } from '$lib/components/ui';
+	import { MessageSquare, MoreHorizontal, Edit, Clock, UserPlus, UserMinus, Check, X } from 'lucide-svelte';
+	import {
+		profileCardOpen,
+		profileCardUser,
+		profileCardPosition,
+		closeProfileCard,
+		addToast,
+		openContextMenu
+	} from '$lib/stores/ui';
+	import { currentUserId } from '$lib/stores/instance';
+	import { activeCommunityMembers, selectCommunity, getMemberNameColor } from '$lib/stores/community';
+	import { setActiveDmConversationId, upsertDmConversation } from '$lib/stores/dm';
+	import { loadFriendsData } from '$lib/stores/friends';
+	import { api } from '$lib/api';
+	import { getErrorMessage } from '$lib/utils/apiError';
+	import { format } from 'date-fns';
+	import type { RelationshipStatus } from '$lib/types';
+
+	let user = $derived($profileCardUser);
+	let position = $derived($profileCardPosition);
+	let isOwnProfile = $derived(user?.id === $currentUserId);
+	let isStartingDm = $state(false);
+	let relationship = $state<RelationshipStatus>('none');
+	let isRelationshipLoading = $state(false);
+	let isFriendActionLoading = $state(false);
+	let member = $derived.by(() => {
+		if (!user) return null;
+		return $activeCommunityMembers.find((m) => m.userId === user.id) || null;
+	});
+	let nameColor = $derived(getMemberNameColor(member));
+
+	$effect(() => {
+		const profileUser = user;
+		if (!profileUser || profileUser.id === $currentUserId) {
+			relationship = 'none';
+			isRelationshipLoading = false;
+			return;
+		}
+
+		let cancelled = false;
+		isRelationshipLoading = true;
+
+		api.getRelationship(profileUser.id)
+			.then((result) => {
+				if (!cancelled) {
+					relationship = result.status;
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					relationship = 'none';
+				}
+			})
+			.finally(() => {
+				if (!cancelled) {
+					isRelationshipLoading = false;
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	async function refreshRelationship(): Promise<void> {
+		if (!user || user.id === $currentUserId) {
+			relationship = 'none';
+			return;
+		}
+
+		const result = await api.getRelationship(user.id);
+		relationship = result.status;
+	}
+
+	async function runFriendAction(
+		action: () => Promise<void>,
+		successMessage: string,
+		errorMessage: string
+	): Promise<void> {
+		if (!user || isFriendActionLoading) return;
+		isFriendActionLoading = true;
+		try {
+			await action();
+			await loadFriendsData({ force: true });
+			await refreshRelationship();
+			addToast({ type: 'success', message: successMessage });
+		} catch (err: any) {
+			addToast({ type: 'error', message: getErrorMessage(err, errorMessage) });
+		} finally {
+			isFriendActionLoading = false;
+		}
+	}
+
+	async function handleMessage() {
+		if (!user) return;
+		if (user.id === $currentUserId) {
+			handleEditProfile();
+			return;
+		}
+		if (relationship === 'blocked' || relationship === 'blocked_by') {
+			addToast({ type: 'warning', message: 'Cannot message this user right now' });
+			return;
+		}
+		if (isStartingDm) return;
+		isStartingDm = true;
+		try {
+			const conversation = await api.createDmConversation(user.id);
+			upsertDmConversation(conversation);
+			selectCommunity(null);
+			setActiveDmConversationId(conversation.id);
+		} catch (err) {
+			console.error('Failed to start DM:', err);
+			addToast({
+				type: 'error',
+				message: getErrorMessage(err, 'Failed to start DM')
+			});
+		} finally {
+			isStartingDm = false;
+		}
+		closeProfileCard();
+	}
+
+	async function handleAddFriend() {
+		if (!user) return;
+		await runFriendAction(
+			() => api.sendFriendRequest(user.id),
+			'Friend request sent',
+			'Failed to send friend request'
+		);
+	}
+
+	async function handleAcceptRequest() {
+		if (!user) return;
+		await runFriendAction(
+			() => api.acceptFriendRequest(user.id),
+			'Friend request accepted',
+			'Failed to accept friend request'
+		);
+	}
+
+	async function handleRemoveRequest() {
+		if (!user) return;
+		await runFriendAction(
+			() => api.removeFriendRequest(user.id),
+			'Friend request removed',
+			'Failed to remove friend request'
+		);
+	}
+
+	async function handleRemoveFriend() {
+		if (!user) return;
+		await runFriendAction(
+			() => api.removeFriend(user.id),
+			'Friend removed',
+			'Failed to remove friend'
+		);
+	}
+
+	function handleEditProfile() {
+		closeProfileCard();
+		goto('/app/settings');
+	}
+
+	function handleOpenUserContextMenu(event: MouseEvent): void {
+		if (!user) return;
+		openContextMenu(user, event);
+	}
+</script>
+
+{#if $profileCardOpen && user}
+	<div
+		class="fixed z-50 pointer-events-none"
+		style="left: {position.x}px; top: {position.y}px;"
+		transition:fade={{ duration: 150 }}
+	>
+		<div
+			class="pointer-events-auto w-75 bg-bg-secondary rounded-xl shadow-2xl border border-border overflow-visible bg-background"
+			use:clickOutside={closeProfileCard}
+			transition:scale={{ duration: 150, start: 0.95 }}
+		>
+			<!-- Header/Banner -->
+			<div class="h-20 bg-primary/20 relative overflow-visible">
+				<div class="absolute -bottom-10 left-4 profile-avatar-wrapper border-4 border-bg-secondary rounded-full bg-bg-secondary overflow-hidden flex items-center justify-center">
+					<Avatar {user} size="xl" />
+				</div>
+			</div>
+
+			<!-- Actions -->
+			<div class="flex justify-end p-2 min-h-10">
+				{#if isOwnProfile}
+					<button
+						class="p-1.5 hover:bg-bg-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
+						onclick={handleEditProfile}
+						title="Edit Profile"
+					>
+						<Edit size={18} />
+					</button>
+				{:else}
+					<div class="relative">
+						<button
+						class="p-1.5 hover:bg-bg-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
+						onclick={handleOpenUserContextMenu}
+					>
+						<MoreHorizontal size={18} />
+						</button>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Content -->
+			<div class="px-4 pb-4 mt-2">
+				<div class="mb-4">
+					<h2
+						class="text-xl font-bold text-text-primary truncate"
+						style={nameColor ? `color: ${nameColor}` : undefined}
+					>
+						{user.displayName || user.username}
+					</h2>
+					<p class="text-sm text-text-muted">@{user.username}</p>
+				</div>
+
+				{#if member?.roles?.length}
+					<div class="mb-4">
+						<h3 class="text-xs font-bold uppercase text-text-muted mb-2">Roles</h3>
+						<div class="flex flex-wrap gap-2">
+							{#each member.roles as role (role.id)}
+								<span
+									class="text-xs px-2 py-1 rounded-full border"
+									style={role.color ? `border-color: ${role.color}; color: ${role.color}` : undefined}
+								>
+									{role.name}
+								</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				{#if user.customStatus}
+					<div class="mb-4 p-2 bg-bg-tertiary rounded-lg text-sm text-text-secondary italic">
+						{user.customStatus}
+					</div>
+				{/if}
+
+				{#if user.bio}
+					<div class="mb-4">
+						<h3 class="text-xs font-bold uppercase text-text-muted mb-1">About Me</h3>
+						<p class="text-sm text-text-secondary whitespace-pre-wrap">{user.bio}</p>
+					</div>
+				{/if}
+
+				<div class="space-y-3 pt-2 border-t border-border">
+					{#if !isOwnProfile}
+						<Button
+							variant="primary"
+							class="w-full gap-2"
+							onclick={handleMessage}
+							disabled={isStartingDm || relationship === 'blocked' || relationship === 'blocked_by'}
+						>
+							<MessageSquare size={16} />
+							Message
+						</Button>
+
+						{#if isRelationshipLoading}
+							<Button variant="ghost" class="w-full" disabled>
+								Checking relationship...
+							</Button>
+						{:else if relationship === 'friends'}
+							<Button
+								variant="secondary"
+								class="w-full gap-2"
+								onclick={handleRemoveFriend}
+								disabled={isFriendActionLoading}
+							>
+								<UserMinus size={16} />
+								Remove Friend
+							</Button>
+						{:else if relationship === 'incoming_request'}
+							<div class="grid grid-cols-2 gap-2">
+								<Button
+									variant="secondary"
+									size="sm"
+									onclick={handleAcceptRequest}
+									disabled={isFriendActionLoading}
+								>
+									<Check size={14} />
+									Accept
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={handleRemoveRequest}
+									disabled={isFriendActionLoading}
+								>
+									<X size={14} />
+									Ignore
+								</Button>
+							</div>
+						{:else if relationship === 'outgoing_request'}
+							<Button
+								variant="ghost"
+								class="w-full gap-2"
+								onclick={handleRemoveRequest}
+								disabled={isFriendActionLoading}
+							>
+								<X size={16} />
+								Cancel Friend Request
+							</Button>
+						{:else if relationship === 'blocked' || relationship === 'blocked_by'}
+							<Button variant="ghost" class="w-full" disabled>
+								{relationship === 'blocked' ? 'User Blocked' : 'Unavailable'}
+							</Button>
+						{:else}
+							<Button
+								variant="secondary"
+								class="w-full gap-2"
+								onclick={handleAddFriend}
+								disabled={isFriendActionLoading}
+							>
+								<UserPlus size={16} />
+								Add Friend
+							</Button>
+						{/if}
+					{/if}
+					
+					<div class="flex items-center gap-2 text-xs text-text-muted">
+						<Clock size={12} />
+						<span>Member since {format(new Date(user.createdAt || new Date()), 'MMM d, yyyy')}</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<style>
+	/* Background styling for the profile card */
+</style>

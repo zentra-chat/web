@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Avatar, Spinner } from '$lib/components/ui';
-	import { Image, X } from '$lib/components/icons';
+	import { Image, X } from 'lucide-svelte';
 	import { createCommunityModalOpen, closeCreateCommunityModal, addToast } from '$lib/stores/ui';
 	import { addCommunity } from '$lib/stores/community';
 	import { api } from '$lib/api';
+	import { getErrorMessage } from '$lib/utils/apiError';
 
 	let name = $state('');
 	let description = $state('');
@@ -89,14 +90,14 @@
 			const community = await api.createCommunity({
 				name: name.trim(),
 				description: description.trim() || undefined,
-				isPrivate
+				isPublic: !isPrivate
 			});
 
 			// Upload icon if provided
 			if (icon && community.id) {
 				try {
 					const iconUrl = await api.updateCommunityIcon(community.id, icon);
-					community.icon = iconUrl;
+					community.iconUrl = iconUrl;
 				} catch (err) {
 					console.error('Failed to upload icon:', err);
 					// Community was created, just icon failed
@@ -109,13 +110,9 @@
 				message: `Community "${community.name}" created!`
 			});
 			handleClose();
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('Failed to create community:', err);
-			if (err.response?.data?.message) {
-				errors = { submit: err.response.data.message };
-			} else {
-				errors = { submit: 'Failed to create community. Please try again.' };
-			}
+			errors = { submit: getErrorMessage(err, 'Failed to create community. Please try again.') };
 		} finally {
 			isSubmitting = false;
 		}

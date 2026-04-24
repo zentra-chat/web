@@ -1,18 +1,39 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { Spinner } from '$lib/components/ui';
-	import { Hash, Megaphone, Lock, Users } from '$lib/components/icons';
+	import { onMount } from 'svelte';
+	import { tick } from 'svelte';
+	import { Spinner, Avatar } from '$lib/components/ui';
+	import { Hash, Megaphone, Lock, Users } from 'lucide-svelte';
+	import { getChannelHeaderActions, getChannelIcon as getRegistryChannelIcon } from '$lib/channelTypes';
 	import MessageItem from './MessageItem.svelte';
-	import { activeChannel, messages, setMessages, addMessage, removeMessage } from '$lib/stores/community';
-	import { showMemberSidebar, toggleMemberSidebar } from '$lib/stores/ui';
+	import { getErrorMessage } from '$lib/utils/apiError';
+	import {
+		activeChannel,
+		messages,
+		setMessages,
+		removeMessage
+	} from '$lib/stores/community';
+	import {
+		showMemberSidebar,
+		toggleMemberSidebar,
+		addToast
+	} from '$lib/stores/ui';
+	import {
+		activeDmConversation,
+		dmMessagesCache,
+		setDmMessages,
+		removeDmMessage,
+		clearDmUnread
+	} from '$lib/stores/dm';
+	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
 	import type { Message, Channel } from '$lib/types';
 
 	interface Props {
-		channelId: string;
+		channelId?: string;
+		dmConversationId?: string;
 	}
 
-	let { channelId }: Props = $props();
+	let { channelId, dmConversationId }: Props = $props();
 
 	let containerRef: HTMLDivElement | null = $state(null);
 	let isLoading = $state(false);
@@ -20,19 +41,46 @@
 	let hasMore = $state(true);
 	let error = $state<string | null>(null);
 	let isFirstLoad = $state(true);
+	let stickToBottomUntil = $state(0);
+	let showPinnedDropdown = $state(false);
+	let pinnedMessages = $state<Message[]>([]);
+	let isLoadingPinned = $state(false);
+	let pinnedError = $state<string | null>(null);
+	let pinnedPanelRef: HTMLDivElement | null = $state(null);
 
-	let channelMessages = $derived($messages[channelId] || []);
+	let isDm = $derived(!!dmConversationId);
+	let channelMessages = $derived(
+		dmConversationId
+			? $dmMessagesCache[dmConversationId] || []
+			: channelId
+				? $messages[channelId] || []
+				: []
+	);
+
+	onMount(() => {
+		function handleOutsideClick(event: MouseEvent) {
+			if (!showPinnedDropdown || !pinnedPanelRef) return;
+			if (!pinnedPanelRef.contains(event.target as Node)) {
+				showPinnedDropdown = false;
+			}
+		}
+
+		document.addEventListener('mousedown', handleOutsideClick);
+		return () => document.removeEventListener('mousedown', handleOutsideClick);
+	});
 
 	$effect(() => {
-		if (channelId) {
+		const streamId = dmConversationId || channelId;
+		if (streamId) {
 			isFirstLoad = true;
+			stickToBottomUntil = Date.now() + 1500;
 			loadMessages();
 
 			// Subscribe to channel events
-			websocket.subscribe(channelId);
+			websocket.subscribe(streamId);
 
 			return () => {
-				websocket.unsubscribe(channelId);
+				websocket.unsubscribe(streamId);
 			};
 		}
 	});
@@ -42,12 +90,8 @@
 		if (channelMessages.length && containerRef) {
 			// If it's the first load, scroll to bottom immediately
 			if (isFirstLoad) {
-				tick().then(() => {
-					if (containerRef) {
-						containerRef.scrollTop = containerRef.scrollHeight;
-						isFirstLoad = false;
-					}
-				});
+				void forceScrollToBottom();
+				isFirstLoad = false;
 				return;
 			}
 
@@ -56,36 +100,72 @@
 				containerRef.scrollHeight - containerRef.scrollTop - containerRef.clientHeight < 150;
 
 			if (isNearBottom) {
-				tick().then(() => {
-					containerRef?.scrollTo({
-						top: containerRef.scrollHeight,
-						behavior: 'smooth'
-					});
-				});
+				void scrollToBottom('smooth');
 			}
 		}
 	});
 
+	$effect(() => {
+		if (!containerRef) return;
+
+		const observer = new ResizeObserver(() => {
+			if (!containerRef) return;
+			if (Date.now() <= stickToBottomUntil) {
+				containerRef.scrollTop = containerRef.scrollHeight;
+			}
+		});
+
+		observer.observe(containerRef);
+
+		return () => observer.disconnect();
+	});
+
+	async function scrollToBottom(behavior: ScrollBehavior = 'auto') {
+		await tick();
+		if (!containerRef) return;
+		containerRef.scrollTo({
+			top: containerRef.scrollHeight,
+			behavior
+		});
+	}
+
+	async function forceScrollToBottom() {
+		await scrollToBottom('auto');
+		setTimeout(() => {
+			if (!containerRef) return;
+			containerRef.scrollTop = containerRef.scrollHeight;
+		}, 120);
+		setTimeout(() => {
+			if (!containerRef) return;
+			containerRef.scrollTop = containerRef.scrollHeight;
+		}, 320);
+	}
+
 	async function loadMessages() {
-		if (!channelId) return;
+		const streamId = dmConversationId || channelId;
+		if (!streamId) return;
 
 		isLoading = true;
 		error = null;
 
 		try {
-			const msgs = await api.getMessages(channelId);
-			// API returns DESC, we want ASC for display
+			const msgs = dmConversationId
+				? await api.getDmMessages(dmConversationId)
+				: await api.getMessages(channelId as string);
 			const reversedMsgs = msgs ? [...msgs].reverse() : [];
-			setMessages(channelId, reversedMsgs);
+			if (dmConversationId) {
+				setDmMessages(dmConversationId, reversedMsgs);
+				clearDmUnread(dmConversationId);
+				await api.markDmRead(dmConversationId);
+			} else if (channelId) {
+				setMessages(channelId, reversedMsgs);
+			}
 			hasMore = reversedMsgs.length >= 50;
 
 			// Scroll to bottom after initial load
-			await tick();
-			if (containerRef) {
-				containerRef.scrollTop = containerRef.scrollHeight;
-			}
+			await forceScrollToBottom();
 		} catch (err) {
-			error = 'Failed to load messages';
+			error = getErrorMessage(err, 'Failed to load messages');
 			console.error('Failed to load messages:', err);
 		} finally {
 			isLoading = false;
@@ -94,21 +174,31 @@
 
 	async function loadMoreMessages() {
 		if (!hasMore || isLoadingMore || channelMessages.length === 0) return;
+		const streamId = dmConversationId || channelId;
+		if (!streamId) return;
 
 		isLoadingMore = true;
 		const oldestMessage = channelMessages[0];
 		const prevScrollHeight = containerRef?.scrollHeight || 0;
 
 		try {
-			const msgs = await api.getMessages(channelId, {
-				before: oldestMessage.id,
-				limit: 50
-			});
+			const msgs = dmConversationId
+				? await api.getDmMessages(dmConversationId, {
+					before: oldestMessage.id,
+					limit: 50
+				})
+				: await api.getMessages(channelId as string, {
+					before: oldestMessage.id,
+					limit: 50
+				});
 
 			if (msgs && msgs.length > 0) {
-				// msgs are DESC from API, we want to maintain ASC in our store
 				const reversedMsgs = [...msgs].reverse();
-				setMessages(channelId, [...reversedMsgs, ...channelMessages]);
+				if (dmConversationId) {
+					setDmMessages(dmConversationId, [...reversedMsgs, ...channelMessages]);
+				} else if (channelId) {
+					setMessages(channelId, [...reversedMsgs, ...channelMessages]);
+				}
 				hasMore = msgs.length >= 50;
 
 				// Maintain scroll position
@@ -121,6 +211,7 @@
 			}
 		} catch (err) {
 			console.error('Failed to load more messages:', err);
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to load more messages') });
 		} finally {
 			isLoadingMore = false;
 		}
@@ -136,11 +227,96 @@
 	}
 
 	function handleMessageDelete(messageId: string) {
-		removeMessage(channelId, messageId);
+		if (dmConversationId) {
+			removeDmMessage(dmConversationId, messageId);
+			return;
+		}
+		if (channelId) {
+			removeMessage(channelId, messageId);
+		}
+	}
+
+	async function handleDeleteRequest(messageId: string) {
+		if (dmConversationId) {
+			await api.deleteDmMessage(messageId);
+			return;
+		}
+		await api.deleteMessage(messageId);
+	}
+
+	async function handleReactionToggle(messageId: string, emoji: string, reacted: boolean) {
+		if (!dmConversationId) return;
+		if (reacted) {
+			await api.removeDmReaction(messageId, emoji);
+			return;
+		}
+		await api.addDmReaction(messageId, emoji);
+	}
+
+	async function togglePinnedDropdown() {
+		if (!channelId || isDm) return;
+
+		if (showPinnedDropdown) {
+			showPinnedDropdown = false;
+			return;
+		}
+
+		showPinnedDropdown = true;
+		isLoadingPinned = true;
+		pinnedError = null;
+
+		try {
+			pinnedMessages = await api.getPinnedMessages(channelId) || [];
+		} catch (err) {
+			console.error('Failed to load pinned messages:', err);
+			pinnedError = getErrorMessage(err, 'Failed to load pinned messages');
+		} finally {
+			isLoadingPinned = false;
+		}
+	}
+
+	function previewMessage(message: Message): string {
+		const content = message.content?.trim();
+		if (content) return content;
+		if (message.attachments?.length) return '[Attachment message]';
+		return '[No text content]';
+	}
+
+	async function jumpToMessage(messageId: string) {
+		await tick();
+		let target = document.getElementById(`message-container-${messageId}`);
+
+		let attempts = 0;
+		while (!target && hasMore && attempts < 20) {
+			await loadMoreMessages();
+			await tick();
+			target = document.getElementById(`message-container-${messageId}`);
+			attempts += 1;
+		}
+
+		if (!target) {
+			addToast({
+				type: 'warning',
+				message: 'Original message could not be found in loaded history.'
+			});
+			return;
+		}
+
+		showPinnedDropdown = false;
+		target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		
+		target.classList.add('bg-surface/90', 'ring-1', 'ring-primary/30');
+		setTimeout(() => {
+			target.classList.remove('bg-surface/90', 'ring-1', 'ring-primary/30');
+		}, 1600);
 	}
 
 	function getChannelIcon(type: Channel['type']) {
 		switch (type) {
+			case 'text':
+			case 'forum':
+			case 'gallery':
+				return getRegistryChannelIcon(type);
 			case 'announcement':
 				return Megaphone;
 			case 'private':
@@ -149,30 +325,119 @@
 				return Hash;
 		}
 	}
+
+	let headerActions = $derived(
+		$activeChannel && !isDm
+			? getChannelHeaderActions($activeChannel.type)
+			: []
+	);
+
+	async function runHeaderAction(actionId: string) {
+		if (!channelId || isDm) return;
+		const action = headerActions.find((entry) => entry.id === actionId);
+		if (!action) return;
+
+		await action.onClick({
+			channelId,
+			isPinnedOpen: showPinnedDropdown,
+			isMemberSidebarOpen: $showMemberSidebar,
+			togglePinnedDropdown,
+			toggleMemberSidebar
+		});
+	}
+
+	function getDmHeaderName(): string {
+		if (!$activeDmConversation) return 'Direct Messages';
+		const otherUser = $activeDmConversation.participants.find((p) => p.id !== $currentUserId);
+		return otherUser?.displayName || otherUser?.username || 'Direct Messages';
+	}
 </script>
 
 <div class="flex-1 flex flex-col min-h-0">
 	<!-- Channel header -->
-	{#if $activeChannel}
+	{#if isDm}
+		<div class="h-12 px-4 flex items-center gap-2 border-b border-border shrink-0">
+			<h2 class="font-semibold text-text-primary">{getDmHeaderName()}</h2>
+		</div>
+	{:else if $activeChannel}
 		{@const Icon = getChannelIcon($activeChannel.type)}
 		<div class="h-12 px-4 flex items-center gap-2 border-b border-border shrink-0">
 			<Icon size={20} class="text-text-muted" />
 			<h2 class="font-semibold text-text-primary">{$activeChannel.name}</h2>
-			{#if $activeChannel.description}
+			{#if $activeChannel.topic}
 				<span class="text-text-muted mx-2">|</span>
-				<p class="text-sm text-text-muted truncate">{$activeChannel.description}</p>
+				<p class="text-sm text-text-muted truncate">{$activeChannel.topic}</p>
 			{/if}
 
-			<div class="ml-auto flex items-center gap-2">
-				<button
-					onclick={toggleMemberSidebar}
-					class="p-2 {$showMemberSidebar
-						? 'text-text-primary'
-						: 'text-text-muted'} hover:text-text-primary transition-colors"
-					title={$showMemberSidebar ? 'Hide Member List' : 'Show Member List'}
-				>
-					<Users size={20} />
-				</button>
+			<div class="ml-auto relative" bind:this={pinnedPanelRef}>
+				<div class="flex items-center gap-2">
+					{#each headerActions as action (action.id)}
+						{@const ActionIcon = action.icon}
+						{@const isMembersAction = action.id === 'members'}
+						<button
+							onclick={() => runHeaderAction(action.id)}
+							class="p-2 {isMembersAction && $showMemberSidebar
+								? 'text-text-primary'
+								: 'text-text-muted'} hover:text-text-primary transition-colors"
+							title={isMembersAction
+								? $showMemberSidebar
+									? 'Hide Member List'
+									: 'Show Member List'
+								: action.title}
+						>
+							<ActionIcon size={20} />
+						</button>
+					{/each}
+				</div>
+
+				{#if showPinnedDropdown}
+					<div
+						class="absolute right-0 top-full mt-2 w-96 max-h-104 flex flex-col bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
+						role="dialog"
+						aria-label="Pinned messages"
+					>
+						<div class="px-4 py-3 border-b border-border flex items-center justify-between">
+							<h3 class="text-sm font-semibold text-text-primary">Pinned Messages</h3>
+							<span class="text-xs text-text-muted">{pinnedMessages.length}</span>
+						</div>
+
+							<div class="flex-1 overflow-y-auto p-2 space-y-2">
+								{#if isLoadingPinned}
+									<div class="flex items-center justify-center py-8">
+										<Spinner size="md" />
+									</div>
+								{:else if pinnedError}
+									<div class="p-3 text-sm text-error">{pinnedError}</div>
+								{:else if pinnedMessages.length === 0}
+									<div class="p-3 text-sm text-text-muted">No pinned messages in this channel.</div>
+								{:else}
+									{#each pinnedMessages as pinned (pinned.id)}
+										<button
+											onclick={() => jumpToMessage(pinned.id)}
+											class="w-full text-left p-3 border border-border rounded-lg bg-surface/40 hover:bg-surface-hover transition-colors"
+										>
+											<div class="flex items-start gap-2">
+												<Avatar user={pinned.author} size="sm" />
+												<div class="min-w-0 flex-1">
+													<div class="flex items-center gap-2">
+														<p class="text-sm font-medium text-text-primary truncate">
+															{pinned.author?.displayName || pinned.author?.username || 'Unknown user'}
+														</p>
+														<p class="text-[11px] text-text-muted shrink-0">
+															{new Date(pinned.createdAt).toLocaleString()}
+														</p>
+													</div>
+													<p class="text-sm text-text-secondary mt-0.5 line-clamp-3 whitespace-pre-wrap wrap-break-word">
+														{previewMessage(pinned)}
+													</p>
+												</div>
+											</div>
+										</button>
+									{/each}
+								{/if}
+							</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -199,7 +464,18 @@
 			</div>
 		{:else if channelMessages.length === 0}
 			<div class="flex flex-col items-center justify-center h-full text-center px-4">
-				{#if $activeChannel}
+				{#if isDm}
+					{@const otherName = getDmHeaderName()}
+					<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
+						<Users size={32} class="text-text-muted" />
+					</div>
+					<h3 class="text-xl font-semibold text-text-primary mb-2">
+						Start a conversation with {otherName}
+					</h3>
+					<p class="text-text-muted max-w-md">
+						Send a message to get things going.
+					</p>
+				{:else if $activeChannel}
 					{@const Icon = getChannelIcon($activeChannel.type)}
 					<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
 						<Icon size={32} class="text-text-muted" />
@@ -208,7 +484,7 @@
 						Welcome to #{$activeChannel.name}!
 					</h3>
 					<p class="text-text-muted max-w-md">
-						{$activeChannel.description || 'This is the start of this channel. Send a message to get the conversation going!'}
+						{$activeChannel.topic || 'This is the start of this channel. Send a message to get the conversation going!'}
 					</p>
 				{/if}
 			</div>
@@ -227,7 +503,18 @@
 				</button>
 			{:else}
 				<div class="flex flex-col items-center py-8 px-4 text-center">
-					{#if $activeChannel}
+					{#if isDm}
+						{@const otherName = getDmHeaderName()}
+						<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
+							<Users size={32} class="text-text-muted" />
+						</div>
+						<h3 class="text-xl font-semibold text-text-primary mb-2">
+							Start a conversation with {otherName}
+						</h3>
+						<p class="text-text-muted max-w-md mb-4">
+							This is the beginning of your DM.
+						</p>
+					{:else if $activeChannel}
 						{@const Icon = getChannelIcon($activeChannel.type)}
 						<div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-4">
 							<Icon size={32} class="text-text-muted" />
@@ -244,11 +531,19 @@
 
 			<!-- Messages -->
 			{#each channelMessages as message, index (message.id)}
-				<MessageItem
-					{message}
-					previousMessage={index > 0 ? channelMessages[index - 1] : undefined}
-					onDelete={handleMessageDelete}
-				/>
+				<div id={`message-${message.id}`}>
+					<MessageItem
+						{message}
+						previousMessage={index > 0 ? channelMessages[index - 1] : undefined}
+						onDelete={handleMessageDelete}
+						onDeleteRequest={isDm ? handleDeleteRequest : undefined}
+						onReactionToggle={isDm ? handleReactionToggle : undefined}
+						onJumpToMessage={jumpToMessage}
+						enableReactions={true}
+						enableReply={true}
+						isDm={isDm}
+					/>
+				</div>
 			{/each}
 
 			<!-- Bottom padding -->

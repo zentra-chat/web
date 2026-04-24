@@ -2,8 +2,7 @@ name: Notify Desktop Repo
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, develop]
 
 jobs:
   notify:
@@ -14,10 +13,10 @@ jobs:
         with:
           token: ${{ secrets.DESKTOP_REPO_DISPATCH_TOKEN }}
           repository: zentra-chat/desktop
-          event-type: frontend-updated
+          event-type: web-updated
           client-payload: |
             {
-              "frontend_sha": "${{ github.sha }}",
-              "frontend_ref": "${{ github.ref_name }}",
-              "frontend_repo": "${{ github.repository }}"
+              "web_sha": "${{ github.sha }}",
+              "web_ref": "${{ github.ref_name }}",
+              "web_repo": "${{ github.repository }}"
             }

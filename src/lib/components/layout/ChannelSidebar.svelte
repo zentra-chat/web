@@ -54,11 +54,33 @@
 	>(null);
 	let isLoading = $state(false);
 	let draggedChannelId = $state<string | null>(null);
-	let dragOverChannelId = $state<string | null>(null);
+	let dragOverPosition = $state<{ channelId: string; position: 'above' | 'below' } | null>(null);
 	let isReorderingChannels = $state(false);
 	let draggedCategoryId = $state<string | null>(null);
 	let dragOverCategoryId = $state<string | null>(null);
 	let isReorderingCategories = $state(false);
+
+	async function handleChannelDropOnCategory(event: DragEvent, targetCategoryId: string) {
+		event.preventDefault();
+		const sourceChannelId = draggedChannelId;
+		draggedChannelId = null;
+		dragOverPosition = null;
+
+		if (!sourceChannelId || !$activeCommunity) return;
+
+		const channel = $activeCommunityChannels.find((c) => c.id === sourceChannelId);
+		if (!channel) return;
+
+		if (channel.categoryId === targetCategoryId) return;
+
+		try {
+			await api.updateChannel(sourceChannelId, { categoryId: targetCategoryId });
+			await loadChannelsAndCategories();
+		} catch (err: unknown) {
+			console.error('Failed to move channel to folder:', err);
+			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to move channel to folder') });
+		}
+	}
 	let renameModal = $state<
 		| {
 			type: 'channel' | 'category';
@@ -205,7 +227,6 @@
 	function handleChannelDragStart(event: DragEvent, channelId: string) {
 		if (!canManageChannels || isReorderingChannels) return;
 		draggedChannelId = channelId;
-		dragOverChannelId = channelId;
 		if (event.dataTransfer) {
 			event.dataTransfer.effectAllowed = 'move';
 			event.dataTransfer.setData('text/plain', channelId);
@@ -215,37 +236,63 @@
 	function handleChannelDragOver(event: DragEvent, channelId: string) {
 		if (!draggedChannelId || draggedChannelId === channelId) return;
 		event.preventDefault();
-		dragOverChannelId = channelId;
+
+		const element = event.currentTarget as HTMLElement;
+		const rect = element.getBoundingClientRect();
+		const midY = rect.top + rect.height / 2;
+		const position = event.clientY < midY ? 'above' : 'below';
+		dragOverPosition = { channelId, position };
 	}
 
-	function handleChannelDragLeave(channelId: string) {
-		if (dragOverChannelId === channelId) {
-			dragOverChannelId = null;
-		}
+	function handleChannelDragLeave() {
+		dragOverPosition = null;
 	}
 
 	async function handleChannelDrop(event: DragEvent, targetChannelId: string) {
 		event.preventDefault();
 		const sourceChannelId = draggedChannelId;
+		const sourcePosition = dragOverPosition?.position || 'below';
 		draggedChannelId = null;
-		dragOverChannelId = null;
+		dragOverPosition = null;
 
 		if (!sourceChannelId || sourceChannelId === targetChannelId || !$activeCommunity) {
 			return;
+		}
+
+		const targetChannel = $activeCommunityChannels.find((c) => c.id === targetChannelId);
+		if (!targetChannel) return;
+
+		const sourceChannel = $activeCommunityChannels.find((c) => c.id === sourceChannelId);
+		if (!sourceChannel) return;
+
+		const targetCategoryId = targetChannel.categoryId || null;
+
+		if (sourceChannel.categoryId !== targetCategoryId && (sourceChannel.categoryId || null) !== targetCategoryId) {
+			try {
+				await api.updateChannel(sourceChannelId, { categoryId: targetCategoryId });
+			} catch (err: unknown) {
+				console.error('Failed to move channel to folder:', err);
+				addToast({ type: 'error', message: getErrorMessage(err, 'Failed to move channel to folder') });
+				return;
+			}
 		}
 
 		const orderedIds = [...$activeCommunityChannels]
 			.sort((a, b) => a.position - b.position)
 			.map((channel) => channel.id);
 
-		const sourceIndex = orderedIds.indexOf(sourceChannelId);
-		const targetIndex = orderedIds.indexOf(targetChannelId);
+		let sourceIndex = orderedIds.indexOf(sourceChannelId);
+		let targetIndex = orderedIds.indexOf(targetChannelId);
 		if (sourceIndex < 0 || targetIndex < 0) {
 			return;
 		}
 
 		orderedIds.splice(sourceIndex, 1);
-		orderedIds.splice(targetIndex, 0, sourceChannelId);
+		if (sourcePosition === 'above') {
+			orderedIds.splice(targetIndex, 0, sourceChannelId);
+		} else {
+			orderedIds.splice(targetIndex + 1, 0, sourceChannelId);
+		}
 
 		isReorderingChannels = true;
 		try {
@@ -261,7 +308,7 @@
 
 	function handleChannelDragEnd() {
 		draggedChannelId = null;
-		dragOverChannelId = null;
+		dragOverPosition = null;
 	}
 
 	function handleCategoryDragStart(event: DragEvent, categoryId: string) {
@@ -681,29 +728,34 @@
 						{@const isVoice = channel.type === 'voice'}
 						{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}
 						{@const isSelected = $activeChannelId === channel.id}
-						<button
-							onclick={() => handleChannelClick(channel)}
-							oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
-							draggable={canManageChannels && !isReorderingChannels}
-							ondragstart={(event) => handleChannelDragStart(event, channel.id)}
-							ondragover={(event) => handleChannelDragOver(event, channel.id)}
-							ondragleave={() => handleChannelDragLeave(channel.id)}
-							ondrop={(event) => handleChannelDrop(event, channel.id)}
-							ondragend={handleChannelDragEnd}
-							class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
-								? 'bg-success/10 text-success'
-								: isSelected
-									? 'bg-surface-active text-text-primary'
-									: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors {dragOverChannelId === channel.id ? 'ring-1 ring-primary' : ''}"
+						{@const isDragOver = dragOverPosition?.channelId === channel.id}
+						<div
+							class="relative {isDragOver && dragOverPosition?.position === 'above' ? 'before:absolute before:left-0 before:right-0 before:-top-px before:h-0.5 before:bg-primary before:content-[\'\']' : ''} {isDragOver && dragOverPosition?.position === 'below' ? 'after:absolute after:left-0 after:right-0 after:-bottom-px after:h-0.5 after:bg-primary after:content-[\'\']' : ''}"
 						>
-							<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
-							<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
-							{#if unreadCount > 0 && !isVoice}
-								<span class="text-xs bg-danger text-white px-1.5 py-0.5 rounded-full">
-									{unreadCount > 99 ? '99+' : unreadCount}
-								</span>
-							{/if}
-						</button>
+							<button
+								onclick={() => handleChannelClick(channel)}
+								oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
+								draggable={canManageChannels && !isReorderingChannels}
+								ondragstart={(event) => handleChannelDragStart(event, channel.id)}
+								ondragover={(event) => handleChannelDragOver(event, channel.id)}
+								ondragleave={() => handleChannelDragLeave()}
+								ondrop={(event) => handleChannelDrop(event, channel.id)}
+								ondragend={handleChannelDragEnd}
+								class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
+									? 'bg-success/10 text-success'
+									: isSelected
+										? 'bg-surface-active text-text-primary'
+										: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
+							>
+								<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
+								<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
+								{#if unreadCount > 0 && !isVoice}
+									<span class="text-xs bg-danger text-white px-1.5 py-0.5 rounded-full">
+										{unreadCount > 99 ? '99+' : unreadCount}
+									</span>
+								{/if}
+							</button>
+						</div>
 						{#if isVoice}
 							<VoiceChannelUsers channelId={channel.id} />
 						{/if}
@@ -724,9 +776,15 @@
 						ondragstart={(event) => handleCategoryDragStart(event, category.id)}
 						ondragover={(event) => handleCategoryDragOver(event, category.id)}
 						ondragleave={() => handleCategoryDragLeave(category.id)}
-						ondrop={(event) => handleCategoryDrop(event, category.id)}
+						ondrop={(event) => {
+							if (draggedChannelId) {
+								handleChannelDropOnCategory(event, category.id);
+							} else if (draggedCategoryId) {
+								handleCategoryDrop(event, category.id);
+							}
+						}}
 						ondragend={handleCategoryDragEnd}
-						class="w-full px-2 py-1 flex items-center gap-1 text-xs font-semibold text-text-muted uppercase tracking-wider hover:text-text-secondary group {dragOverCategoryId === category.id ? 'ring-1 ring-primary rounded' : ''}"
+						class="w-full px-2 py-1 flex items-center gap-1 text-xs font-semibold text-text-muted uppercase tracking-wider hover:text-text-secondary group"
 					>
 						{#if isCollapsed}
 							<ChevronRight size={12} />
@@ -751,27 +809,40 @@
 
 					{#if !isCollapsed}
 						<div class="px-2">
+							{#if categoryChannels.length === 0 && draggedChannelId && canManageChannels}
+								<div
+									ondragover={(event) => event.preventDefault()}
+									ondrop={(event) => handleChannelDropOnCategory(event, category.id)}
+									class="py-2 text-center text-xs text-text-muted border border-dashed border-border rounded"
+								>
+									Drop here
+								</div>
+							{/if}
 							{#each categoryChannels as channel (channel.id)}
 								{@const Icon = getChannelIcon(channel.type)}
 								{@const unreadCount = $unreadCounts[channel.id] || 0}
 								{@const isVoice = channel.type === 'voice'}
 								{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}
 								{@const isSelected = $activeChannelId === channel.id}
-								<button
-									onclick={() => handleChannelClick(channel)}
-									oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
-									draggable={canManageChannels && !isReorderingChannels}
-									ondragstart={(event) => handleChannelDragStart(event, channel.id)}
-									ondragover={(event) => handleChannelDragOver(event, channel.id)}
-									ondragleave={() => handleChannelDragLeave(channel.id)}
-									ondrop={(event) => handleChannelDrop(event, channel.id)}
-									ondragend={handleChannelDragEnd}
-									class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
-										? 'bg-success/10 text-success'
-										: isSelected
-											? 'bg-surface-active text-text-primary'
-											: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors {dragOverChannelId === channel.id ? 'ring-1 ring-primary' : ''}"
+								{@const isDragOver = dragOverPosition?.channelId === channel.id}
+								<div
+									class="relative {isDragOver && dragOverPosition?.position === 'above' ? 'before:absolute before:left-0 before:right-0 before:-top-px before:h-0.5 before:bg-primary before:content-[\'\']' : ''} {isDragOver && dragOverPosition?.position === 'below' ? 'after:absolute after:left-0 after:right-0 after:-bottom-px after:h-0.5 after:bg-primary after:content-[\'\']' : ''}"
 								>
+									<button
+										onclick={() => handleChannelClick(channel)}
+										oncontextmenu={(event) => handleChannelContextMenu(event, channel)}
+										draggable={canManageChannels && !isReorderingChannels}
+										ondragstart={(event) => handleChannelDragStart(event, channel.id)}
+										ondragover={(event) => handleChannelDragOver(event, channel.id)}
+										ondragleave={() => handleChannelDragLeave()}
+										ondrop={(event) => handleChannelDrop(event, channel.id)}
+										ondragend={handleChannelDragEnd}
+										class="w-full px-2 py-1.5 rounded flex items-center gap-2 group {isActiveVoice
+											? 'bg-success/10 text-success'
+											: isSelected
+												? 'bg-surface-active text-text-primary'
+												: 'text-text-secondary hover:text-text-primary hover:bg-surface'} transition-colors"
+									>
 									<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
 									<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
 									{#if unreadCount > 0 && !isVoice}
@@ -780,6 +851,7 @@
 										</span>
 									{/if}
 								</button>
+								</div>
 								{#if isVoice}
 									<VoiceChannelUsers channelId={channel.id} />
 								{/if}

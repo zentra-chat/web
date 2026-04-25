@@ -457,7 +457,7 @@
 				<p class="text-error">{error}</p>
 				<button
 					onclick={loadMessages}
-					class="px-4 py-2 bg-primary text-background rounded-lg hover:bg-secondary transition-colors"
+					class="px-4 py-2 bg-primary text-background rounded-lg hover:bg-primary-hover transition-colors"
 				>
 					Retry
 				</button>

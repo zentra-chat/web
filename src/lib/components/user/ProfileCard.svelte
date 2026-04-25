@@ -179,13 +179,13 @@
 		transition:fade={{ duration: 150 }}
 	>
 		<div
-			class="pointer-events-auto w-75 bg-bg-secondary rounded-xl shadow-2xl border border-border overflow-visible bg-background"
+			class="pointer-events-auto w-75 bg-background-secondary rounded-xl shadow-2xl border border-border overflow-visible bg-background"
 			use:clickOutside={closeProfileCard}
 			transition:scale={{ duration: 150, start: 0.95 }}
 		>
 			<!-- Header/Banner -->
 			<div class="h-20 bg-primary/20 relative overflow-visible">
-				<div class="absolute -bottom-10 left-4 profile-avatar-wrapper border-4 border-bg-secondary rounded-full bg-bg-secondary overflow-hidden flex items-center justify-center">
+				<div class="absolute -bottom-10 left-4 profile-avatar-wrapper border-4 border-background-secondary rounded-full bg-background-secondary overflow-hidden flex items-center justify-center">
 					<Avatar {user} size="xl" />
 				</div>
 			</div>
@@ -194,7 +194,7 @@
 			<div class="flex justify-end p-2 min-h-10">
 				{#if isOwnProfile}
 					<button
-						class="p-1.5 hover:bg-bg-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
+						class="p-1.5 hover:bg-background-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
 						onclick={handleEditProfile}
 						title="Edit Profile"
 					>
@@ -203,7 +203,7 @@
 				{:else}
 					<div class="relative">
 						<button
-						class="p-1.5 hover:bg-bg-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
+						class="p-1.5 hover:bg-background-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
 						onclick={handleOpenUserContextMenu}
 					>
 						<MoreHorizontal size={18} />
@@ -241,7 +241,7 @@
 				{/if}
 
 				{#if user.customStatus}
-					<div class="mb-4 p-2 bg-bg-tertiary rounded-lg text-sm text-text-secondary italic">
+					<div class="mb-4 p-2 bg-background-tertiary rounded-lg text-sm text-text-secondary italic">
 						{user.customStatus}
 					</div>
 				{/if}

@@ -3,6 +3,27 @@ import type { Community, Channel, ChannelCategory, CommunityMember, Message, Use
 import { activeInstance } from './instance';
 import { clearReplyingTo } from './ui';
 
+const LAST_CHANNEL_KEY = 'zentra_last_channel';
+
+function getFromStorage<T>(key: string, defaultValue: T): T {
+	if (typeof window === 'undefined') return defaultValue;
+	try {
+		const item = localStorage.getItem(key);
+		return item ? JSON.parse(item) : defaultValue;
+	} catch {
+		return defaultValue;
+	}
+}
+
+function setToStorage<T>(key: string, value: T): void {
+	if (typeof window === 'undefined') return;
+	try {
+		localStorage.setItem(key, JSON.stringify(value));
+	} catch {
+		console.error('Failed to save to localStorage:', key);
+	}
+}
+
 export const Permission = {
 	ViewChannels: 1 << 0,
 	SendMessages: 1 << 1,
@@ -43,6 +64,15 @@ export const activeCommunityId = writable<string | null | undefined>(undefined);
 
 // Currently selected channel
 export const activeChannelId = writable<string | null>(null);
+
+// Last active channel per community (persisted)
+export const lastChannelPerCommunity = writable<Record<string, string>>(
+	getFromStorage(LAST_CHANNEL_KEY, {})
+);
+
+lastChannelPerCommunity.subscribe((value) => {
+	setToStorage(LAST_CHANNEL_KEY, value);
+});
 
 // Communities cache per instance
 export const communitiesCache = writable<Record<string, Community[]>>({});
@@ -418,30 +448,87 @@ export function incrementUnread(channelId: string): void {
 }
 
 export function selectCommunity(communityId: string | null): void {
+	const currentCommunityId = get(activeCommunityId);
+	const currentChannelId = get(activeChannelId);
+
+	if (currentCommunityId && currentChannelId) {
+		lastChannelPerCommunity.update((map) => ({
+			...map,
+			[currentCommunityId]: currentChannelId
+		}));
+	}
+
 	activeCommunityId.set(communityId);
-	activeChannelId.set(null);
+
+	if (communityId) {
+		const lastChannel = get(lastChannelPerCommunity)[communityId];
+		activeChannelId.set(lastChannel || null);
+		if (lastChannel) {
+			clearUnread(lastChannel);
+		}
+	} else {
+		activeChannelId.set(null);
+	}
 	clearReplyingTo();
 }
 
 export function selectChannel(channelId: string | null): void {
+	const currentCommunityId = get(activeCommunityId);
 	activeChannelId.set(channelId);
 	clearReplyingTo();
+
 	if (channelId) {
 		clearUnread(channelId);
+
+		if (currentCommunityId) {
+			lastChannelPerCommunity.update((map) => ({
+				...map,
+				[currentCommunityId]: channelId
+			}));
+		}
 	}
 }
 
 export function setActiveCommunity(community: Community | null): void {
-	activeCommunityId.set(community?.id || null);
-	activeChannelId.set(null);
+	const currentCommunityId = get(activeCommunityId);
+	const currentChannelId = get(activeChannelId);
+
+	if (currentCommunityId && currentChannelId) {
+		lastChannelPerCommunity.update((map) => ({
+			...map,
+			[currentCommunityId]: currentChannelId
+		}));
+	}
+
+	const newCommunityId = community?.id || null;
+	activeCommunityId.set(newCommunityId);
+
+	if (newCommunityId) {
+		const lastChannel = get(lastChannelPerCommunity)[newCommunityId];
+		activeChannelId.set(lastChannel || null);
+		if (lastChannel) {
+			clearUnread(lastChannel);
+		}
+	} else {
+		activeChannelId.set(null);
+	}
 	clearReplyingTo();
 }
 
 export function setActiveChannel(channel: Channel | null): void {
+	const currentCommunityId = get(activeCommunityId);
 	activeChannelId.set(channel?.id || null);
 	clearReplyingTo();
+
 	if (channel?.id) {
 		clearUnread(channel.id);
+
+		if (currentCommunityId) {
+			lastChannelPerCommunity.update((map) => ({
+				...map,
+				[currentCommunityId]: channel.id
+			}));
+		}
 	}
 }
 

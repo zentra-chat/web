@@ -40,6 +40,7 @@ export default defineConfig({
 		}
 	},
 	optimizeDeps: {
+		include: ['@emoji-mart/data', 'markdown-it', 'markdown-it-ins'],
 		exclude: ['@tauri-apps/api']
 	}
 });

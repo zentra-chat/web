@@ -1,6 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Smile, Search, ImageIcon } from 'lucide-svelte';
+	import {
+		Smile,
+		Search,
+		Image as ImageIcon,
+		Clock,
+		Bird,
+		Utensils,
+		Dumbbell,
+		MapPin,
+		Lightbulb,
+		Hash,
+		Flag,
+		Sparkles
+	} from 'lucide-svelte';
 	import {
 		EMOJI_CATEGORIES,
 		searchEmojis,
@@ -303,13 +316,27 @@
 				title={section.label}
 			>
 				{#if section.id === 'recent'}
-					🕒
-				{:else if section.type === 'custom' && section.customEmojis?.[0]}
-					<img src={section.customEmojis[0].imageUrl} alt="" class="w-5 h-5 object-contain" />
-				{:else if section.nativeEmojis?.[0]}
-					{section.nativeEmojis[0].native}
+					<Clock size={18} />
+				{:else if section.id.startsWith('custom-')}
+					<Sparkles size={18} />
+				{:else if section.id === 'people'}
+					<Smile size={18} />
+				{:else if section.id === 'nature'}
+					<Bird size={18} />
+				{:else if section.id === 'foods'}
+					<Utensils size={18} />
+				{:else if section.id === 'activity'}
+					<Dumbbell size={18} />
+				{:else if section.id === 'places'}
+					<MapPin size={18} />
+				{:else if section.id === 'objects'}
+					<Lightbulb size={18} />
+				{:else if section.id === 'symbols'}
+					<Hash size={18} />
+				{:else if section.id === 'flags'}
+					<Flag size={18} />
 				{:else}
-					🙂
+					<Smile size={18} />
 				{/if}
 			</button>
 		{/each}

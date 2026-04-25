@@ -356,7 +356,7 @@
 		<button
 			onclick={() => switchView('installed')}
 			class="px-3 py-1.5 text-sm rounded-t-lg transition-colors {view === 'installed'
-				? 'bg-surface-hover text-text-primary border-b-2 border-accent-primary'
+				? 'bg-surface-hover text-text-primary'
 				: 'text-text-muted hover:text-text-primary'}"
 		>
 			Installed
@@ -364,7 +364,7 @@
 		<button
 			onclick={() => switchView('browse')}
 			class="px-3 py-1.5 text-sm rounded-t-lg transition-colors {view === 'browse'
-				? 'bg-surface-hover text-text-primary border-b-2 border-accent-primary'
+				? 'bg-surface-hover text-text-primary'
 				: 'text-text-muted hover:text-text-primary'}"
 		>
 			Browse
@@ -372,7 +372,7 @@
 		<button
 			onclick={() => switchView('sources')}
 			class="px-3 py-1.5 text-sm rounded-t-lg transition-colors {view === 'sources'
-				? 'bg-surface-hover text-text-primary border-b-2 border-accent-primary'
+				? 'bg-surface-hover text-text-primary'
 				: 'text-text-muted hover:text-text-primary'}"
 		>
 			Sources
@@ -416,7 +416,7 @@
 								<div class="flex items-center gap-2">
 									<span class="font-medium text-text-primary text-sm">{plugin?.name || 'Unknown Plugin'}</span>
 									{#if plugin?.builtIn}
-										<span class="text-[10px] px-1.5 py-0.5 bg-accent-primary/20 text-accent-primary rounded-full font-medium">Built-in</span>
+										<span class="text-[10px] px-1.5 py-0.5 bg-secondary/20 text-primary rounded-full font-medium">Built-in</span>
 									{/if}
 									{#if plugin?.isVerified}
 										<Check size={14} class="text-green-400" />
@@ -479,7 +479,7 @@
 									{#if plugin.homepageUrl}
 										<div>
 											<span class="text-text-muted">Homepage</span>
-											<a href={plugin.homepageUrl} target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-accent-primary hover:underline">
+											<a href={plugin.homepageUrl} target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-primary hover:underline">
 												Visit <ExternalLink size={11} />
 											</a>
 										</div>

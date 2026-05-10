@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { Avatar } from '$lib/components/ui';
 	import { Crown, Search, PanelRight } from 'lucide-svelte';
 	import {
@@ -45,18 +44,15 @@
 		return { online, offline };
 	});
 
-	onMount(async () => {
-		if (!$activeCommunity) return;
+	$effect(() => {
+		const communityId = $activeCommunity?.id;
+		if (!communityId) return;
 
 		isLoading = true;
-		try {
-			const members = await api.getCommunityMembers($activeCommunity.id);
-			setMembers($activeCommunity.id, members);
-		} catch (err) {
-			console.error('Failed to load members:', err);
-		} finally {
-			isLoading = false;
-		}
+		api.getCommunityMembers(communityId)
+			.then((members) => setMembers(communityId, members))
+			.catch((err) => console.error('Failed to load members:', err))
+			.finally(() => { isLoading = false; });
 	});
 
 	function getDisplayName(member: CommunityMember): string {

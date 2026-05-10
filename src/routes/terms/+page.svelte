@@ -1,7 +1,8 @@
-<svelte:head>
-	<title>Terms of Service - Zentra</title>
-	<meta name="description" content="Zentra Terms of Service" />
-</svelte:head>
+<script lang="ts">
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
+</script>
+
+<SEOMeta title="Terms of Service - Zentra" description="Zentra Terms of Service" url="/terms" />
 
 <div class="min-h-screen bg-background text-text-primary">
 	<div class="max-w-3xl mx-auto px-6 py-16">

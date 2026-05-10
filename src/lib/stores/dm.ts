@@ -99,7 +99,11 @@ export function addDmMessage(conversationId: string, message: Message): void {
 	});
 }
 
-export function updateDmMessage(conversationId: string, messageId: string, updates: Partial<Message>): void {
+export function updateDmMessage(
+	conversationId: string,
+	messageId: string,
+	updates: Partial<Message>
+): void {
 	dmMessagesCache.update((cache) => ({
 		...cache,
 		[conversationId]: (cache[conversationId] || []).map((m) =>
@@ -205,9 +209,10 @@ export function updateDmConversationFromMessage(conversationId: string, message:
 		}
 		const updated = list.map((c) => {
 			if (c.id !== conversationId) return c;
-			const unreadCount = !isActive && message.authorId !== currentUser
-				? (c.unreadCount || 0) + 1
-				: c.unreadCount || 0;
+			const unreadCount =
+				!isActive && message.authorId !== currentUser
+					? (c.unreadCount || 0) + 1
+					: c.unreadCount || 0;
 			return {
 				...c,
 				lastMessage: message,
@@ -232,9 +237,7 @@ export function clearDmUnread(conversationId: string): void {
 		const list = cache[instance.id] || [];
 		return {
 			...cache,
-			[instance.id]: list.map((c) =>
-				c.id === conversationId ? { ...c, unreadCount: 0 } : c
-			)
+			[instance.id]: list.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
 		};
 	});
 }
@@ -251,19 +254,20 @@ export function updateDmUser(userId: string, updates: Partial<User>): void {
 
 				const updatedLastMessage = conversation.lastMessage
 					? {
-						...conversation.lastMessage,
-						author:
-							conversation.lastMessage.authorId === userId && conversation.lastMessage.author
-								? { ...conversation.lastMessage.author, ...updates }
-								: conversation.lastMessage.author,
-						replyTo:
-							conversation.lastMessage.replyTo?.authorId === userId && conversation.lastMessage.replyTo?.author
-								? {
-									...conversation.lastMessage.replyTo,
-									author: { ...conversation.lastMessage.replyTo.author, ...updates }
-								}
-								: conversation.lastMessage.replyTo
-					}
+							...conversation.lastMessage,
+							author:
+								conversation.lastMessage.authorId === userId && conversation.lastMessage.author
+									? { ...conversation.lastMessage.author, ...updates }
+									: conversation.lastMessage.author,
+							replyTo:
+								conversation.lastMessage.replyTo?.authorId === userId &&
+								conversation.lastMessage.replyTo?.author
+									? {
+											...conversation.lastMessage.replyTo,
+											author: { ...conversation.lastMessage.replyTo.author, ...updates }
+										}
+									: conversation.lastMessage.replyTo
+						}
 					: conversation.lastMessage;
 
 				return {
@@ -290,9 +294,9 @@ export function updateDmUser(userId: string, updates: Partial<User>): void {
 				replyTo:
 					message.replyTo?.authorId === userId && message.replyTo?.author
 						? {
-							...message.replyTo,
-							author: { ...message.replyTo.author, ...updates }
-						}
+								...message.replyTo,
+								author: { ...message.replyTo.author, ...updates }
+							}
 						: message.replyTo
 			}));
 		}

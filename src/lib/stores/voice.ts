@@ -3,7 +3,13 @@ import { websocket } from '$lib/api/websocket';
 import { api } from '$lib/api';
 import { currentUserId } from '$lib/stores/instance';
 import { addToast } from '$lib/stores/ui';
-import type { VoiceState, VoiceJoinEvent, VoiceLeaveEvent, VoiceStateUpdateEvent, VoiceSignalEvent } from '$lib/types';
+import type {
+	VoiceState,
+	VoiceJoinEvent,
+	VoiceLeaveEvent,
+	VoiceStateUpdateEvent,
+	VoiceSignalEvent
+} from '$lib/types';
 
 // ICE servers for WebRTC (using public STUN servers)
 const ICE_SERVERS: RTCIceServer[] = [
@@ -50,7 +56,10 @@ const makingOffers = new Map<string, boolean>();
 const pendingIceCandidates = new Map<string, RTCIceCandidateInit[]>();
 
 // Audio analysers for speaking detection (userId -> { analyser, interval })
-const audioAnalysers = new Map<string, { analyser: AnalyserNode; interval: ReturnType<typeof setInterval> }>();
+const audioAnalysers = new Map<
+	string,
+	{ analyser: AnalyserNode; interval: ReturnType<typeof setInterval> }
+>();
 
 // Local media stream
 let localStream: MediaStream | null = null;
@@ -268,7 +277,8 @@ function handleVoiceSignal(data: VoiceSignalEvent) {
 
 				try {
 					const offer = new RTCSessionDescription(data.signal as RTCSessionDescriptionInit);
-					const offerCollision = makingOffers.get(data.fromUserId) || pc.signalingState !== 'stable';
+					const offerCollision =
+						makingOffers.get(data.fromUserId) || pc.signalingState !== 'stable';
 
 					if (offerCollision && pc.signalingState === 'have-local-offer') {
 						await pc.setLocalDescription({ type: 'rollback' });
@@ -525,7 +535,10 @@ export async function joinVoiceChannel(channelId: string) {
 		voiceChannelId.set(null);
 
 		if (err instanceof Error && err.name === 'NotAllowedError') {
-			addToast({ type: 'error', message: 'Microphone access denied. Please allow microphone access to join voice channels.' });
+			addToast({
+				type: 'error',
+				message: 'Microphone access denied. Please allow microphone access to join voice channels.'
+			});
 		} else {
 			addToast({ type: 'error', message: 'Failed to join voice channel' });
 		}

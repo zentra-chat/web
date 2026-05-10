@@ -30,7 +30,10 @@ function normalizeDetails(details: unknown): Record<string, string[] | string> |
 	return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
-export function normalizeApiError(error: unknown, fallback = 'Something went wrong'): NormalizedApiError {
+export function normalizeApiError(
+	error: unknown,
+	fallback = 'Something went wrong'
+): NormalizedApiError {
 	if (isRecord(error) && typeof error.error === 'string') {
 		return {
 			error: error.error,

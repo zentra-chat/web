@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui';
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import PublicHeader from '$lib/components/layout/PublicHeader.svelte';
 	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
@@ -159,13 +160,11 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Download Zentra Desktop</title>
-	<meta
-		name="description"
-		content="Download Zentra Desktop with auto-detected direct links for Linux, macOS, and Windows."
-	/>
-</svelte:head>
+<SEOMeta
+	title="Download Zentra Desktop"
+	description="Download Zentra Desktop with auto-detected direct links for Linux, macOS, and Windows."
+	url="/download"
+/>
 
 <div class="min-h-screen bg-background relative overflow-hidden flex flex-col">
 	<AnimatedBackground />

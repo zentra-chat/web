@@ -8,7 +8,10 @@ export const customEmojisLoaded = writable(false);
 
 // Grouped by community for the emoji picker
 export const customEmojisByCommunity = derived(customEmojis, ($emojis) => {
-	const grouped = new Map<string, { communityId: string; communityName: string; emojis: CustomEmojiWithCommunity[] }>();
+	const grouped = new Map<
+		string,
+		{ communityId: string; communityName: string; emojis: CustomEmojiWithCommunity[] }
+	>();
 
 	for (const emoji of $emojis) {
 		let group = grouped.get(emoji.communityId);

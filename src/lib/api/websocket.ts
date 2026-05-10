@@ -27,7 +27,11 @@ import {
 } from '$lib/stores/dm';
 import { loadFriendsData } from '$lib/stores/friends';
 import { setTyping, setUserPresence, showToast, showNotificationPreview } from '$lib/stores/ui';
-import { prependNotification, markNotificationReadLocal, markAllNotificationsReadLocal } from '$lib/stores/notification';
+import {
+	prependNotification,
+	markNotificationReadLocal,
+	markAllNotificationsReadLocal
+} from '$lib/stores/notification';
 import { sendNativeNotification } from '$lib/utils/nativeNotification';
 import type {
 	WebSocketEvent,
@@ -260,7 +264,9 @@ class WebSocketManager {
 		const instance = get(activeInstance);
 		if (instance) {
 			const conversations = get(dmConversationsCache)[instance.id] || [];
-			const hasConversation = conversations.some((conversation) => conversation.id === mapped.channelId);
+			const hasConversation = conversations.some(
+				(conversation) => conversation.id === mapped.channelId
+			);
 			if (!hasConversation) {
 				try {
 					const conversation = await api.getDmConversation(mapped.channelId);
@@ -288,11 +294,21 @@ class WebSocketManager {
 		removeDmMessage(data.conversationId, data.messageId);
 	}
 
-	private handleDmReactionAdd(data: { conversationId: string; messageId: string; userId: string; emoji: string }): void {
+	private handleDmReactionAdd(data: {
+		conversationId: string;
+		messageId: string;
+		userId: string;
+		emoji: string;
+	}): void {
 		addDmMessageReaction(data.conversationId, data.messageId, data.userId, data.emoji);
 	}
 
-	private handleDmReactionRemove(data: { conversationId: string; messageId: string; userId: string; emoji: string }): void {
+	private handleDmReactionRemove(data: {
+		conversationId: string;
+		messageId: string;
+		userId: string;
+		emoji: string;
+	}): void {
 		removeDmMessageReaction(data.conversationId, data.messageId, data.userId, data.emoji);
 	}
 
@@ -407,7 +423,11 @@ class WebSocketManager {
 	}
 
 	private startPresenceTracking(): void {
-		if (typeof window === 'undefined' || typeof document === 'undefined' || this.isPresenceTracking) {
+		if (
+			typeof window === 'undefined' ||
+			typeof document === 'undefined' ||
+			this.isPresenceTracking
+		) {
 			return;
 		}
 
@@ -515,10 +535,7 @@ class WebSocketManager {
 			return;
 		}
 
-		const delay = Math.min(
-			this.reconnectDelay * Math.pow(2, this.reconnectAttempts),
-			30000
-		);
+		const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
 
 		console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1})`);
 

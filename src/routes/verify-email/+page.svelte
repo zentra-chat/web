@@ -6,6 +6,7 @@
 	import { Button, Input } from '$lib/components/ui';
 	import { api } from '$lib/api';
 	import { showToast } from '$lib/stores/ui';
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import { getErrorMessage } from '$lib/utils/apiError';
 
@@ -68,9 +69,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Verify Email - Zentra</title>
-</svelte:head>
+<SEOMeta title="Verify Email - Zentra" description="Verify your email address for Zentra." url="/verify-email" />
 
 <div class="relative min-h-screen bg-background flex items-center justify-center p-4 overflow-hidden">
 	<AnimatedBackground particleCountDesktop={220} particleCountMobile={70} />

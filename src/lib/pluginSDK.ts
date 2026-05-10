@@ -197,7 +197,6 @@ function isValidPluginElementTag(tagName: string): boolean {
 	return /^zentra-plugin-[a-z0-9-]+$/.test(tagName) || /^zentra-[a-z0-9-]+$/.test(tagName);
 }
 
-
 // The SDK object passed to plugins. Every plugin gets the same interface
 // regardless of whether it's built-in or loaded at runtime.
 export const ZentraSDK = {
@@ -225,7 +224,9 @@ export const ZentraSDK = {
 		}
 
 		if (!def.viewComponent && !def.viewElement) {
-			console.warn(`[Zentra SDK] Channel type "${def.id}" must provide viewComponent or viewElement`);
+			console.warn(
+				`[Zentra SDK] Channel type "${def.id}" must provide viewComponent or viewElement`
+			);
 			return;
 		}
 

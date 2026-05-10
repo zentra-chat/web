@@ -153,9 +153,7 @@ export function removeInstance(instanceId: string): void {
 }
 
 export function updateInstance(instanceId: string, updates: Partial<Instance>): void {
-	instances.update((list) =>
-		list.map((i) => (i.id === instanceId ? { ...i, ...updates } : i))
-	);
+	instances.update((list) => list.map((i) => (i.id === instanceId ? { ...i, ...updates } : i)));
 }
 
 export function setActiveInstance(instanceId: string | null): void {

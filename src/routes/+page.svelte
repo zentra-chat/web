@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import { Button } from '$lib/components/ui';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import PublicHeader from '$lib/components/layout/PublicHeader.svelte';
@@ -168,10 +169,11 @@
 	] as const;
 </script>
 
-<svelte:head>
-	<title>Zentra - Encrypted Community Chat</title>
-	<meta name="description" content="Open-source, encrypted, community-hostable chat platform" />
-</svelte:head>
+<SEOMeta
+	title="Zentra - Encrypted Community Chat"
+	description="Open-source, encrypted, community-hostable chat platform. Your conversations, your control."
+	url="/"
+/>
 
 <!-- ===================== HERO ===================== -->
 <div class="min-h-screen bg-background relative overflow-hidden flex flex-col">

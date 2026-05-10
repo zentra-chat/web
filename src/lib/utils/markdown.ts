@@ -52,22 +52,16 @@ export interface EmojiResolver {
  */
 function postProcessMentions(html: string, resolver?: MentionResolver): string {
 	// Role mentions: &lt;@&amp;UUID&gt;
-	html = html.replace(
-		new RegExp(`&lt;@&amp;(${UUID_PATTERN})&gt;`, 'gi'),
-		(_, id) => {
-			const name = resolver?.getRoleName?.(id) ?? id.slice(0, 8);
-			return `<span class="mention mention-role" data-mention-id="${id}">@${name}</span>`;
-		}
-	);
+	html = html.replace(new RegExp(`&lt;@&amp;(${UUID_PATTERN})&gt;`, 'gi'), (_, id) => {
+		const name = resolver?.getRoleName?.(id) ?? id.slice(0, 8);
+		return `<span class="mention mention-role" data-mention-id="${id}">@${name}</span>`;
+	});
 
 	// User mentions: &lt;@UUID&gt;
-	html = html.replace(
-		new RegExp(`&lt;@(${UUID_PATTERN})&gt;`, 'gi'),
-		(_, id) => {
-			const name = resolver?.getUserName?.(id) ?? id.slice(0, 8);
-			return `<span class="mention mention-user" data-mention-id="${id}">@${name}</span>`;
-		}
-	);
+	html = html.replace(new RegExp(`&lt;@(${UUID_PATTERN})&gt;`, 'gi'), (_, id) => {
+		const name = resolver?.getUserName?.(id) ?? id.slice(0, 8);
+		return `<span class="mention mention-user" data-mention-id="${id}">@${name}</span>`;
+	});
 
 	// @everyone / @here
 	html = html.replace(/@everyone\b/g, '<span class="mention mention-everyone">@everyone</span>');
@@ -117,9 +111,12 @@ function postProcessEmojis(html: string, emojiResolver?: EmojiResolver): string 
 	return html;
 }
 
-export function renderMarkdown(content: string, resolver?: MentionResolver, emojiResolver?: EmojiResolver): string {
+export function renderMarkdown(
+	content: string,
+	resolver?: MentionResolver,
+	emojiResolver?: EmojiResolver
+): string {
 	const rendered = markdown.render(content);
 	const withMentions = postProcessMentions(rendered, resolver);
 	return postProcessEmojis(withMentions, emojiResolver);
 }
-

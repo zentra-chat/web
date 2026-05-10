@@ -1,4 +1,5 @@
 # Zentra Web
+
 The frontend web-ui for zentra made in svelte
 
 ## Submodule setup
@@ -38,6 +39,7 @@ To pull latest changes and update frontend assets without recreating everything:
 ```
 
 Optional update flags:
+
 - `--instance-url <url>` and `--instance-name <name>` to update `.env`
 - `--port <port>` to regenerate `dist/run-frontend.sh` with a different host port
 - `--rebuild-go-host` if you also want to rebuild the Go host binary

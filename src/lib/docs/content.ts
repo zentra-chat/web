@@ -64,7 +64,10 @@ function stripFrontmatter(markdown: string): string {
 }
 
 function normalizeSlug(input: string): string {
-	const slug = input.trim().toLowerCase().replace(/^\/+|\/+$/g, '');
+	const slug = input
+		.trim()
+		.toLowerCase()
+		.replace(/^\/+|\/+$/g, '');
 	return slug === '' ? 'index' : slug;
 }
 
@@ -74,23 +77,25 @@ function sourcePathToSlug(sourceFile: string): string {
 	const relative = idx >= 0 ? sourceFile.slice(idx + marker.length) : sourceFile;
 	const withoutExt = relative.replace(/\.md$/i, '');
 	if (withoutExt === 'index') return 'index';
-	if (withoutExt.endsWith('/index')) return withoutExt.slice(0, -('/index'.length));
+	if (withoutExt.endsWith('/index')) return withoutExt.slice(0, -'/index'.length);
 	return withoutExt;
 }
 
 function extractTitle(markdown: string, fallback: string): string {
 	const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
 	if (heading) return heading;
-	return fallback
-		.split('/')
-		.pop()
-		?.split('-')
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(' ') ??
+	return (
 		fallback
-		.split('-')
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(' ');
+			.split('/')
+			.pop()
+			?.split('-')
+			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+			.join(' ') ??
+		fallback
+			.split('-')
+			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+			.join(' ')
+	);
 }
 
 function extractDescription(markdown: string, fallbackTitle: string): string {

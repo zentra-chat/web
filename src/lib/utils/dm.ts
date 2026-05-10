@@ -44,20 +44,20 @@ export function mapDmMessage(message: RawDmMessage): Message {
 		linkPreviews: message.linkPreviews || [],
 		replyTo: message.replyTo
 			? {
-				id: message.replyTo.id,
-				channelId: message.conversationId,
-				authorId: message.replyTo.senderId,
-				content: message.replyTo.content,
-				author: message.replyTo.sender || ({} as User),
-				replyToId: null,
-				isEdited: false,
-				isPinned: false,
-				reactions: [],
-				attachments: [],
-				linkPreviews: [],
-				createdAt: message.createdAt,
-				updatedAt: message.updatedAt
-			}
+					id: message.replyTo.id,
+					channelId: message.conversationId,
+					authorId: message.replyTo.senderId,
+					content: message.replyTo.content,
+					author: message.replyTo.sender || ({} as User),
+					replyToId: null,
+					isEdited: false,
+					isPinned: false,
+					reactions: [],
+					attachments: [],
+					linkPreviews: [],
+					createdAt: message.createdAt,
+					updatedAt: message.updatedAt
+				}
 			: undefined,
 		createdAt: message.createdAt,
 		updatedAt: message.updatedAt

@@ -51,13 +51,17 @@ export const replyingToMessage = writable<Message | null>(null);
 export const editingMessageId = writable<string | null>(null);
 
 // Typing indicators per channel
-export const typingUsers = writable<Record<string, { userId: string; username: string; timestamp: number }[]>>({});
+export const typingUsers = writable<
+	Record<string, { userId: string; username: string; timestamp: number }[]>
+>({});
 
 // Online users per community
 export const onlineUsers = writable<Record<string, string[]>>({});
 
 // User presence cache
-export const userPresence = writable<Record<string, { status: UserStatus; customStatus?: string }>>({});
+export const userPresence = writable<Record<string, { status: UserStatus; customStatus?: string }>>(
+	{}
+);
 
 // Instance selector visibility
 export const instanceSelectorMode = writable<InstanceSelectorMode>('disabled');
@@ -226,9 +230,7 @@ export function dismissToast(id: string): void {
 
 let notifPreviewIdCounter = 0;
 
-export function showNotificationPreview(
-	preview: Omit<NotificationPreview, 'id'>
-): string {
+export function showNotificationPreview(preview: Omit<NotificationPreview, 'id'>): string {
 	const id = `notif_${++notifPreviewIdCounter}`;
 	notificationPreviews.update((list) => [...list, { ...preview, id }]);
 	if (preview.duration > 0) {
@@ -296,22 +298,19 @@ export function setOnlineUsers(communityId: string, userIds: string[]): void {
 }
 
 // Derived stores
-export const activeTypingUsers = derived(
-	typingUsers,
-	($typingUsers) => {
-		// Filter out stale typing indicators (older than 5 seconds)
-		const now = Date.now();
-		const result: Record<string, { userId: string; username: string }[]> = {};
+export const activeTypingUsers = derived(typingUsers, ($typingUsers) => {
+	// Filter out stale typing indicators (older than 5 seconds)
+	const now = Date.now();
+	const result: Record<string, { userId: string; username: string }[]> = {};
 
-		for (const [channelId, users] of Object.entries($typingUsers)) {
-			result[channelId] = users
-				.filter((u) => now - u.timestamp < 5000)
-				.map(({ userId, username }) => ({ userId, username }));
-		}
-
-		return result;
+	for (const [channelId, users] of Object.entries($typingUsers)) {
+		result[channelId] = users
+			.filter((u) => now - u.timestamp < 5000)
+			.map(({ userId, username }) => ({ userId, username }));
 	}
-);
+
+	return result;
+});
 
 // Sidebar toggle functions
 export function toggleCommunitySidebar(): void {
@@ -368,4 +367,3 @@ export function openCreateChannelModal(): void {
 export function closeCreateChannelModal(): void {
 	createChannelModalOpen.set(false);
 }
-

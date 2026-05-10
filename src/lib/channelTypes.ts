@@ -4,10 +4,7 @@
 
 import type { ChannelTypeDefinition } from '$lib/types';
 import { writable } from 'svelte/store';
-import {
-	Hash,
-	HelpCircle
-} from 'lucide-svelte';
+import { Hash, HelpCircle } from 'lucide-svelte';
 
 // Use the lucide icon type as the baseline for icon components -
 // works with both Svelte 4 class components and Svelte 5 function components
@@ -65,7 +62,6 @@ export const channelRegistryEpoch = writable(0);
 function isValidPluginElementTag(tagName: string): boolean {
 	return /^zentra-plugin-[a-z0-9-]+$/.test(tagName) || /^zentra-[a-z0-9-]+$/.test(tagName);
 }
-
 
 function bumpRegistryEpoch() {
 	channelRegistryEpoch.update((n) => n + 1);

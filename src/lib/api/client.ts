@@ -395,7 +395,9 @@ class ApiClient {
 		return result.data.id;
 	}
 
-	async updateProfile(data: Partial<{ displayName: string; bio: string; customStatus: string }>): Promise<FullUser> {
+	async updateProfile(
+		data: Partial<{ displayName: string; bio: string; customStatus: string }>
+	): Promise<FullUser> {
 		const payload: Partial<{ displayName: string; bio: string; customStatus: string }> = {};
 		if (data.displayName !== undefined) payload.displayName = data.displayName;
 		if (data.bio !== undefined) payload.bio = data.bio;
@@ -460,7 +462,9 @@ class ApiClient {
 	}
 
 	async getFriendRequests(): Promise<FriendRequestsResponse> {
-		const result = await this.request<ApiResponse<FriendRequestsResponse>>('/users/me/friends/requests');
+		const result = await this.request<ApiResponse<FriendRequestsResponse>>(
+			'/users/me/friends/requests'
+		);
 		return {
 			incoming: result.data?.incoming || [],
 			outgoing: result.data?.outgoing || []
@@ -484,7 +488,9 @@ class ApiClient {
 	}
 
 	async getRelationship(userId: string): Promise<UserRelationship> {
-		const result = await this.request<ApiResponse<UserRelationship>>(`/users/me/relationships/${userId}`);
+		const result = await this.request<ApiResponse<UserRelationship>>(
+			`/users/me/relationships/${userId}`
+		);
 		return result.data;
 	}
 
@@ -501,9 +507,12 @@ class ApiClient {
 	}
 
 	async enable2FA(): Promise<{ secret: string; qrCode: string }> {
-		const result = await this.request<ApiResponse<{ secret: string; qrCode: string }>>('/auth/2fa/enable', {
-			method: 'POST'
-		});
+		const result = await this.request<ApiResponse<{ secret: string; qrCode: string }>>(
+			'/auth/2fa/enable',
+			{
+				method: 'POST'
+			}
+		);
 		return result.data;
 	}
 
@@ -544,7 +553,11 @@ class ApiClient {
 		return result.data;
 	}
 
-	async createCommunity(data: { name: string; description?: string; isPublic: boolean }): Promise<Community> {
+	async createCommunity(data: {
+		name: string;
+		description?: string;
+		isPublic: boolean;
+	}): Promise<Community> {
 		const result = await this.request<ApiResponse<Community>>('/communities', {
 			method: 'POST',
 			body: JSON.stringify({
@@ -581,10 +594,13 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('icon', file);
 
-		const result = await this.request<ApiResponse<{ iconUrl?: string; url?: string }>>(`/media/communities/${communityId}/icon`, {
-			method: 'POST',
-			body: formData
-		});
+		const result = await this.request<ApiResponse<{ iconUrl?: string; url?: string }>>(
+			`/media/communities/${communityId}/icon`,
+			{
+				method: 'POST',
+				body: formData
+			}
+		);
 
 		return this.withCacheBuster(result.data.iconUrl ?? result.data.url);
 	}
@@ -593,16 +609,24 @@ class ApiClient {
 		await this.request(`/communities/${communityId}/icon`, { method: 'DELETE' });
 	}
 
-	async createInvite(communityId: string, options?: { maxUses?: number; expiresIn?: number }): Promise<CommunityInvite> {
-		const result = await this.request<ApiResponse<CommunityInvite>>(`/communities/${communityId}/invites`, {
-			method: 'POST',
-			body: JSON.stringify(options || {})
-		});
+	async createInvite(
+		communityId: string,
+		options?: { maxUses?: number; expiresIn?: number }
+	): Promise<CommunityInvite> {
+		const result = await this.request<ApiResponse<CommunityInvite>>(
+			`/communities/${communityId}/invites`,
+			{
+				method: 'POST',
+				body: JSON.stringify(options || {})
+			}
+		);
 		return result.data;
 	}
 
 	async getInvites(communityId: string): Promise<CommunityInvite[]> {
-		const result = await this.request<ApiResponse<CommunityInvite[]>>(`/communities/${communityId}/invites`);
+		const result = await this.request<ApiResponse<CommunityInvite[]>>(
+			`/communities/${communityId}/invites`
+		);
 		return result.data;
 	}
 
@@ -626,7 +650,11 @@ class ApiClient {
 		return result.data;
 	}
 
-	async getCommunityMembers(communityId: string, page = 1, pageSize = 50): Promise<CommunityMember[]> {
+	async getCommunityMembers(
+		communityId: string,
+		page = 1,
+		pageSize = 50
+	): Promise<CommunityMember[]> {
 		const result = await this.request<ApiResponse<CommunityMember[]>>(
 			`/communities/${communityId}/members?page=${page}&pageSize=${pageSize}`
 		);
@@ -638,7 +666,10 @@ class ApiClient {
 		return result.data;
 	}
 
-	async createRole(communityId: string, data: { name: string; color?: string | null; permissions: number }): Promise<Role> {
+	async createRole(
+		communityId: string,
+		data: { name: string; color?: string | null; permissions: number }
+	): Promise<Role> {
 		const result = await this.request<ApiResponse<Role>>(`/communities/${communityId}/roles`, {
 			method: 'POST',
 			body: JSON.stringify(data)
@@ -660,10 +691,13 @@ class ApiClient {
 		if (data.color !== undefined) payload.color = data.color;
 		if (data.permissions !== undefined) payload.permissions = data.permissions;
 
-		const result = await this.request<ApiResponse<Role>>(`/communities/${communityId}/roles/${roleId}`, {
-			method: 'PATCH',
-			body: JSON.stringify(payload)
-		});
+		const result = await this.request<ApiResponse<Role>>(
+			`/communities/${communityId}/roles/${roleId}`,
+			{
+				method: 'PATCH',
+				body: JSON.stringify(payload)
+			}
+		);
 		return result.data;
 	}
 
@@ -702,12 +736,18 @@ class ApiClient {
 	}
 
 	async getBans(communityId: string): Promise<CommunityBan[]> {
-		const result = await this.request<ApiResponse<CommunityBan[]>>(`/communities/${communityId}/bans`);
+		const result = await this.request<ApiResponse<CommunityBan[]>>(
+			`/communities/${communityId}/bans`
+		);
 		return result.data;
 	}
 
 	// Audit log
-	async getAuditLog(communityId: string, page = 1, pageSize = 50): Promise<{ data: AuditLogEntry[]; total: number }> {
+	async getAuditLog(
+		communityId: string,
+		page = 1,
+		pageSize = 50
+	): Promise<{ data: AuditLogEntry[]; total: number }> {
 		const result = await this.request<PaginatedResponse<AuditLogEntry>>(
 			`/communities/${communityId}/audit-log?page=${page}&pageSize=${pageSize}`
 		);
@@ -716,7 +756,9 @@ class ApiClient {
 
 	// Channel endpoints
 	async getChannels(communityId: string): Promise<Channel[]> {
-		const result = await this.request<ApiResponse<Channel[]>>(`/channels/communities/${communityId}/channels`);
+		const result = await this.request<ApiResponse<Channel[]>>(
+			`/channels/communities/${communityId}/channels`
+		);
 		return result.data;
 	}
 
@@ -725,23 +767,45 @@ class ApiClient {
 		return result.data;
 	}
 
-	async createChannel(communityId: string, data: { name: string; type?: string; topic?: string; categoryId?: string; isNsfw?: boolean; metadata?: Record<string, unknown> }): Promise<Channel> {
-		const result = await this.request<ApiResponse<Channel>>(`/channels/communities/${communityId}/channels`, {
-			method: 'POST',
-			body: JSON.stringify({
-				name: data.name,
-				type: data.type || 'text',
-				topic: data.topic,
-				categoryId: data.categoryId,
-				isNsfw: !!data.isNsfw,
-				slowmodeSeconds: 0,
-				metadata: data.metadata || {}
-			})
-		});
+	async createChannel(
+		communityId: string,
+		data: {
+			name: string;
+			type?: string;
+			topic?: string;
+			categoryId?: string;
+			isNsfw?: boolean;
+			metadata?: Record<string, unknown>;
+		}
+	): Promise<Channel> {
+		const result = await this.request<ApiResponse<Channel>>(
+			`/channels/communities/${communityId}/channels`,
+			{
+				method: 'POST',
+				body: JSON.stringify({
+					name: data.name,
+					type: data.type || 'text',
+					topic: data.topic,
+					categoryId: data.categoryId,
+					isNsfw: !!data.isNsfw,
+					slowmodeSeconds: 0,
+					metadata: data.metadata || {}
+				})
+			}
+		);
 		return result.data;
 	}
 
-	async updateChannel(channelId: string, data: Partial<{ name: string; topic: string; categoryId: string | null; isNsfw: boolean; slowmodeSeconds: number }>): Promise<Channel> {
+	async updateChannel(
+		channelId: string,
+		data: Partial<{
+			name: string;
+			topic: string;
+			categoryId: string | null;
+			isNsfw: boolean;
+			slowmodeSeconds: number;
+		}>
+	): Promise<Channel> {
 		const payload: Record<string, unknown> = {};
 		if (data.name !== undefined) payload.name = data.name;
 		if (data.topic !== undefined) payload.topic = data.topic;
@@ -768,7 +832,9 @@ class ApiClient {
 	}
 
 	async getChannelPermissions(channelId: string): Promise<ChannelPermission[]> {
-		const result = await this.request<ApiResponse<ChannelPermission[]>>(`/channels/${channelId}/permissions`);
+		const result = await this.request<ApiResponse<ChannelPermission[]>>(
+			`/channels/${channelId}/permissions`
+		);
 		return result.data || [];
 	}
 
@@ -787,7 +853,11 @@ class ApiClient {
 		});
 	}
 
-	async deleteChannelPermission(channelId: string, targetType: 'role' | 'member', targetId: string): Promise<void> {
+	async deleteChannelPermission(
+		channelId: string,
+		targetType: 'role' | 'member',
+		targetId: string
+	): Promise<void> {
 		await this.request(`/channels/${channelId}/permissions/${targetType}/${targetId}`, {
 			method: 'DELETE'
 		});
@@ -795,23 +865,31 @@ class ApiClient {
 
 	// Category endpoints
 	async getCategories(communityId: string): Promise<ChannelCategory[]> {
-		const result = await this.request<ApiResponse<ChannelCategory[]>>(`/channels/communities/${communityId}/categories`);
+		const result = await this.request<ApiResponse<ChannelCategory[]>>(
+			`/channels/communities/${communityId}/categories`
+		);
 		return result.data;
 	}
 
 	async createCategory(communityId: string, name: string): Promise<ChannelCategory> {
-		const result = await this.request<ApiResponse<ChannelCategory>>(`/channels/communities/${communityId}/categories`, {
-			method: 'POST',
-			body: JSON.stringify({ name })
-		});
+		const result = await this.request<ApiResponse<ChannelCategory>>(
+			`/channels/communities/${communityId}/categories`,
+			{
+				method: 'POST',
+				body: JSON.stringify({ name })
+			}
+		);
 		return result.data;
 	}
 
 	async updateCategory(categoryId: string, name: string): Promise<ChannelCategory> {
-		const result = await this.request<ApiResponse<ChannelCategory>>(`/channels/categories/${categoryId}`, {
-			method: 'PATCH',
-			body: JSON.stringify({ name })
-		});
+		const result = await this.request<ApiResponse<ChannelCategory>>(
+			`/channels/categories/${categoryId}`,
+			{
+				method: 'PATCH',
+				body: JSON.stringify({ name })
+			}
+		);
 		return result.data;
 	}
 
@@ -833,20 +911,27 @@ class ApiClient {
 	}
 
 	async getChannelType(typeId: string): Promise<ChannelTypeDefinition> {
-		const result = await this.request<ApiResponse<ChannelTypeDefinition>>(`/channel-types/${typeId}`);
+		const result = await this.request<ApiResponse<ChannelTypeDefinition>>(
+			`/channel-types/${typeId}`
+		);
 		return result.data;
 	}
 
 	// Voice endpoints
 	async getVoiceStates(channelId: string): Promise<VoiceState[]> {
-		const result = await this.request<ApiResponse<VoiceState[]>>(`/voice/channels/${channelId}/states`);
+		const result = await this.request<ApiResponse<VoiceState[]>>(
+			`/voice/channels/${channelId}/states`
+		);
 		return result.data || [];
 	}
 
 	async joinVoiceChannel(channelId: string): Promise<VoiceState> {
-		const result = await this.request<ApiResponse<VoiceState>>(`/voice/channels/${channelId}/join`, {
-			method: 'POST'
-		});
+		const result = await this.request<ApiResponse<VoiceState>>(
+			`/voice/channels/${channelId}/join`,
+			{
+				method: 'POST'
+			}
+		);
 		return result.data;
 	}
 
@@ -854,11 +939,17 @@ class ApiClient {
 		await this.request(`/voice/channels/${channelId}/leave`, { method: 'POST' });
 	}
 
-	async updateVoiceState(channelId: string, data: { isSelfMuted?: boolean; isSelfDeafened?: boolean }): Promise<VoiceState> {
-		const result = await this.request<ApiResponse<VoiceState>>(`/voice/channels/${channelId}/state`, {
-			method: 'PATCH',
-			body: JSON.stringify(data)
-		});
+	async updateVoiceState(
+		channelId: string,
+		data: { isSelfMuted?: boolean; isSelfDeafened?: boolean }
+	): Promise<VoiceState> {
+		const result = await this.request<ApiResponse<VoiceState>>(
+			`/voice/channels/${channelId}/state`,
+			{
+				method: 'PATCH',
+				body: JSON.stringify(data)
+			}
+		);
 		return result.data;
 	}
 
@@ -868,7 +959,10 @@ class ApiClient {
 	}
 
 	// Message endpoints
-	async getMessages(channelId: string, options?: { limit?: number; before?: string; after?: string }): Promise<Message[]> {
+	async getMessages(
+		channelId: string,
+		options?: { limit?: number; before?: string; after?: string }
+	): Promise<Message[]> {
 		const params = new URLSearchParams();
 		if (options?.limit) params.set('limit', String(options.limit));
 		if (options?.before) params.set('before', options.before);
@@ -942,7 +1036,10 @@ class ApiClient {
 	}
 
 	// Webhook endpoints
-	async createWebhook(channelId: string, data: CreateWebhookRequest): Promise<WebhookSecretResponse> {
+	async createWebhook(
+		channelId: string,
+		data: CreateWebhookRequest
+	): Promise<WebhookSecretResponse> {
 		const result = await this.request<ApiResponse<WebhookSecretResponse>>(
 			`/webhooks/channels/${channelId}`,
 			{
@@ -957,10 +1054,13 @@ class ApiClient {
 		const formData = new FormData();
 		formData.append('avatar', file);
 
-		const result = await this.request<ApiResponse<{ url: string }>>(`/webhooks/channels/${channelId}/avatar`, {
-			method: 'POST',
-			body: formData
-		});
+		const result = await this.request<ApiResponse<{ url: string }>>(
+			`/webhooks/channels/${channelId}/avatar`,
+			{
+				method: 'POST',
+				body: formData
+			}
+		);
 
 		return this.withCacheBuster(result.data.url);
 	}
@@ -1002,7 +1102,9 @@ class ApiClient {
 	}
 
 	async getDmConversation(conversationId: string): Promise<DMConversation> {
-		const result = await this.request<ApiResponse<RawDmConversation>>(`/dms/conversations/${conversationId}`);
+		const result = await this.request<ApiResponse<RawDmConversation>>(
+			`/dms/conversations/${conversationId}`
+		);
 		const conversation = result.data;
 		return {
 			...conversation,
@@ -1143,7 +1245,9 @@ class ApiClient {
 	}
 
 	async getUnreadNotificationCount(): Promise<number> {
-		const result = await this.request<ApiResponse<{ count: number }>>('/notifications/unread-count');
+		const result = await this.request<ApiResponse<{ count: number }>>(
+			'/notifications/unread-count'
+		);
 		return result.data.count;
 	}
 
@@ -1298,11 +1402,7 @@ class ApiClient {
 		return Array.isArray(result.data) ? result.data : [];
 	}
 
-	async addPluginSource(
-		communityId: string,
-		name: string,
-		url: string
-	): Promise<PluginSource> {
+	async addPluginSource(communityId: string, name: string, url: string): Promise<PluginSource> {
 		const result = await this.request<ApiResponse<PluginSource>>(
 			`/plugins/communities/${communityId}/sources`,
 			{

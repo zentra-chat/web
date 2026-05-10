@@ -46,7 +46,10 @@ export interface UserRelationship {
 export type InstanceSelectorMode = 'disabled' | 'auto' | 'show';
 
 export interface UserSettings {
-	settings: Record<string, unknown> & { instanceSelectorMode?: InstanceSelectorMode; developerMode?: boolean };
+	settings: Record<string, unknown> & {
+		instanceSelectorMode?: InstanceSelectorMode;
+		developerMode?: boolean;
+	};
 }
 
 // Authentication types
@@ -176,17 +179,17 @@ export type ChannelType = string;
 
 // Capability flags - mirrors the backend bitmask
 export const ChannelCapability = {
-	Messages:  1,
-	Threads:   2,
-	Media:     4,
-	Voice:     8,
-	Video:     16,
-	Embeds:    32,
-	Pins:      64,
+	Messages: 1,
+	Threads: 2,
+	Media: 4,
+	Voice: 8,
+	Video: 16,
+	Embeds: 32,
+	Pins: 64,
 	Reactions: 128,
-	Slowmode:  256,
-	ReadOnly:  512,
-	Topics:    1024,
+	Slowmode: 256,
+	ReadOnly: 512,
+	Topics: 1024
 } as const;
 
 // A registered channel type definition from the backend
@@ -546,19 +549,70 @@ export const PluginPermission = {
 } as const;
 
 // Human-readable labels for each permission
-export const PluginPermissionLabels: Record<number, { label: string; description: string; risky: boolean }> = {
-	[PluginPermission.ReadMessages]: { label: 'Read Messages', description: 'Can read messages in channels', risky: false },
-	[PluginPermission.SendMessages]: { label: 'Send Messages', description: 'Can send messages on behalf of the plugin', risky: false },
-	[PluginPermission.ManageMessages]: { label: 'Manage Messages', description: 'Can delete or edit messages', risky: true },
-	[PluginPermission.ReadMembers]: { label: 'Read Members', description: 'Can see member list and profiles', risky: false },
-	[PluginPermission.ManageMembers]: { label: 'Manage Members', description: 'Can kick or ban members', risky: true },
-	[PluginPermission.ReadChannels]: { label: 'Read Channels', description: 'Can see channel list and info', risky: false },
-	[PluginPermission.ManageChannels]: { label: 'Manage Channels', description: 'Can create, edit, or delete channels', risky: true },
-	[PluginPermission.AddChannelTypes]: { label: 'Custom Channel Types', description: 'Can register its own channel types', risky: false },
-	[PluginPermission.AddCommands]: { label: 'Commands', description: 'Can register slash commands', risky: false },
-	[PluginPermission.ServerInfo]: { label: 'Server Info', description: 'Can read community metadata', risky: false },
-	[PluginPermission.Webhooks]: { label: 'Webhooks', description: 'Can create and use webhooks', risky: true },
-	[PluginPermission.ReactToMessages]: { label: 'React to Messages', description: 'Can add emoji reactions', risky: false }
+export const PluginPermissionLabels: Record<
+	number,
+	{ label: string; description: string; risky: boolean }
+> = {
+	[PluginPermission.ReadMessages]: {
+		label: 'Read Messages',
+		description: 'Can read messages in channels',
+		risky: false
+	},
+	[PluginPermission.SendMessages]: {
+		label: 'Send Messages',
+		description: 'Can send messages on behalf of the plugin',
+		risky: false
+	},
+	[PluginPermission.ManageMessages]: {
+		label: 'Manage Messages',
+		description: 'Can delete or edit messages',
+		risky: true
+	},
+	[PluginPermission.ReadMembers]: {
+		label: 'Read Members',
+		description: 'Can see member list and profiles',
+		risky: false
+	},
+	[PluginPermission.ManageMembers]: {
+		label: 'Manage Members',
+		description: 'Can kick or ban members',
+		risky: true
+	},
+	[PluginPermission.ReadChannels]: {
+		label: 'Read Channels',
+		description: 'Can see channel list and info',
+		risky: false
+	},
+	[PluginPermission.ManageChannels]: {
+		label: 'Manage Channels',
+		description: 'Can create, edit, or delete channels',
+		risky: true
+	},
+	[PluginPermission.AddChannelTypes]: {
+		label: 'Custom Channel Types',
+		description: 'Can register its own channel types',
+		risky: false
+	},
+	[PluginPermission.AddCommands]: {
+		label: 'Commands',
+		description: 'Can register slash commands',
+		risky: false
+	},
+	[PluginPermission.ServerInfo]: {
+		label: 'Server Info',
+		description: 'Can read community metadata',
+		risky: false
+	},
+	[PluginPermission.Webhooks]: {
+		label: 'Webhooks',
+		description: 'Can create and use webhooks',
+		risky: true
+	},
+	[PluginPermission.ReactToMessages]: {
+		label: 'React to Messages',
+		description: 'Can add emoji reactions',
+		risky: false
+	}
 };
 
 export interface PluginManifest {

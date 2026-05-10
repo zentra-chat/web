@@ -2,14 +2,14 @@
 
 /* Zentra Color Palette */
 @theme {
-	--color-primary: #00FFA9;
+	--color-primary: #00ffa9;
 	--color-primary-hover: #00e699;
-	--color-secondary: #01B985;
-	--color-accent: #073C3A;
-	--color-background: #0A1427;
+	--color-secondary: #01b985;
+	--color-accent: #073c3a;
+	--color-background: #0a1427;
 	--color-background-secondary: #0d1a30;
 	--color-background-tertiary: #111f3a;
-	--color-surface: #131A2A;
+	--color-surface: #131a2a;
 	--color-surface-hover: #1a2540;
 	--color-surface-active: #1f2d4a;
 	--color-border: #1e3a5f;

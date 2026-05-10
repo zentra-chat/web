@@ -15,7 +15,8 @@
 	import { showToast } from '$lib/stores/ui';
 	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
-	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
+import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import { getErrorMessage, normalizeApiError } from '$lib/utils/apiError';
 	import { onMount } from 'svelte';
 
@@ -156,9 +157,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Login - Zentra</title>
-</svelte:head>
+<SEOMeta title="Login - Zentra" description="Sign in to your Zentra account." url="/login" />
 
 <div class="relative min-h-screen bg-background flex items-center justify-center p-4 overflow-hidden">
 	<AnimatedBackground particleCountDesktop={220} particleCountMobile={70} />

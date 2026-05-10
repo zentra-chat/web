@@ -1,7 +1,8 @@
-<svelte:head>
-	<title>Privacy Policy - Zentra</title>
-	<meta name="description" content="Zentra Privacy Policy" />
-</svelte:head>
+<script lang="ts">
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
+</script>
+
+<SEOMeta title="Privacy Policy - Zentra" description="Zentra Privacy Policy" url="/privacy" />
 
 <div class="min-h-screen bg-background text-text-primary">
 	<div class="max-w-3xl mx-auto px-6 py-16">

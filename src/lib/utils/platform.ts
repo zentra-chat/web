@@ -20,7 +20,7 @@ export function isDesktop(): boolean {
 
 	// Log results of checks for easier debugging
 	console.log('Platform check: Not detected as desktop environment.');
-	
+
 	return false;
 }
 

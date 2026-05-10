@@ -17,13 +17,10 @@ export const notifications = derived(
 	}
 );
 
-export const unreadCount = derived(
-	[unreadCountCache, activeInstance],
-	([$cache, $instance]) => {
-		if (!$instance) return 0;
-		return $cache[$instance.id] ?? 0;
-	}
-);
+export const unreadCount = derived([unreadCountCache, activeInstance], ([$cache, $instance]) => {
+	if (!$instance) return 0;
+	return $cache[$instance.id] ?? 0;
+});
 
 // ---- Setters ----
 

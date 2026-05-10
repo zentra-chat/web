@@ -3,15 +3,8 @@
 // a postMessage bridge that validates every call against the plugin's
 // granted permissions before executing it.
 
-import type {
-	PluginMessageEnvelope,
-	PluginRequest,
-	HostResponse
-} from '$lib/pluginBridge';
-import {
-	PERMISSION_METHOD_MAP,
-	BLOCKED_METHODS
-} from '$lib/pluginBridge';
+import type { PluginMessageEnvelope, PluginRequest, HostResponse } from '$lib/pluginBridge';
+import { PERMISSION_METHOD_MAP, BLOCKED_METHODS } from '$lib/pluginBridge';
 import { api } from '$lib/api';
 import {
 	activeChannel,
@@ -518,14 +511,18 @@ async function handleRegisterChannelType(
 	msg: Extract<PluginRequest, { type: 'plugin:register-channel-type' }>
 ) {
 	if ((sandbox.grantedPermissions & PluginPermission.AddChannelTypes) === 0) {
-		console.warn(`[PluginSandbox] Plugin "${sandbox.pluginId}" tried to register a channel type without AddChannelTypes permission`);
+		console.warn(
+			`[PluginSandbox] Plugin "${sandbox.pluginId}" tried to register a channel type without AddChannelTypes permission`
+		);
 		return;
 	}
 
 	const resolve = await getIconResolver();
 	const icon = resolve(msg.def.icon);
 	if (!icon) {
-		console.warn(`[PluginSandbox] Unknown icon "${msg.def.icon}" for channel type "${msg.def.typeId}"`);
+		console.warn(
+			`[PluginSandbox] Unknown icon "${msg.def.icon}" for channel type "${msg.def.typeId}"`
+		);
 		return;
 	}
 
@@ -552,7 +549,9 @@ async function handleRegisterHeaderAction(
 	msg: Extract<PluginRequest, { type: 'plugin:register-header-action' }>
 ) {
 	if ((sandbox.grantedPermissions & PluginPermission.AddCommands) === 0) {
-		console.warn(`[PluginSandbox] Plugin "${sandbox.pluginId}" tried to register a header action without AddCommands permission`);
+		console.warn(
+			`[PluginSandbox] Plugin "${sandbox.pluginId}" tried to register a header action without AddCommands permission`
+		);
 		return;
 	}
 

@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { Button, Spinner, Avatar } from '$lib/components/ui';
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import { Users, AlertCircle, CheckCircle, LogIn } from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { isAuthenticated, activeInstance, loadInstances } from '$lib/stores/instance';
@@ -18,6 +19,13 @@
 	let joinError = $state<string | null>(null);
 	let inviteInfo = $state<{ community: Community; valid: boolean } | null>(null);
 	let hasJoined = $state(false);
+
+	let inviteTitle = $derived(inviteInfo?.community
+		? `Join ${inviteInfo.community.name} | Zentra`
+		: 'Community Invite | Zentra');
+	let inviteDescription = $derived(inviteInfo?.community
+		? `Join ${inviteInfo.community.name} on Zentra.`
+		: 'Join a community on Zentra.');
 
 	onMount(async () => {
 		loadInstances();
@@ -127,13 +135,7 @@
 	}
 </script>
 
-<svelte:head>
-	{#if inviteInfo?.community}
-		<title>Join {inviteInfo.community.name} | Zentra</title>
-	{:else}
-		<title>Community Invite | Zentra</title>
-	{/if}
-</svelte:head>
+<SEOMeta title={inviteTitle} description={inviteDescription} url={'/invite/' + inviteCode} />
 
 <div class="min-h-screen bg-background flex items-center justify-center p-4">
 	<div class="w-full max-w-md">

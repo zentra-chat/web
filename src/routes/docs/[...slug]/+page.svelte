@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui';
+	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import PublicHeader from '$lib/components/layout/PublicHeader.svelte';
 	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
@@ -9,16 +10,10 @@
 	$: slug = $page.params.slug;
 	$: currentDoc = getDocBySlug(slug);
 	$: pageTitle = currentDoc ? `${currentDoc.title} · Zentra Docs` : 'Docs Not Found · Zentra';
+	$: pageDescription = currentDoc?.description ?? 'Zentra documentation page not found.';
 </script>
 
-<svelte:head>
-	<title>{pageTitle}</title>
-	{#if currentDoc}
-		<meta name="description" content={currentDoc.description} />
-	{:else}
-		<meta name="description" content="Zentra documentation page not found." />
-	{/if}
-</svelte:head>
+<SEOMeta title={pageTitle} description={pageDescription} url={$page.url.pathname} />
 
 <div class="min-h-screen bg-background relative overflow-hidden flex flex-col">
 	<AnimatedBackground />

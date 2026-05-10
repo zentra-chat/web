@@ -1,5 +1,13 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Community, Channel, ChannelCategory, CommunityMember, Message, User, Role } from '$lib/types';
+import type {
+	Community,
+	Channel,
+	ChannelCategory,
+	CommunityMember,
+	Message,
+	User,
+	Role
+} from '$lib/types';
 import { activeInstance } from './instance';
 import { clearReplyingTo } from './ui';
 
@@ -332,7 +340,11 @@ export function addMessage(channelId: string, message: Message): void {
 	});
 }
 
-export function updateMessage(channelId: string, messageId: string, updates: Partial<Message>): void {
+export function updateMessage(
+	channelId: string,
+	messageId: string,
+	updates: Partial<Message>
+): void {
 	messagesCache.update((cache) => ({
 		...cache,
 		[channelId]: (cache[channelId] || []).map((m) =>

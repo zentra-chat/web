@@ -21,7 +21,9 @@ function getVersion(): string {
 
 const pluginSdkPath = process.env.ZENTRA_PLUGIN_SDK_PATH?.trim();
 const useLocalPluginSdk = Boolean(pluginSdkPath) && process.env.NODE_ENV !== 'production';
-const localPluginSdkRoot = useLocalPluginSdk ? path.resolve(process.cwd(), pluginSdkPath as string) : '';
+const localPluginSdkRoot = useLocalPluginSdk
+	? path.resolve(process.cwd(), pluginSdkPath as string)
+	: '';
 
 const pluginSdkAlias = useLocalPluginSdk
 	? {

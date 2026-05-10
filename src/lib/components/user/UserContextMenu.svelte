@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Copy, UserCircle, Ban, UserMinus, Bug } from 'lucide-svelte';
-	import { addToast, openProfileCard } from '$lib/stores/ui';
+	import { addToast, openProfileCard, userSettings } from '$lib/stores/ui';
 	import {
 		activeCommunity,
 		activeCommunityMembers,
@@ -37,6 +37,7 @@
 		return y;
 	});
 
+	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
 	let isOwner = $derived($activeCommunity?.ownerId === $currentUserId);
 	let myMember = $derived($activeCommunityMembers.find((m) => m.userId === $currentUserId) || null);
 	let canKick = $derived(
@@ -122,29 +123,31 @@
 		View Profile
 	</button>
 
-	<div class="h-px bg-border my-1"></div>
+	{#if developerModeEnabled}
+		<div class="h-px bg-border my-1"></div>
 
-	<button
-		class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors text-left"
-		onclick={copyUserId}
-		role="menuitem"
-	>
-		<Copy size={16} />
-		Copy User ID
-	</button>
+		<button
+			class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors text-left"
+			onclick={copyUserId}
+			role="menuitem"
+		>
+			<Copy size={16} />
+			Copy User ID
+		</button>
 
-	<button
-		class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors text-left"
-		onclick={() => {
-			navigator.clipboard.writeText(JSON.stringify(user, null, 2));
-			addToast({ type: 'success', message: 'User data copied' });
-			onclose();
-		}}
-		role="menuitem"
-	>
-		<Bug size={16} />
-		Copy User Object
-	</button>
+		<button
+			class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors text-left"
+			onclick={() => {
+				navigator.clipboard.writeText(JSON.stringify(user, null, 2));
+				addToast({ type: 'success', message: 'User data copied' });
+				onclose();
+			}}
+			role="menuitem"
+		>
+			<Bug size={16} />
+			Copy User Object
+		</button>
+	{/if}
 
 	{#if canKick || canBan}
 		<div class="h-px bg-border my-1"></div>

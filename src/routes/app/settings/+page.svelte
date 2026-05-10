@@ -36,6 +36,7 @@
 	let isSavingDeveloperMode = $state(false);
 	let isLoggingOut = $state(false);
 	let switchingAccountId = $state<string | null>(null);
+	let platform = $derived(typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ ? 'Zentra Desktop' : 'Zentra Web');
 
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
@@ -337,6 +338,8 @@
 				<button onclick={() => activeTab = 'appearance'} class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'appearance' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}">Appearance</button>
 				<button onclick={() => activeTab = 'developer'} class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'developer' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}">Developer</button>
 				<button onclick={() => activeTab = 'legal'} class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'legal' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}">Legal</button>
+				<p class="text-xs text-secondary px-3 pt-4">{platform}</p>
+				<p class="text-xs text-secondary px-3">v{__APP_VERSION__}</p>
 			</div>
 
 			<div class="flex-1 min-w-0">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import {
 		Hash,
 		ChevronDown,
@@ -143,8 +143,11 @@
 		return grouped;
 	});
 
-	onMount(async () => {
-		await loadChannelsAndCategories();
+	$effect(() => {
+		const communityId = $activeCommunity?.id;
+		if (!communityId) return;
+
+		loadChannelsAndCategories();
 	});
 
 	onDestroy(() => {

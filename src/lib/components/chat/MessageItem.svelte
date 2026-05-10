@@ -2,7 +2,7 @@
 	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
 	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from 'lucide-svelte';
-	import type { Attachment, Message } from '$lib/types';
+	import type { Attachment, Message, User } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
 	import {
 		activeCommunityMembers,
@@ -206,6 +206,29 @@
 		return '[Message unavailable]';
 	}
 
+	function handleMentionClick(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		const mention = target.closest('.mention-user');
+		if (!mention) return;
+
+		const userId = mention.getAttribute('data-mention-id');
+		if (!userId) return;
+
+		let user: User | null = null;
+
+		if (isDm) {
+			const participants = $activeDmConversation?.participants ?? [];
+			user = participants.find((p) => p.id === userId) ?? null;
+		} else {
+			const member = $activeCommunityMembers.find((m) => m.userId === userId);
+			user = member?.user ?? null;
+		}
+
+		if (user) {
+			openProfileCard(user, event);
+		}
+	}
+
 	async function handlePinToggle() {
 		if (isDm || !canPinMessages || isPinning) return;
 
@@ -377,7 +400,7 @@
 
 			<!-- Message content -->
 			{#if hasContent}
-				<div class="message-content text-text-secondary">
+				<div class="message-content text-text-secondary" onclick={handleMentionClick}>
 					{@html renderMarkdown(message.content || '', mentionResolver, emojiResolver)}
 				</div>
 				{#if message.isEdited}

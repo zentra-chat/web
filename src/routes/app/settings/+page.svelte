@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
 	import { Image, X, Trash, LogOut } from 'lucide-svelte';
@@ -40,7 +41,7 @@
 
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
-	$effect(() => {
+	onMount(() => {
 		if ($currentUser) {
 			displayName = $currentUser.displayName || '';
 			username = $currentUser.username || '';

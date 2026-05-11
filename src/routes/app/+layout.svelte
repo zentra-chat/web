@@ -20,6 +20,8 @@
 	} from '$lib/stores/instance';
 	import { websocket } from '$lib/api';
 	import { requestNotificationPermission } from '$lib/utils/nativeNotification';
+	import { isDesktop } from '$lib/utils/platform';
+	import { checkForUpdates } from '$lib/utils/update';
 
 	let { children } = $props();
 
@@ -35,6 +37,18 @@
 		// Redirect to login if not authenticated
 		if (!$isAuthenticated && !$currentInstance) {
 			goto('/');
+		}
+
+		// Auto-check for updates on desktop startup
+		if (isDesktop()) {
+			checkForUpdates(false);
+
+			// Listen for "Check for Updates" from tray menu
+			import('@tauri-apps/api/event').then(({ listen }) => {
+				listen('menu-check-update', () => {
+					checkForUpdates(true);
+				});
+			});
 		}
 	});
 

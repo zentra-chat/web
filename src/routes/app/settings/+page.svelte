@@ -22,6 +22,8 @@
 	import { updateMemberUser } from '$lib/stores/community';
 	import { updateDmUser } from '$lib/stores/dm';
 	import { getErrorMessage } from '$lib/utils/apiError';
+	import { isDesktop } from '$lib/utils/platform';
+	import { checkForUpdates } from '$lib/utils/update';
 	import type { InstanceSelectorMode } from '$lib/types';
 
 	let displayName = $state('');
@@ -341,6 +343,11 @@
 				<button onclick={() => activeTab = 'legal'} class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors {activeTab === 'legal' ? 'bg-surface-hover text-text-primary' : 'text-text-muted hover:text-text-primary hover:bg-surface'}">Legal</button>
 				<p class="text-xs text-secondary px-3 pt-4">{platform}</p>
 				<p class="text-xs text-secondary px-3">v{__APP_VERSION__}</p>
+				{#if isDesktop()}
+					<button onclick={() => checkForUpdates(true)} class="w-full mt-3 px-3 py-1.5 text-xs text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
+						Check for Updates
+					</button>
+				{/if}
 			</div>
 
 			<div class="flex-1 min-w-0">

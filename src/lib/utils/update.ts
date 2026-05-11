@@ -1,8 +1,8 @@
-import { check } from '@tauri-apps/plugin-updater';
 import { showToast } from '$lib/stores/ui';
 
 export async function checkForUpdates(manual = false) {
 	try {
+		const { check } = await import('@tauri-apps/plugin-updater');
 		const update = await check();
 
 		if (update) {

@@ -21,7 +21,6 @@
 	import { websocket } from '$lib/api';
 	import { requestNotificationPermission } from '$lib/utils/nativeNotification';
 	import { isDesktop } from '$lib/utils/platform';
-	import { checkForUpdates } from '$lib/utils/update';
 
 	let { children } = $props();
 
@@ -41,12 +40,14 @@
 
 		// Auto-check for updates on desktop startup
 		if (isDesktop()) {
-			checkForUpdates(false);
+			import('$lib/utils/update').then(({ checkForUpdates }) => {
+				checkForUpdates(false);
 
-			// Listen for "Check for Updates" from tray menu
-			import('@tauri-apps/api/event').then(({ listen }) => {
-				listen('menu-check-update', () => {
-					checkForUpdates(true);
+				// Listen for "Check for Updates" from tray menu
+				import('@tauri-apps/api/event').then(({ listen }) => {
+					listen('menu-check-update', () => {
+						checkForUpdates(true);
+					});
 				});
 			});
 		}

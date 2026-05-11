@@ -23,7 +23,6 @@
 	import { updateDmUser } from '$lib/stores/dm';
 	import { getErrorMessage } from '$lib/utils/apiError';
 	import { isDesktop } from '$lib/utils/platform';
-	import { checkForUpdates } from '$lib/utils/update';
 	import type { InstanceSelectorMode } from '$lib/types';
 
 	let displayName = $state('');
@@ -344,7 +343,7 @@
 				<p class="text-xs text-secondary px-3 pt-4">{platform}</p>
 				<p class="text-xs text-secondary px-3">v{__APP_VERSION__}</p>
 				{#if isDesktop()}
-					<button onclick={() => checkForUpdates(true)} class="w-full mt-3 px-3 py-1.5 text-xs text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
+					<button onclick={() => import('$lib/utils/update').then(m => m.checkForUpdates(true))} class="w-full mt-3 px-3 py-1.5 text-xs text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
 						Check for Updates
 					</button>
 				{/if}

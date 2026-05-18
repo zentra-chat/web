@@ -14,6 +14,7 @@ export interface FullUser extends User {
 	email: string;
 	emailVerified: boolean;
 	twoFactorEnabled: boolean;
+	isAdmin: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -673,6 +674,28 @@ export interface PluginAuditEntry {
 	action: string;
 	details: Record<string, unknown>;
 	createdAt: string;
+}
+
+// Admin types
+export interface AdminUser {
+	id: string;
+	username: string;
+	avatarUrl: string | null;
+	createdAt: string;
+}
+
+export interface DataPoint {
+	date: string;
+	count: number;
+}
+
+export interface DashboardStats {
+	totalUsers: number;
+	totalMessages: number;
+	totalCommunities: number;
+	usersOverTime: DataPoint[];
+	messagesOverTime: DataPoint[];
+	communitiesOverTime: DataPoint[];
 }
 
 // Public GitHub stats used on the landing page

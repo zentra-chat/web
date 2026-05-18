@@ -47,7 +47,9 @@ import type {
 	Plugin,
 	CommunityPlugin,
 	PluginSource,
-	PluginAuditEntry
+	PluginAuditEntry,
+	DashboardStats,
+	AdminUser
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
 import { normalizeApiError } from '$lib/utils/apiError';
@@ -1432,6 +1434,31 @@ class ApiClient {
 			`/plugins/communities/${communityId}/audit-log`
 		);
 		return Array.isArray(result.data) ? result.data : [];
+	}
+
+	// Admin endpoints
+
+	async getAdminDashboard(): Promise<DashboardStats> {
+		const result = await this.request<ApiResponse<DashboardStats>>('/admin/dashboard');
+		return result.data;
+	}
+
+	async getAdminUsers(): Promise<AdminUser[]> {
+		const result = await this.request<ApiResponse<AdminUser[]>>('/admin/admins');
+		return result.data || [];
+	}
+
+	async addAdmin(userId: string): Promise<void> {
+		await this.request('/admin/admins', {
+			method: 'POST',
+			body: JSON.stringify({ userId })
+		});
+	}
+
+	async removeAdmin(userId: string): Promise<void> {
+		await this.request(`/admin/admins/${userId}`, {
+			method: 'DELETE'
+		});
 	}
 }
 

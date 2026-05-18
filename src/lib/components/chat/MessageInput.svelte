@@ -756,7 +756,7 @@
 			bind:this={fileInputRef}
 			type="file"
 			multiple
-			accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+			accept="*/*"
 			onchange={handleFileSelect}
 			class="hidden"
 		/>

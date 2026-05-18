@@ -48,6 +48,7 @@
 	let saving = $state(false);
 
 	let deletingId = $state<string | null>(null);
+	let togglingAdmin = $state(false);
 
 	onMount(() => {
 		loadUsers();
@@ -192,6 +193,29 @@
 			showToast('error', 'Failed to restore user');
 		} finally {
 			deletingId = null;
+		}
+	}
+
+	async function toggleAdmin(userId: string, username: string, isCurrentlyAdmin: boolean) {
+		const action = isCurrentlyAdmin ? 'remove' : 'make';
+		if (!confirm(`${action === 'make' ? 'Make' : 'Remove'} ${username} ${action === 'make' ? 'an' : 'as'} admin?`)) return;
+		togglingAdmin = true;
+		try {
+			if (isCurrentlyAdmin) {
+				await api.removeAdmin(userId);
+				showToast('success', `${username} is no longer an admin`);
+			} else {
+				await api.addAdmin(userId);
+				showToast('success', `${username} is now an admin`);
+			}
+			if (selectedUser?.id === userId) {
+				selectedUser = await api.getAdminUser(userId);
+			}
+			loadUsers();
+		} catch (e) {
+			showToast('error', `Failed to ${action} admin`);
+		} finally {
+			togglingAdmin = false;
 		}
 	}
 
@@ -651,6 +675,18 @@
 							{/snippet}
 						</Button>
 					{:else if !editing}
+						<Button
+							variant={selectedUser.isAdmin ? 'secondary' : 'primary'}
+							size="sm"
+							disabled={togglingAdmin}
+							loading={togglingAdmin}
+							onclick={() => toggleAdmin(selectedUser.id, selectedUser.username, selectedUser.isAdmin)}
+						>
+							{#snippet children()}
+								<Shield size={14} />
+								{selectedUser.isAdmin ? 'Remove Admin' : 'Make Admin'}
+							{/snippet}
+						</Button>
 						<Button
 							variant="danger"
 							size="sm"

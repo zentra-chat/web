@@ -21,8 +21,7 @@
 	const navItems: NavItem[] = [
 		{ label: 'Overview', href: '/admin', icon: LayoutDashboard },
 		{ label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-		{ label: 'Manage Admins', href: '/admin/admins', icon: Shield },
-		{ label: 'User Management', href: '/admin/users', icon: Users },
+		{ label: 'Users', href: '/admin/users', icon: Users },
 		{ label: 'Server Management', href: '/admin/servers', icon: Server },
 		{ label: 'Plugins', href: '/admin/plugins', icon: Puzzle },
 		{ label: 'Audit Log', href: '/admin/logs', icon: FileText },

@@ -34,6 +34,7 @@
 	let fileInputRef: HTMLInputElement | null = $state(null);
 	const MESSAGE_INPUT_MAX_HEIGHT = 192;
 	const MAX_ATTACHMENTS = 10;
+	const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 	function resizeTextarea() {
 		const textarea = textareaRef;
@@ -461,10 +462,28 @@
 			return;
 		}
 
-		const filesToAdd = files.slice(0, remaining);
+		const oversized: string[] = [];
+		const valid = [];
+
+		for (const file of files) {
+			if (file.size > MAX_FILE_SIZE) {
+				oversized.push(file.name);
+			} else {
+				valid.push(file);
+			}
+		}
+
+		if (oversized.length > 0) {
+			addToast({
+				type: 'error',
+				message: `${oversized.join(', ')} ${oversized.length === 1 ? 'is' : 'are'} over the 50MB limit`
+			});
+		}
+
+		const filesToAdd = valid.slice(0, remaining);
 		attachments = [...attachments, ...filesToAdd];
 
-		if (filesToAdd.length < files.length) {
+		if (filesToAdd.length < valid.length) {
 			addToast({
 				type: 'error',
 				message: `Only ${MAX_ATTACHMENTS} attachments are allowed per message`
@@ -689,6 +708,14 @@
 							<span class="text-[10px] text-text-muted truncate w-full text-center">{file.name}</span>
 						</div>
 					{/if}
+					<div class="absolute bottom-1 left-1 right-1 flex justify-between items-center gap-1">
+						<span class="text-[9px] text-text-muted bg-surface/80 px-1 rounded truncate max-w-[60%]">{file.name}</span>
+						<span class="text-[9px] text-text-muted bg-surface/80 px-1 rounded shrink-0">
+							{file.size < 1024 * 1024
+								? (file.size / 1024).toFixed(0) + ' KB'
+								: (file.size / (1024 * 1024)).toFixed(1) + ' MB'}
+						</span>
+					</div>
 					<button
 						onclick={() => removeAttachment(index)}
 						class="absolute -top-1 -right-1 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

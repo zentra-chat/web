@@ -32,6 +32,29 @@
 	let contextMenu = $state<{ x: number; y: number; serverId: string } | null>(null);
 	let switchingUserId = $state<string | null>(null);
 	let isLoggingOut = $state(false);
+	let profileMenuOpen = $state(false);
+	let profileMenuCloseTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	function openProfileMenu() {
+		if (profileMenuCloseTimeout) {
+			clearTimeout(profileMenuCloseTimeout);
+			profileMenuCloseTimeout = null;
+		}
+		profileMenuOpen = true;
+	}
+
+	function scheduleCloseProfileMenu() {
+		profileMenuCloseTimeout = setTimeout(() => {
+			profileMenuOpen = false;
+		}, 120);
+	}
+
+	function cancelCloseProfileMenu() {
+		if (profileMenuCloseTimeout) {
+			clearTimeout(profileMenuCloseTimeout);
+			profileMenuCloseTimeout = null;
+		}
+	}
 
 	// Unread DM conversations to show as avatar indicators (max 3)
 	let dmIndicators = $derived($unreadDmConversations.slice(0, 3));
@@ -340,21 +363,23 @@
 			</button>
 		</Tooltip>
 
-		<div class="relative group" role="presentation">
+		<div class="relative" role="presentation">
 			<button
 				class="w-12 h-12 rounded-full overflow-hidden hover:opacity-80 transition-opacity flex items-center justify-center"
 				aria-haspopup="menu"
 				aria-label="Open profile menu"
+				onmouseenter={openProfileMenu}
+				onmouseleave={scheduleCloseProfileMenu}
 			>
 				<Avatar user={$currentUser} size="lg" />
 			</button>
 
 			<div
-				class="absolute left-full bottom-0 ml-3 w-64 p-2 bg-surface border border-border rounded-xl shadow-xl z-60
-				opacity-0 invisible pointer-events-none transition-all duration-150
-				group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto
-				group-focus-within:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto"
+				class="absolute left-full bottom-0 ml-3 w-64 p-2 bg-surface border border-border rounded-xl shadow-xl z-60 transition-all duration-150
+				{profileMenuOpen ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'}"
 				role="menu"
+				onmouseenter={cancelCloseProfileMenu}
+				onmouseleave={scheduleCloseProfileMenu}
 			>
 					<button
 						onclick={() => {

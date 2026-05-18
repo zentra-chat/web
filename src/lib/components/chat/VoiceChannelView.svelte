@@ -3,7 +3,6 @@
 	import { Avatar, Tooltip } from '$lib/components/ui';
 	import {
 		voiceChannelId,
-		voiceConnectionState,
 		currentVoiceParticipants,
 		isSelfMuted,
 		isSelfDeafened,
@@ -18,6 +17,7 @@
 	} from '$lib/stores/voice';
 	import { currentUserId } from '$lib/stores/instance';
 	import { activeChannel } from '$lib/stores/community';
+	import { SvelteMap } from 'svelte/reactivity';
 	import type { VoiceState } from '$lib/types';
 
 	let isConnected = $derived($voiceChannelId === $activeChannel?.id);
@@ -40,7 +40,7 @@
 			}))
 	);
 
-	const screenShareVideoEls = new Map<string, HTMLVideoElement>();
+	const screenShareVideoEls = new SvelteMap<string, HTMLVideoElement>();
 	const screenShareVolumes = $state<Record<string, number>>({});
 
 	function getScreenShareVolume(userId: string): number {

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
 	export let showDocs = true;
 	export let showDownload = true;
 </script>
@@ -10,13 +12,13 @@
 		<p>© 2026 Zentra / Abstractmelon</p>
 		<div class="flex items-center gap-4">
 			{#if showDocs}
-				<a href="/docs" class="hover:text-text-secondary transition-colors">Docs</a>
+				<a href={resolve('/docs')} class="hover:text-text-secondary transition-colors">Docs</a>
 			{/if}
 			{#if showDownload}
-				<a href="/download" class="hover:text-text-secondary transition-colors">Download</a>
+				<a href={resolve('/download')} class="hover:text-text-secondary transition-colors">Download</a>
 			{/if}
-			<a href="/privacy" class="hover:text-text-secondary transition-colors">Privacy Policy</a>
-			<a href="/terms" class="hover:text-text-secondary transition-colors">Terms of Service</a>
+			<a href={resolve('/privacy')} class="hover:text-text-secondary transition-colors">Privacy Policy</a>
+			<a href={resolve('/terms')} class="hover:text-text-secondary transition-colors">Terms of Service</a>
 		</div>
 	</div>
 </footer>

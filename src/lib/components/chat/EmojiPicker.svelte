@@ -3,7 +3,6 @@
 	import {
 		Smile,
 		Search,
-		Image as ImageIcon,
 		Clock,
 		Bird,
 		Utensils,

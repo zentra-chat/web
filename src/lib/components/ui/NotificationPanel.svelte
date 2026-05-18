@@ -15,6 +15,7 @@
 	} from '$lib/stores/notification';
 	import { api } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { selectCommunity, activeChannelId } from '$lib/stores/community';
 	import { setActiveDmConversationId } from '$lib/stores/dm';
 	import type { Notification } from '$lib/types';
@@ -39,17 +40,6 @@
 			console.error('Failed to load notifications:', err);
 		} finally {
 			isLoading = false;
-		}
-	}
-
-	async function handleMarkRead(e: MouseEvent, notif: Notification) {
-		e.stopPropagation();
-		if (notif.isRead) return;
-		try {
-			await api.markNotificationRead(notif.id);
-			markNotificationReadLocal(notif.id);
-		} catch (err) {
-			console.error('Failed to mark notification read:', err);
 		}
 	}
 
@@ -78,11 +68,11 @@
 		// Navigate to the relevant context
 		if (notif.type === 'dm_message' && notif.channelId) {
 			setActiveDmConversationId(notif.channelId);
-			goto('/app');
+			goto(resolve('/app'));
 		} else if (notif.communityId && notif.channelId) {
 			selectCommunity(notif.communityId);
 			activeChannelId.set(notif.channelId);
-			goto('/app');
+			goto(resolve('/app'));
 		}
 	}
 

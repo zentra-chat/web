@@ -76,7 +76,7 @@
 				if (!cancelled) {
 					searchResults = (result.data || []).filter((user) => user.id !== $currentUserId);
 				}
-			} catch (error) {
+			} catch {
 				if (!cancelled) {
 					searchResults = [];
 					searchError = 'Failed to search users';
@@ -143,8 +143,8 @@
 		try {
 			await action();
 			addToast({ type: 'success', message: successMessage });
-		} catch (error: any) {
-			addToast({ type: 'error', message: error?.error || error?.message || errorMessage });
+		} catch (error: unknown) {
+			addToast({ type: 'error', message: (error as Record<string, string>)?.error || (error as Error)?.message || errorMessage });
 		} finally {
 			setActionLoading(userId, false);
 		}
@@ -194,8 +194,8 @@
 			upsertDmConversation(conversation);
 			setActiveDmConversationId(conversation.id);
 			onOpenDm();
-		} catch (error: any) {
-			addToast({ type: 'error', message: error?.error || error?.message || 'Failed to open DM' });
+		} catch (error: unknown) {
+			addToast({ type: 'error', message: (error as Record<string, string>)?.error || (error as Error)?.message || 'Failed to open DM' });
 		} finally {
 			setActionLoading(userId, false);
 		}

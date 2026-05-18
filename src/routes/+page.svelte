@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { api } from '$lib/api';
 	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import { Button } from '$lib/components/ui';
@@ -43,9 +44,9 @@
 		// Desktop app skips the homepage entirely
 		if (isDesktop()) {
 			if ($isLoggedIn) {
-				goto('/app', { replaceState: true });
+				goto(resolve('/app'), { replaceState: true });
 			} else {
-				goto('/login', { replaceState: true });
+				goto(resolve('/login'), { replaceState: true });
 			}
 			return;
 		} else {
@@ -192,21 +193,21 @@
 
 		<div class="flex flex-col sm:flex-row gap-4">
 			{#if $isLoggedIn}
-				<a href="/app">
+				<a href={resolve('/app')}>
 					<Button size="lg" class="glow-primary">
 						Open App
 						<ArrowRight size={20} />
 					</Button>
 				</a>
 			{:else if $instances.length > 0}
-				<a href="/login">
+				<a href={resolve('/login')}>
 					<Button size="lg" class="glow-primary">
 						Continue to Login
 						<ArrowRight size={20} />
 					</Button>
 				</a>
 			{:else}
-				<a href="/register">
+				<a href={resolve('/register')}>
 					<Button size="lg" class="glow-primary">
 						Get Started
 						<ArrowRight size={20} />
@@ -240,7 +241,7 @@
 		</div>
 
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-			{#each features as feature, i}
+			{#each features as feature, i (feature.title)}
 				{@const FeatureIcon = feature.icon}
 				<div
 					class="scroll-reveal group rounded-2xl border border-border bg-surface p-6 hover:border-border-light hover:bg-surface-hover transition-colors duration-200"
@@ -282,7 +283,7 @@
 					'PostgreSQL backend with automatic migrations',
 					'S3-compatible object storage support',
 					'Detailed docs to get you running in minutes'
-				] as item}
+				] as item (item)}
 					<li class="flex items-start gap-3">
 						<div
 							class="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0 mt-0.5"
@@ -293,7 +294,7 @@
 					</li>
 				{/each}
 			</ul>
-			<a href="/docs/self-hosting">
+			<a href={resolve('/docs/self-hosting')}>
 				<Button>
 					Read the docs
 					<ArrowRight size={18} />
@@ -383,7 +384,7 @@
 						'Plugins declare what they need in a manifest. The SDK only grants those specific capabilities. API calls, stores, and actions outside the declared permissions are blocked.',
 					delay: 160
 				}
-			] as card}
+			] as card (card.title)}
 				{@const CardIcon = card.icon}
 				<div
 					class="scroll-reveal rounded-2xl border border-border bg-surface p-6"
@@ -464,7 +465,7 @@
 					value: '100%',
 					delay: 180
 				}
-			] as stat}
+			] as stat (stat.label)}
 				{@const StatIcon = stat.icon}
 				<div
 					class="scroll-reveal rounded-2xl border border-border bg-surface p-6 text-center"
@@ -492,15 +493,14 @@
 					Contributors
 				</h3>
 				<div class="flex flex-wrap justify-center gap-3">
-					{#each githubStats.contributors as contributor}
-						<a
-							href={contributor.html_url}
+					{#each githubStats.contributors as contributor (contributor.login)}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+						<a href={contributor.html_url}
 							target="_blank"
 							rel="noopener noreferrer"
 							title="{contributor.login} - {contributor.contributions} commits"
 							class="group relative"
 						>
-							<!-- svelte-ignore a11y_missing_attribute -->
 							<img
 								src={contributor.avatar_url}
 								alt={contributor.login}
@@ -538,7 +538,7 @@
 			open forever.
 		</p>
 		<div class="flex flex-col sm:flex-row gap-4 justify-center">
-			<a href="/register">
+			<a href={resolve('/register')}>
 				<Button size="lg" class="glow-primary">
 					Get Started Free
 					<ArrowRight size={20} />

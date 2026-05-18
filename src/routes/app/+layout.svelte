@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { ToastContainer, NotificationPreviewContainer } from '$lib/components/ui';
 	import { AppLayout } from '$lib/components/layout';
 	import { InstanceModal } from '$lib/components/instance';
@@ -13,7 +14,6 @@
 	import { instanceModalOpen } from '$lib/stores/ui';
 	import {
 		currentInstance,
-		instances,
 		isAuthenticated,
 		loadInstances,
 		activeAuth
@@ -35,7 +35,7 @@
 
 		// Redirect to login if not authenticated
 		if (!$isAuthenticated && !$currentInstance) {
-			goto('/');
+			goto(resolve('/'));
 		}
 
 		// Auto-check for updates on desktop startup
@@ -65,7 +65,7 @@
 	// Watch for authentication changes for redirect
 	$effect(() => {
 		if (!isLoading && !$isAuthenticated) {
-			goto('/');
+			goto(resolve('/'));
 		}
 	});
 </script>

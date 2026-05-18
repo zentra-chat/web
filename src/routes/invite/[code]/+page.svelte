@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { Button, Spinner, Avatar } from '$lib/components/ui';
+	import { Button, Spinner } from '$lib/components/ui';
 	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import { Users, AlertCircle, CheckCircle, LogIn } from 'lucide-svelte';
 	import { api } from '$lib/api';
@@ -79,7 +80,7 @@
 		if (!$isAuthenticated) {
 			// Store the invite code and redirect to login
 			sessionStorage.setItem('pendingInvite', inviteCode);
-			goto('/login');
+			goto(resolve('/login'));
 			return;
 		}
 
@@ -97,7 +98,7 @@
 
 			// Redirect to the community after a short delay
 			setTimeout(() => {
-				goto('/app');
+				goto(resolve('/app'));
 			}, 1500);
 		} catch (err: unknown) {
 			console.error('Failed to join community:', err);
@@ -109,7 +110,7 @@
 					type: 'info',
 					message: 'You are already a member of this community'
 				});
-				goto('/app');
+				goto(resolve('/app'));
 			} else if (lowerError.includes('expired') || lowerError.includes('invalid')) {
 				joinError = 'This invite link has expired or is no longer valid';
 			} else {
@@ -126,12 +127,12 @@
 
 	function handleLogin() {
 		if (inviteCode) sessionStorage.setItem('pendingInvite', inviteCode);
-		goto('/login');
+		goto(resolve('/login'));
 	}
 
 	function handleRegister() {
 		if (inviteCode) sessionStorage.setItem('pendingInvite', inviteCode);
-		goto('/register');
+		goto(resolve('/register'));
 	}
 </script>
 
@@ -151,7 +152,7 @@
 				</div>
 				<h1 class="text-xl font-bold text-text-primary mb-2">Invalid Invite</h1>
 				<p class="text-text-muted mb-6">{error}</p>
-				<Button onclick={() => goto('/')} variant="secondary">
+				<Button onclick={() => goto(resolve('/'))} variant="secondary">
 					Go Home
 				</Button>
 			</div>

@@ -3,7 +3,7 @@
 	import {
 		Search, Puzzle, Download, Trash, ToggleLeft, ToggleRight,
 		Shield, ShieldAlert, ChevronDown, ChevronRight, ExternalLink,
-		RefreshCw, Plus, X, Globe, Package, Check, AlertTriangle
+		RefreshCw, Plus, Globe, Package, Check, AlertTriangle
 	} from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { addToast } from '$lib/stores/ui';
@@ -13,8 +13,8 @@
 		type Plugin,
 		type CommunityPlugin,
 		type PluginSource,
-		type PluginAuditEntry
 	} from '$lib/types';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		communityId: string;
@@ -27,8 +27,6 @@
 	let installedPlugins = $state<CommunityPlugin[]>([]);
 	let catalogPlugins = $state<Plugin[]>([]);
 	let sources = $state<PluginSource[]>([]);
-	let auditLog = $state<PluginAuditEntry[]>([]);
-
 	let isLoadingInstalled = $state(false);
 	let isLoadingCatalog = $state(false);
 	let isLoadingSources = $state(false);
@@ -479,7 +477,7 @@
 									{#if plugin.homepageUrl}
 										<div>
 											<span class="text-text-muted">Homepage</span>
-											<a href={plugin.homepageUrl} target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-primary hover:underline">
+											<a href={resolve(plugin.homepageUrl)} target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-primary hover:underline">
 												Visit <ExternalLink size={11} />
 											</a>
 										</div>
@@ -491,7 +489,7 @@
 									<div>
 										<p class="text-xs font-medium text-text-muted mb-1.5">Permissions</p>
 										<div class="flex flex-wrap gap-1.5">
-											{#each perms as perm}
+											{#each perms as perm (perm.key)}
 												<span
 													class="text-[11px] px-2 py-0.5 rounded-full {perm.granted
 														? perm.risky ? 'bg-yellow-500/15 text-yellow-400' : 'bg-green-500/15 text-green-400'
@@ -751,7 +749,7 @@
 			</p>
 
 			<div class="space-y-2 max-h-64 overflow-y-auto">
-				{#each perms as perm}
+				{#each perms as perm (perm.bit)}
 					<label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-surface-hover cursor-pointer">
 						<input
 							type="checkbox"

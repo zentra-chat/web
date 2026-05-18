@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 </script>
 
@@ -112,7 +113,7 @@
 		</section>
 
 		<div class="mt-12">
-			<a href="/" class="text-primary hover:underline">Back to home</a>
+			<a href={resolve("/")} class="text-primary hover:underline">Back to home</a>
 		</div>
 	</div>
 </div>

@@ -2,7 +2,6 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { Maximize, X, Minus } from 'lucide-svelte';
-	import { isDesktop } from '$lib/utils/platform';
 	
 	let { children } = $props();
 	let showDesktopTitlebar = $state(false);

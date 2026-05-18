@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
-	import { Edit, Trash, Reply, Pin, Paperclip, Image, File, Smile } from 'lucide-svelte';
+	import { Edit, Trash, Reply, Pin, File, Smile } from 'lucide-svelte';
 	import type { Attachment, Message, User } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
 	import {
@@ -26,6 +26,8 @@
 	import EmojiPicker from './EmojiPicker.svelte';
 	import { renderMarkdown, type MentionResolver, type EmojiResolver } from '$lib/utils/markdown';
 	import { customEmojiById } from '$lib/stores/emoji';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		message: Message;
@@ -88,7 +90,7 @@
 
 		const members = $activeCommunityMembers;
 		// Collect all unique roles from members
-		const rolesById = new Map<string, string>();
+		const rolesById = new SvelteMap<string, string>();
 		for (const m of members) {
 			for (const r of m.roles ?? []) {
 				rolesById.set(r.id, r.name);
@@ -107,7 +109,7 @@
 	let emojiResolver = $derived.by((): EmojiResolver => {
 		const lookup = $customEmojiById;
 		// Build a name-based lookup for :shortcode: resolution too
-		const byName = new Map<string, typeof lookup extends Map<string, infer V> ? V : never>();
+		const byName = new SvelteMap<string, typeof lookup extends Map<string, infer V> ? V : never>();
 		for (const [, emoji] of lookup) {
 			byName.set(emoji.name.toLowerCase(), emoji);
 		}
@@ -318,6 +320,14 @@
 			return url;
 		}
 	}
+	function renderHTML(node: HTMLElement, html: string) {
+		node.innerHTML = html;
+		return {
+			update(html: string) {
+				node.innerHTML = html;
+			}
+		};
+	}
 </script>
 
 {#if showDateDivider}
@@ -400,9 +410,7 @@
 
 			<!-- Message content -->
 			{#if hasContent}
-				<div class="message-content text-text-secondary" onclick={handleMentionClick}>
-					{@html renderMarkdown(message.content || '', mentionResolver, emojiResolver)}
-				</div>
+				<div class="message-content text-text-secondary" onclick={handleMentionClick} use:renderHTML={renderMarkdown(message.content || '', mentionResolver, emojiResolver)}></div>
 				{#if message.isEdited}
 					<div class="text-xs text-text-muted mt-1">(edited)</div>
 				{/if}
@@ -411,9 +419,9 @@
 			<!-- Link previews -->
 			{#if message.linkPreviews && message.linkPreviews.length > 0}
 				<div class="mt-2 flex flex-col gap-2">
-					{#each message.linkPreviews as preview}
+					{#each message.linkPreviews as preview (preview.url)}
 						<a
-							href={preview.url}
+							href={resolve(preview.url)}
 							target="_blank"
 							rel="noopener noreferrer"
 							class="group/link-preview block max-w-xl rounded-lg border border-border bg-surface/60 hover:border-primary transition-colors"
@@ -453,10 +461,10 @@
 			<!-- Attachments -->
 			{#if message.attachments && message.attachments.length > 0}
 				<div class="{hasContent ? 'mt-2' : ''} flex flex-wrap gap-2">
-					{#each message.attachments as attachment}
+					{#each message.attachments as attachment (attachment.id)}
 						{#if attachment.contentType?.startsWith('image/')}
 							<a
-								href={attachment.url}
+								href={resolve(attachment.url)}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="block max-w-md rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
@@ -477,7 +485,7 @@
 									class="w-full max-h-100 bg-background"
 								>
 									<track kind="captions" />
-									<a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+									<a href={resolve(attachment.url)} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
 								</video>
 								<div class="px-3 py-2 border-t border-border">
 									<p class="text-sm text-text-primary truncate">{attachment.filename}</p>
@@ -493,13 +501,13 @@
 									preload="metadata"
 									class="w-full"
 								>
-									<a href={attachment.url} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+									<a href={resolve(attachment.url)} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
 								</audio>
 								<p class="text-xs text-text-muted mt-2">{formatFileSize(attachment.size)}</p>
 							</div>
 						{:else}
 							<a
-								href={attachment.url}
+								href={resolve(attachment.url)}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="flex items-center gap-2 p-3 bg-surface border border-border rounded-lg hover:border-primary transition-colors"
@@ -519,7 +527,7 @@
 			<!-- Reactions -->
 			{#if enableReactions && message.reactions && message.reactions.length > 0}
 				<div class="mt-2 flex flex-wrap gap-1">
-					{#each message.reactions as reaction}
+					{#each message.reactions as reaction (reaction.emoji)}
 						{@const customMatch = reaction.emoji.match(/^<:([^:]+):([0-9a-f-]+)>$/)}
 						{@const customEmoji = customMatch ? $customEmojiById.get(customMatch[2]) : null}
 						<button

@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { Button, Input } from '$lib/components/ui';
-	import { Mail, Lock, ArrowLeft, Server } from 'lucide-svelte';
+	import { Lock, ArrowLeft, Server } from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import {
 		activeInstance,
 		setInstanceAuth,
 		isLoggedIn,
-		instanceAuth,
 		shouldSkipAutoPortableAuth,
 		clearSkipAutoPortableAuth
 	} from '$lib/stores/instance';
@@ -98,9 +98,9 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 	function handleRedirectAfterLogin() {
 		if (pendingInvite) {
 			sessionStorage.removeItem('pendingInvite');
-			goto(`/invite/${pendingInvite}`);
+			goto(resolve(`/invite/${pendingInvite}`));
 		} else {
-			goto('/app');
+			goto(resolve('/app'));
 		}
 	}
 
@@ -165,7 +165,7 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 
 	<div class="relative z-10 w-full max-w-md">
 		<div class="text-center mb-8">
-			<a href="/" class="inline-block">
+			<a href={resolve("/")} class="inline-block">
 				<h1 class="text-4xl font-bold text-gradient glow-text">Zentra</h1>
 			</a>
 			<p class="text-text-secondary mt-2">{isAddAccountMode ? 'Add another account' : 'Welcome back'}</p>
@@ -246,7 +246,7 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 						<p class="text-sm text-danger">{error}</p>
 						{#if errorCode === 'EMAIL_NOT_VERIFIED'}
 							<a
-								href={`/verify-email?email=${encodeURIComponent(login.trim())}`}
+								href={resolve(`/verify-email?email=${encodeURIComponent(login.trim())}`)}
 								class="text-xs text-primary hover:underline"
 							>
 								Verify email and resend link
@@ -271,7 +271,7 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 				<div class="mt-6 pt-6 border-t border-border text-center">
 					<p class="text-text-secondary">
 						Don't have an account?
-						<a href="/register" class="text-primary hover:underline">Register</a>
+						<a href={resolve("/register")} class="text-primary hover:underline">Register</a>
 					</p>
 				</div>
 			{/if}
@@ -279,13 +279,13 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 
 		<p class="text-center mt-4 text-xs text-text-muted">
 			By continuing, you agree to the
-			<a href="/terms" class="text-primary hover:underline">Terms of Service</a>
+			<a href={resolve("/terms")} class="text-primary hover:underline">Terms of Service</a>
 			and
-			<a href="/privacy" class="text-primary hover:underline">Privacy Policy</a>.
+			<a href={resolve("/privacy")} class="text-primary hover:underline">Privacy Policy</a>.
 		</p>
 
 		<p class="text-center mt-6 text-sm text-text-muted">
-			<a href="/" class="hover:text-text-secondary">Back to home</a>
+			<a href={resolve("/")} class="hover:text-text-secondary">Back to home</a>
 		</p>
 	</div>
 </div>

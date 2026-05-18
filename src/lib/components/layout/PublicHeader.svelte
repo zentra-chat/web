@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui';
 	import { ArrowRight, Github } from 'lucide-svelte';
 	import { isLoggedIn } from '$lib/stores/instance';
@@ -16,11 +17,11 @@
 </script>
 
 <nav class="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto w-full">
-	<a href="/" class="text-2xl font-bold text-gradient">Zentra</a>
+	<a href={resolve('/')} class="text-2xl font-bold text-gradient">Zentra</a>
 	<div class="flex items-center gap-4">
 		{#if showDocs}
 			<a
-				href="/docs"
+				href={resolve('/docs')}
 				class={`text-sm font-medium transition-colors ${isLinkActive('/docs') ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
 			>
 				Docs
@@ -29,7 +30,7 @@
 
 		{#if showDownload}
 			<a
-				href="/download"
+				href={resolve('/download')}
 				class={`text-sm font-medium transition-colors ${isLinkActive('/download') ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
 			>
 				Download
@@ -47,17 +48,17 @@
 		</a>
 
 		{#if $isLoggedIn}
-			<a href="/app">
+			<a href={resolve('/app')}>
 				<Button>
 					Open App
 					<ArrowRight size={18} />
 				</Button>
 			</a>
 		{:else}
-			<a href="/login">
+			<a href={resolve('/login')}>
 				<Button variant="secondary">Login</Button>
 			</a>
-			<a href="/register">
+			<a href={resolve('/register')}>
 				<Button>
 					Get Started
 					<ArrowRight size={18} />

@@ -39,13 +39,14 @@
 	} from '$lib/stores/ui';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api, websocket } from '$lib/api';
 	import { joinVoiceChannel, voiceChannelId, loadVoiceStates } from '$lib/stores/voice';
 	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { Channel, ChannelCategory } from '$lib/types';
 
-	let collapsedCategories = $state<Set<string>>(new Set());
+	let collapsedCategories = new SvelteSet<string>();
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
 	let contextMenu = $state<
 		| { x: number; y: number; type: 'channel'; channelId: string }
@@ -103,7 +104,7 @@
 	let isChannelSettingsOpen = $state(false);
 	let channelSettingsChannelId = $state<string | null>(null);
 	let isDeleting = $state(false);
-	let subscribedVoiceChannelIds = new Set<string>();
+	let subscribedVoiceChannelIds = new SvelteSet<string>();
 	let channelSettingsChannel = $derived.by(() => {
 		if (!channelSettingsChannelId) return null;
 		return $activeCommunityChannels.find((channel) => channel.id === channelSettingsChannelId) || null;
@@ -154,11 +155,11 @@
 		for (const channelId of subscribedVoiceChannelIds) {
 			websocket.unsubscribe(channelId);
 		}
-		subscribedVoiceChannelIds = new Set();
+		subscribedVoiceChannelIds = new SvelteSet();
 	});
 
 	$effect(() => {
-		const nextVoiceChannelIds = new Set(
+		const nextVoiceChannelIds = new SvelteSet(
 			$activeCommunityChannels
 				.filter((channel) => channel.type === 'voice')
 				.map((channel) => channel.id)
@@ -209,11 +210,11 @@
 	function toggleCategory(categoryId: string) {
 		if (collapsedCategories.has(categoryId)) {
 			collapsedCategories.delete(categoryId);
-			collapsedCategories = new Set(collapsedCategories);
+			collapsedCategories = new SvelteSet(collapsedCategories);
 			return;
 		}
 
-		collapsedCategories = new Set([...collapsedCategories, categoryId]);
+		collapsedCategories = new SvelteSet([...collapsedCategories, categoryId]);
 	}
 
 	function handleChannelClick(channel: Channel) {

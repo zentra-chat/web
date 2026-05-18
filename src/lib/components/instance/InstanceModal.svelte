@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { Button, Input, Modal } from '$lib/components/ui';
 	import { Server, Globe, Check, X, AlertCircle, Pencil, Save, ImagePlus } from 'lucide-svelte';
 	import {
@@ -112,7 +113,7 @@
 			showToast('warning', 'This instance is already added');
 			setActiveInstance(existing.id);
 			onclose();
-			goto('/login');
+			goto(resolve('/login'));
 			return;
 		}
 
@@ -133,7 +134,7 @@
 		newInstanceIconPreview = null;
 		checkResult = null;
 		onclose();
-		goto('/login');
+		goto(resolve('/login'));
 	}
 
 	function startEditInstance(instance: { id: string; name: string; iconUrl?: string }) {
@@ -166,7 +167,7 @@
 	function handleSelectInstance(id: string) {
 		setActiveInstance(id);
 		onclose();
-		goto('/login');
+		goto(resolve('/login'));
 	}
 
 	function handleClose() {

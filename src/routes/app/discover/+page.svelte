@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { Search, Users, Globe, Lock } from 'lucide-svelte';
 	import { Avatar, Button, Spinner } from '$lib/components/ui';
 	import { api } from '$lib/api';
@@ -68,7 +69,7 @@
 			addCommunity(community);
 			addToast({ type: 'success', message: `Joined ${community.name}!` });
 			selectCommunity(community.id);
-			goto('/app');
+			goto(resolve('/app'));
 		} catch (err: unknown) {
 			console.error('Failed to join community:', err);
 			addToast({

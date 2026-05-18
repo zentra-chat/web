@@ -5,6 +5,7 @@
 		setActiveInstance
 	} from '$lib/stores/instance';
 	import { websocket } from '$lib/api';
+	import { resolve } from '$app/paths';
     import { instanceSelectorMode } from '$lib/stores/ui';
 
 	let isHovered = $state(false);
@@ -77,7 +78,7 @@
         {/each}
 
         <a
-            href="/"
+            href={resolve('/')}
             class="w-12 h-12 rounded-2xl border-2 border-dashed border-border hover:border-primary text-text-muted hover:text-primary transition-all duration-200 flex items-center justify-center text-2xl"
             title="Add Instance"
         >

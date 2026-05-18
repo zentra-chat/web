@@ -99,7 +99,7 @@
 	<div class="flex-1 overflow-y-auto px-2 pb-2">
 		{#if isLoading}
 			<div class="space-y-2">
-				{#each Array(5) as _}
+				{#each [0,1,2,3,4] as i (i)}
 					<div class="flex items-center gap-2 p-1">
 						<div class="w-8 h-8 rounded-full bg-surface animate-pulse"></div>
 						<div class="h-4 w-24 bg-surface rounded animate-pulse"></div>

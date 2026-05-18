@@ -114,7 +114,7 @@
 					const list = result.data || [];
 					searchResults = list.filter((user) => user.id !== $currentUserId);
 				}
-			} catch (err) {
+			} catch {
 				if (!cancelled) {
 					searchError = 'Failed to search users';
 					searchResults = [];

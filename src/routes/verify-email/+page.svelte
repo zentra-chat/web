@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { MailCheck, RefreshCcw } from 'lucide-svelte';
@@ -77,7 +78,7 @@
 
 	<div class="relative z-10 w-full max-w-md">
 		<div class="text-center mb-8">
-			<a href="/" class="inline-block">
+			<a href={resolve("/")} class="inline-block">
 				<h1 class="text-4xl font-bold text-gradient glow-text">Zentra</h1>
 			</a>
 			<p class="text-text-secondary mt-2">Verify your email address</p>
@@ -96,7 +97,7 @@
 			{#if isVerifying}
 				<Button class="w-full" loading={true}>Verifying...</Button>
 			{:else if isVerified}
-				<Button class="w-full" onclick={() => goto('/login')}>Continue to Login</Button>
+				<Button class="w-full" onclick={() => goto(resolve('/login'))}>Continue to Login</Button>
 			{:else}
 				<div class="space-y-3">
 					<Input
@@ -110,7 +111,7 @@
 						<RefreshCcw size={16} />
 						Resend Verification Email
 					</Button>
-					<Button class="w-full" variant="ghost" onclick={() => goto('/login')}>Back to Login</Button>
+					<Button class="w-full" variant="ghost" onclick={() => goto(resolve('/login'))}>Back to Login</Button>
 				</div>
 			{/if}
 		</div>

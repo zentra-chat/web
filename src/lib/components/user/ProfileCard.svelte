@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { fade, scale } from 'svelte/transition';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { Button, Avatar } from '$lib/components/ui';
@@ -89,7 +90,7 @@
 			await loadFriendsData({ force: true });
 			await refreshRelationship();
 			addToast({ type: 'success', message: successMessage });
-		} catch (err: any) {
+		} catch (err: unknown) {
 			addToast({ type: 'error', message: getErrorMessage(err, errorMessage) });
 		} finally {
 			isFriendActionLoading = false;
@@ -163,7 +164,7 @@
 
 	function handleEditProfile() {
 		closeProfileCard();
-		goto('/app/settings');
+		goto(resolve('/app/settings'));
 	}
 
 	function handleOpenUserContextMenu(event: MouseEvent): void {

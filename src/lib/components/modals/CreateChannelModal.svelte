@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
-	import { Hash, Megaphone, Image, Lock, Volume2 } from 'lucide-svelte';
+
 	import { createChannelModalOpen, closeCreateChannelModal, addToast, createChannelModalData } from '$lib/stores/ui';
 	import { activeCommunity, activeCommunityMembers, addChannel, memberHasPermission, Permission } from '$lib/stores/community';
 	import { currentUserId } from '$lib/stores/instance';
 	import { api } from '$lib/api';
 	import { getAllRegisteredTypes } from '$lib/channelTypes';
 	import { getErrorMessage } from '$lib/utils/apiError';
-	import type { Channel } from '$lib/types';
 
 	let name = $state('');
 	let description = $state('');
@@ -101,7 +100,7 @@
 		<div>
 			<span class="block text-sm font-medium text-text-secondary mb-2">Channel Type</span>
 			<div class="space-y-2">
-				{#each channelTypes as channelType}
+				{#each channelTypes as channelType (channelType.value)}
 					{@const Icon = channelType.icon}
 					<label
 						class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors {type === channelType.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}"

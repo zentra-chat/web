@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import {
@@ -53,7 +54,7 @@
 			// Refresh members list
 			const members = await api.getCommunityMembers($activeCommunity.id);
 			setMembers($activeCommunity.id, members);
-		} catch (err: any) {
+		} catch (err: unknown) {
 			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to ban member') });
 		} finally {
 			isBanning = false;
@@ -68,7 +69,7 @@
 	onMount(() => {
 		// Redirect if not logged in
 		if (!$isLoggedIn || !$activeInstance) {
-			goto('/login');
+			goto(resolve('/login'));
 			return;
 		}
 

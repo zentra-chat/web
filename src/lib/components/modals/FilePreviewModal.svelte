@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { Modal, Spinner } from '$lib/components/ui';
 	import { X, Download, File } from 'lucide-svelte';
 	import { filePreviewOpen, filePreviewData } from '$lib/stores/ui';
-	import type { Attachment } from '$lib/types';
 
 	const isOpen = $derived($filePreviewOpen);
 	const data = $derived($filePreviewData);

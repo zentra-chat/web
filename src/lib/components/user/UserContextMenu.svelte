@@ -94,7 +94,7 @@
 			addToast({ type: 'success', message: `${displayName} has been kicked` });
 			const members = await api.getCommunityMembers($activeCommunity.id);
 			setMembers($activeCommunity.id, members);
-		} catch (err: any) {
+		} catch (err: unknown) {
 			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to kick member') });
 		}
 		onclose();

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Plus, Settings, Users, Home, Search, UserPlus, LogOut } from 'lucide-svelte';
-	import { Avatar, Button, Tooltip, NotificationPanel } from '$lib/components/ui';
+	import { Plus, Settings, Home, Search, UserPlus, LogOut } from 'lucide-svelte';
+	import { Avatar, Tooltip, NotificationPanel } from '$lib/components/ui';
 	import {
 		activeInstance,
 		currentUser,
@@ -24,6 +24,7 @@
 	import { normalizeApiError } from '$lib/utils/apiError';
 	import type { Community, User, DMConversation } from '$lib/types';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 
 	let communities = $derived($communitiesCache[$activeInstance?.id || ''] || []);
@@ -47,7 +48,7 @@
 	function openDm(convo: DMConversation) {
 		selectCommunity(null);
 		setActiveDmConversationId(convo.id);
-		goto('/app');
+		goto(resolve('/app'));
 	}
 
 	$effect(() => {
@@ -77,7 +78,7 @@
 			$page.url.pathname.startsWith('/app/settings') ||
 			$page.url.pathname.startsWith('/app/community-settings')
 		) {
-			goto('/app');
+			goto(resolve('/app'));
 		}
 	}
 
@@ -107,7 +108,7 @@
 			$page.url.pathname.startsWith('/app/settings') ||
 			$page.url.pathname.startsWith('/app/community-settings')
 		) {
-			goto('/app');
+			goto(resolve('/app'));
 		}
 	}
 
@@ -130,7 +131,7 @@
 	}
 
 	function handleAddAccount() {
-		goto('/login?addAccount=1');
+		goto(resolve('/login?addAccount=1'));
 	}
 
 	async function handleLogout() {
@@ -157,7 +158,7 @@
 			addToast({ type: 'warning', message: 'Logged out locally' });
 		} finally {
 			isLoggingOut = false;
-			goto('/login');
+			goto(resolve('/login'));
 		}
 	}
 
@@ -254,7 +255,7 @@
 	<!-- Communities list -->
 	<div class="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center gap-2 px-3 scrollbar-hide">
 		{#if $isLoadingCommunities}
-			{#each Array(3) as _}
+			{#each [0,1,2] as i (i)}
 				<div class="w-12 h-12 rounded-2xl bg-surface-hover animate-pulse"></div>
 			{/each}
 		{:else}
@@ -314,8 +315,8 @@
 				class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 bg-success rounded-r-full transition-all duration-200 h-0 group-hover:h-5"
 			></div>
 			<Tooltip text="Discover Communities" position="right">
-				<button
-					onclick={() => goto('/app/discover')}
+			<button
+				onclick={() => goto(resolve('/app/discover'))}
 					class="w-12 h-12 rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-success text-success hover:text-white transition-all duration-200 flex items-center justify-center"
 				>
 					<Search size={20} />
@@ -332,7 +333,7 @@
 
 		<Tooltip text="Settings" position="right">
 			<button
-				onclick={() => goto('/app/settings')}
+				onclick={() => goto(resolve('/app/settings'))}
 				class="w-12 h-12 rounded-2xl hover:rounded-xl bg-surface-hover hover:bg-surface-active text-text-secondary hover:text-text-primary transition-all duration-200 flex items-center justify-center"
 			>
 				<Settings size={20} />
@@ -357,7 +358,7 @@
 			>
 					<button
 						onclick={() => {
-							goto('/app/settings');
+							goto(resolve('/app/settings'));
 						}}
 						class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm text-text-primary hover:bg-surface-hover"
 						role="menuitem"

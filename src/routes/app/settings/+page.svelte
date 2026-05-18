@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
 	import { Image, X, Trash, LogOut } from 'lucide-svelte';
 	import {
@@ -38,7 +39,7 @@
 	let isSavingDeveloperMode = $state(false);
 	let isLoggingOut = $state(false);
 	let switchingAccountId = $state<string | null>(null);
-	let platform = $derived(typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ ? 'Zentra Desktop' : 'Zentra Web');
+	let platform = $derived(typeof window !== 'undefined' && (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ ? 'Zentra Desktop' : 'Zentra Web');
 
 	let fileInputRef: HTMLInputElement | null = $state(null);
 
@@ -282,7 +283,7 @@
 			await api.deleteAccount();
 			logout({ removeSavedAccount: true });
 			addToast({ type: 'success', message: 'Account deleted' });
-			goto('/login');
+			goto(resolve('/login'));
 		} catch (err) {
 			console.error('Failed to delete account:', err);
 			addToast({ type: 'error', message: getErrorMessage(err, 'Failed to delete account') });
@@ -301,7 +302,7 @@
 			addToast({ type: 'warning', message: 'Logged out locally' });
 		} finally {
 			isLoggingOut = false;
-			goto('/login');
+			goto(resolve('/login'));
 		}
 	}
 
@@ -500,7 +501,7 @@
 						<div>
 							<h3 class="text-lg font-semibold text-text-primary mb-2">Policies</h3>
 							<p class="text-sm text-text-muted mb-4">Review the Terms of Service and Privacy Policy for how the Service works and how data is handled.</p>
-							<div class="flex flex-col gap-2"><a href="/terms" class="text-primary hover:underline">Terms of Service</a><a href="/privacy" class="text-primary hover:underline">Privacy Policy</a></div>
+							<div class="flex flex-col gap-2"><a href={resolve("/terms")} class="text-primary hover:underline">Terms of Service</a><a href={resolve("/privacy")} class="text-primary hover:underline">Privacy Policy</a></div>
 						</div>
 						<div class="pt-6 border-t border-border"><h3 class="text-lg font-semibold text-text-primary mb-2">Contact</h3><p class="text-sm text-text-muted">For legal or privacy requests, contact contact@abstractmelon.net.</p></div>
 					</div>

@@ -17,6 +17,7 @@
 	import { customEmojis } from '$lib/stores/emoji';
 	import { searchEmojis as searchNativeEmojis } from '$lib/utils/emoji';
 	import { getErrorMessage } from '$lib/utils/apiError';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		channelId?: string;
@@ -28,7 +29,6 @@
 	let content = $state('');
 	let attachments = $state<File[]>([]);
 	let isSending = $state(false);
-	let isUploading = $state(false);
 	let showEmojiPicker = $state(false);
 	let textareaRef: HTMLTextAreaElement | null = $state(null);
 	let fileInputRef: HTMLInputElement | null = $state(null);
@@ -56,7 +56,7 @@
 
 	// Map from lowercase name → emoji for fast :shortcode: lookup on send
 	let customEmojiByName = $derived.by(() => {
-		const map = new Map<string, (typeof $customEmojis)[number]>();
+		const map = new SvelteMap<string, (typeof $customEmojis)[number]>();
 		for (const e of $customEmojis) map.set(e.name.toLowerCase(), e);
 		return map;
 	});
@@ -281,7 +281,6 @@
 			// Upload attachments first
 			let uploadedAttachments: Attachment[] = [];
 			if (attachments.length > 0) {
-				isUploading = true;
 				for (const file of attachments) {
 					try {
 						const att = dmConversationId
@@ -296,7 +295,6 @@
 						});
 					}
 				}
-				isUploading = false;
 			}
 
 			if (!trimmedContent && uploadedAttachments.length === 0) {
@@ -359,7 +357,6 @@
 			});
 		} finally {
 			isSending = false;
-			isUploading = false;
 		}
 	}
 
@@ -497,12 +494,6 @@
 		resetTextareaSize();
 	}
 
-	function formatFileSize(bytes: number): string {
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-	}
-
 	function isVideoFile(file: File): boolean {
 		return file.type.toLowerCase().startsWith('video/');
 	}
@@ -584,7 +575,6 @@
 				textareaRef?.focus();
 				const text = clipboardData.getData('text');
 				if (text && textareaRef) {
-					const pos = content.length;
 					content = content + text;
 					requestAnimationFrame(() => {
 						textareaRef?.focus();
@@ -663,7 +653,7 @@
 	<!-- Attachments preview -->
 	{#if attachments.length > 0}
 		<div class="flex flex-wrap gap-2 px-4 py-2 bg-surface {$replyingToMessage || $editingMessageId ? '' : 'rounded-t-lg'} border border-b-0 border-border">
-			{#each attachments as file, index}
+			{#each attachments as file, index (file.name + ':' + file.size + ':' + file.lastModified)}
 				<div class="relative group">
 					{#if file.type.startsWith('image/')}
 						<div class="w-20 h-20 rounded bg-surface-hover overflow-hidden">

@@ -18,7 +18,7 @@
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
 
 	$effect(() => {
-		$channelRegistryEpoch;
+		void $channelRegistryEpoch;
 
 		const channelType = $activeChannel?.type;
 		const channelId = $activeChannel?.id;
@@ -54,7 +54,7 @@
 			reg.viewElement.module()
 				.then(() => {
 					if (!customElements.get(tagName)) {
-						throw new Error(`Custom element \"${tagName}\" was not defined by plugin module`);
+						throw new Error(`Custom element "${tagName}" was not defined by plugin module`);
 					}
 					if (loadingType === renderType) {
 						viewElementTag = tagName;

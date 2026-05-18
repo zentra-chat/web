@@ -20,7 +20,7 @@ export async function checkForUpdates(manual = false) {
 		} else if (manual) {
 			showToast('success', "You're up to date!");
 		}
-	} catch (err) {
+	} catch {
 		if (manual) {
 			showToast('error', 'Failed to check for updates');
 		}

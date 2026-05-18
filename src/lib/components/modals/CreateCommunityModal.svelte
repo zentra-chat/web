@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Modal, Input, Textarea, Button, Avatar, Spinner } from '$lib/components/ui';
+	import { Modal, Input, Textarea, Button, Spinner } from '$lib/components/ui';
 	import { Image, X } from 'lucide-svelte';
 	import { createCommunityModalOpen, closeCreateCommunityModal, addToast } from '$lib/stores/ui';
 	import { addCommunity } from '$lib/stores/community';

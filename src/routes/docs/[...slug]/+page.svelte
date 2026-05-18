@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { Button } from '$lib/components/ui';
+	import { resolve } from '$app/paths';
+	import { Button, SafeHtml } from '$lib/components/ui';
 	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import PublicHeader from '$lib/components/layout/PublicHeader.svelte';
 	import PublicFooter from '$lib/components/layout/PublicFooter.svelte';
 	import { docsSections, getDocBySlug } from '$lib/docs/content';
+	import { sanitizeHtml } from '$lib/utils/sanitize';
 
 	$: slug = $page.params.slug;
 	$: currentDoc = getDocBySlug(slug);
@@ -23,12 +25,12 @@
 	<main class="relative z-10 flex-1 px-6 pb-12">
 		<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_220px] gap-6">
 			<aside class="rounded-xl border border-border bg-surface/50 backdrop-blur-sm p-4 h-fit lg:sticky lg:top-6">
-				{#each docsSections as section}
+				{#each docsSections as section (section.title)}
 					<h2 class="text-xs uppercase tracking-wide text-text-muted mb-2 mt-1">{section.title}</h2>
 					<nav class="space-y-1 mb-4">
-						{#each section.items as item}
+						{#each section.items as item (item.slug)}
 							<a
-								href={item.href}
+								href={resolve(item.href)}
 								class={`block px-3 py-2 rounded-md text-sm transition-colors ${currentDoc?.slug === item.slug ? 'bg-primary/15 text-text-primary border border-primary/25' : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'}`}
 							>
 								{item.title}
@@ -42,13 +44,13 @@
 				{#if currentDoc}
 					<p class="text-xs text-text-muted mb-4">Docs / {currentDoc.slug}</p>
 					<article class="docs-markdown" aria-label={currentDoc.title}>
-						{@html currentDoc.html}
+						<SafeHtml html={sanitizeHtml(currentDoc.html)} />
 					</article>
 				{:else}
 					<div class="text-center py-16">
 						<h1 class="text-3xl font-bold text-text-primary mb-3">Page not found</h1>
 						<p class="text-text-secondary mb-6">This documentation page does not exist.</p>
-						<a href="/docs">
+						<a href={resolve('/docs')}>
 							<Button>Back to Docs Home</Button>
 						</a>
 					</div>
@@ -59,7 +61,7 @@
 				<h2 class="text-sm uppercase tracking-wide text-text-muted mb-3">On this page</h2>
 				{#if currentDoc && currentDoc.headings.length > 0}
 					<nav class="space-y-2">
-						{#each currentDoc.headings as heading}
+						{#each currentDoc.headings as heading (heading.anchor)}
 							<a
 								href={`#${heading.anchor}`}
 								class={`block text-sm ${heading.level === 3 ? 'pl-3' : ''} text-text-secondary hover:text-text-primary transition-colors`}

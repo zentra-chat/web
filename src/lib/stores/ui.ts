@@ -80,7 +80,8 @@ export function setDevTextChannelOverride(channelId: string, enabled: boolean): 
 		}
 
 		if (!enabled) {
-			const { [channelId]: _removed, ...rest } = current;
+			const rest = { ...current };
+			delete rest[channelId];
 			return rest;
 		}
 
@@ -94,7 +95,8 @@ export function setDevTextChannelOverride(channelId: string, enabled: boolean): 
 export function toggleDevTextChannelOverride(channelId: string): void {
 	devTextChannelOverrides.update((current) => {
 		if (current[channelId]) {
-			const { [channelId]: _removed, ...rest } = current;
+			const rest = { ...current };
+			delete rest[channelId];
 			return rest;
 		}
 

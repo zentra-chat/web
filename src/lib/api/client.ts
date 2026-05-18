@@ -49,7 +49,8 @@ import type {
 	PluginSource,
 	PluginAuditEntry,
 	DashboardStats,
-	AdminUser
+	AdminUser,
+	AnalyticsStats
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
 import { normalizeApiError } from '$lib/utils/apiError';
@@ -1440,6 +1441,11 @@ class ApiClient {
 
 	async getAdminDashboard(): Promise<DashboardStats> {
 		const result = await this.request<ApiResponse<DashboardStats>>('/admin/dashboard');
+		return result.data;
+	}
+
+	async getAdminAnalytics(): Promise<AnalyticsStats> {
+		const result = await this.request<ApiResponse<AnalyticsStats>>('/admin/analytics');
 		return result.data;
 	}
 

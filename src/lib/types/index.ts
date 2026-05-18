@@ -698,6 +698,51 @@ export interface DashboardStats {
 	communitiesOverTime: DataPoint[];
 }
 
+export interface CommunityStat {
+	id: string;
+	name: string;
+	memberCount: number;
+	messageCount: number;
+	createdAt: string;
+}
+
+export interface HourlyStat {
+	hour: string;
+	count: number;
+}
+
+export interface DailyStat {
+	day: string;
+	count: number;
+}
+
+export interface AnalyticsStats {
+	totalUsers: number;
+	totalMessages: number;
+	totalCommunities: number;
+	totalChannels: number;
+	onlineUsers: number;
+	messagesToday: number;
+	newUsersToday: number;
+	activeUsers7d: number;
+	newUsers7d: number;
+	newUsers30d: number;
+	messages7d: number;
+	messages30d: number;
+	avgMessagesPerUser: number;
+	avgMembersPerCommunity: number;
+	userGrowthRate: number;
+	messageGrowthRate: number;
+	communityGrowthRate: number;
+	usersOverTime: DataPoint[];
+	messagesOverTime: DataPoint[];
+	communitiesOverTime: DataPoint[];
+	activeUsersOverTime: DataPoint[];
+	topCommunities: CommunityStat[];
+	activeHours: HourlyStat[];
+	activeWeekdays: DailyStat[];
+}
+
 // Public GitHub stats used on the landing page
 export interface GithubContributor {
 	login: string;

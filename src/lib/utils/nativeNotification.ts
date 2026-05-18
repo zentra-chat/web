@@ -1,9 +1,16 @@
-let tauriNotification: typeof import('@tauri-apps/plugin-notification') | null = null;
+interface TauriNotificationPlugin {
+	isPermissionGranted: () => Promise<boolean>;
+	requestPermission: () => Promise<string>;
+	sendNotification: (opts: { title: string; body?: string; icon?: string }) => void;
+}
+
+let tauriNotification: TauriNotificationPlugin | null = null;
 
 async function getTauriNotification() {
 	if (tauriNotification) return tauriNotification;
 	try {
-		tauriNotification = await import('@tauri-apps/plugin-notification');
+		const mod = '@tauri-apps/plugin-notification';
+		tauriNotification = (await import(/* @vite-ignore */ mod)) as TauriNotificationPlugin;
 		return tauriNotification;
 	} catch {
 		return null;

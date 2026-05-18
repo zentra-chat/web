@@ -684,6 +684,47 @@ export interface AdminUser {
 	createdAt: string;
 }
 
+export interface AdminUserListItem {
+	id: string;
+	username: string;
+	displayName: string | null;
+	avatarUrl: string | null;
+	email: string;
+	emailVerified: boolean;
+	status: UserStatus;
+	isAdmin: boolean;
+	createdAt: string;
+	lastSeenAt: string | null;
+	deletedAt: string | null;
+}
+
+export interface AdminUserDetail {
+	id: string;
+	username: string;
+	email: string;
+	displayName: string | null;
+	avatarUrl: string | null;
+	bio: string | null;
+	status: UserStatus;
+	customStatus: string | null;
+	emailVerified: boolean;
+	twoFactorEnabled: boolean;
+	isAdmin: boolean;
+	createdAt: string;
+	updatedAt: string;
+	lastSeenAt: string | null;
+	deletedAt: string | null;
+}
+
+export interface AdminUpdateUserRequest {
+	username?: string;
+	displayName?: string | null;
+	bio?: string | null;
+	email?: string;
+	emailVerified?: boolean;
+	customStatus?: string | null;
+}
+
 export interface DataPoint {
 	date: string;
 	count: number;

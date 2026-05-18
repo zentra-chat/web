@@ -50,6 +50,9 @@ import type {
 	PluginAuditEntry,
 	DashboardStats,
 	AdminUser,
+	AdminUserListItem,
+	AdminUserDetail,
+	AdminUpdateUserRequest,
 	AnalyticsStats
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
@@ -1464,6 +1467,49 @@ class ApiClient {
 	async removeAdmin(userId: string): Promise<void> {
 		await this.request(`/admin/admins/${userId}`, {
 			method: 'DELETE'
+		});
+	}
+
+	// Admin user management
+
+	async listAdminUsers(
+		page = 1,
+		pageSize = 20,
+		query = '',
+		status = ''
+	): Promise<PaginatedResponse<AdminUserListItem>> {
+		const params = new URLSearchParams();
+		params.set('page', page.toString());
+		params.set('pageSize', pageSize.toString());
+		if (query) params.set('q', query);
+		if (status) params.set('status', status);
+		return await this.request<PaginatedResponse<AdminUserListItem>>(
+			`/admin/users?${params.toString()}`
+		);
+	}
+
+	async getAdminUser(userId: string): Promise<AdminUserDetail> {
+		const result = await this.request<ApiResponse<AdminUserDetail>>(`/admin/users/${userId}`);
+		return result.data;
+	}
+
+	async updateAdminUser(userId: string, data: AdminUpdateUserRequest): Promise<AdminUserDetail> {
+		const result = await this.request<ApiResponse<AdminUserDetail>>(`/admin/users/${userId}`, {
+			method: 'PATCH',
+			body: JSON.stringify(data)
+		});
+		return result.data;
+	}
+
+	async deleteAdminUser(userId: string): Promise<void> {
+		await this.request(`/admin/users/${userId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async restoreAdminUser(userId: string): Promise<void> {
+		await this.request(`/admin/users/${userId}/restore`, {
+			method: 'POST'
 		});
 	}
 }

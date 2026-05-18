@@ -57,7 +57,7 @@ export default defineConfig({
 	},
 	build: {
 		rollupOptions: {
-			external: ['@tauri-apps/api', '@tauri-apps/api/window']
+			external: ['@tauri-apps/api', '@tauri-apps/api/window', '@tauri-apps/plugin-notification']
 		}
 	},
 	optimizeDeps: {

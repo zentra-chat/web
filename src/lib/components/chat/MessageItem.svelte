@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
-	import { Edit, Trash, Reply, Pin, File, Smile } from 'lucide-svelte';
+	import { Edit, Trash, Reply, Pin, File, Smile, Copy } from 'lucide-svelte';
 	import type { Attachment, Message, User } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
 	import {
@@ -193,6 +193,15 @@
 	function handleReply() {
 		if (!enableReply) return;
 		setReplyingTo(message);
+	}
+
+	function handleCopy() {
+		const text = message.content || '';
+		navigator.clipboard.writeText(text).then(() => {
+			addToast({ type: 'success', message: 'Message copied to clipboard' });
+		}).catch(() => {
+			addToast({ type: 'error', message: 'Failed to copy message' });
+		});
 	}
 
 	async function handleReplyJump() {
@@ -599,6 +608,13 @@
 					<Reply size={16} />
 				</button>
 			{/if}
+			<button
+				onclick={handleCopy}
+				class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+				aria-label="Copy Message"
+			>
+				<Copy size={16} />
+			</button>
 			{#if isOwnMessage}
 				<button
 					onclick={handleEdit}

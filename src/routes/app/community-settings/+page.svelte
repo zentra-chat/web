@@ -12,13 +12,13 @@
 		Gavel,
 		Puzzle
 	} from 'lucide-svelte';
-	import CommunityOverviewSettings from '$lib/components/community/CommunityOverviewSettings.svelte';
-	import CommunityMembersSettings from '$lib/components/community/CommunityMembersSettings.svelte';
-	import CommunityRolesSettings from '$lib/components/community/CommunityRolesSettings.svelte';
-	import CommunityInvitesSettings from '$lib/components/community/CommunityInvitesSettings.svelte';
-	import CommunityEmojiSettings from '$lib/components/community/CommunityEmojiSettings.svelte';
-	import CommunityBansSettings from '$lib/components/community/CommunityBansSettings.svelte';
-	import CommunityAuditLogSettings from '$lib/components/community/CommunityAuditLogSettings.svelte';
+	import OverviewSettings from '$lib/components/community/OverviewSettings.svelte';
+	import MembersSettings from '$lib/components/community/MembersSettings.svelte';
+	import RolesSettings from '$lib/components/community/RolesSettings.svelte';
+	import InvitesSettings from '$lib/components/community/InvitesSettings.svelte';
+	import EmojiSettings from '$lib/components/community/EmojiSettings.svelte';
+	import BansSettings from '$lib/components/community/BansSettings.svelte';
+	import AuditLogSettings from '$lib/components/community/AuditLogSettings.svelte';
 	import PluginSettings from '$lib/components/community/PluginSettings.svelte';
 	import WebhookSettings from '$lib/components/community/WebhookSettings.svelte';
 	import { activeCommunity, activeCommunityMembers, Permission, memberHasPermission } from '$lib/stores/community';
@@ -140,23 +140,23 @@
 			<div class="flex-1">
 				{#if $activeCommunity}
 					{#if activeTab === 'overview'}
-						<CommunityOverviewSettings communityId={$activeCommunity.id} />
+						<OverviewSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'members'}
-						<CommunityMembersSettings communityId={$activeCommunity.id} />
+						<MembersSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'roles'}
-						<CommunityRolesSettings communityId={$activeCommunity.id} />
+						<RolesSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'invites'}
-						<CommunityInvitesSettings communityId={$activeCommunity.id} />
+						<InvitesSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'emojis'}
-						<CommunityEmojiSettings communityId={$activeCommunity.id} />
+						<EmojiSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'plugins'}
 						<PluginSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'webhooks'}
 						<WebhookSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'bans'}
-						<CommunityBansSettings communityId={$activeCommunity.id} />
+						<BansSettings communityId={$activeCommunity.id} />
 					{:else if activeTab === 'audit-log'}
-						<CommunityAuditLogSettings communityId={$activeCommunity.id} />
+						<AuditLogSettings communityId={$activeCommunity.id} />
 					{/if}
 				{/if}
 			</div>

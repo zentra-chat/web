@@ -34,6 +34,7 @@
 	let isLoggingOut = $state(false);
 	let profileMenuOpen = $state(false);
 	let profileMenuCloseTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
+	let otherAccounts = $derived($activeInstanceSavedAccounts.filter((a) => a.userId !== $currentUser?.id));
 
 	function openProfileMenu() {
 		if (profileMenuCloseTimeout) {
@@ -374,36 +375,41 @@
 				<Avatar user={$currentUser} size="lg" />
 			</button>
 
-			<div
+            <div
 				class="absolute left-full bottom-0 ml-3 w-64 p-2 bg-surface border border-border rounded-xl shadow-xl z-60 transition-all duration-150
 				{profileMenuOpen ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'}"
 				role="menu"
+				tabindex="0"
 				onmouseenter={cancelCloseProfileMenu}
 				onmouseleave={scheduleCloseProfileMenu}
 			>
 					<button
 						onclick={() => {
 							goto(resolve('/app/settings'));
+							profileMenuOpen = false;
 						}}
 						class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm text-text-primary hover:bg-surface-hover"
 						role="menuitem"
 					>
 						<Avatar user={$currentUser} size="sm" />
-						<span class="truncate">View Profile</span>
+						<div class="min-w-0 flex-1">
+							<p class="text-sm text-text-primary truncate">{$currentUser?.displayName || $currentUser?.username || 'Unknown'}</p>
+							<p class="text-xs text-text-muted truncate">@{$currentUser?.username || 'unknown'}</p>
+						</div>
 					</button>
 
 					<div class="my-2 border-t border-border"></div>
 
-					<p class="px-3 pb-1 text-xs text-text-muted">Accounts</p>
+					<p class="px-3 pb-1 text-xs text-text-muted">Other Accounts</p>
 					<div class="max-h-48 overflow-y-auto space-y-1">
-						{#if $activeInstanceSavedAccounts.length === 0}
+						{#if otherAccounts.length === 0}
 							<p class="px-3 py-2 text-xs text-text-muted">No saved accounts</p>
 						{:else}
-							{#each $activeInstanceSavedAccounts as account (account.userId)}
+							{#each otherAccounts as account (account.userId)}
 								<button
 									onclick={() => handleSwitchAccount(account.userId)}
 									class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left hover:bg-surface-hover disabled:opacity-60"
-									disabled={account.userId === $currentUser?.id || switchingUserId !== null}
+									disabled={switchingUserId !== null}
 									role="menuitem"
 								>
 									<Avatar user={makeMenuAvatarUser(account)} size="sm" />
@@ -411,9 +417,7 @@
 										<p class="text-sm text-text-primary truncate">{account.displayName}</p>
 										<p class="text-xs text-text-muted truncate">@{account.username}</p>
 									</div>
-									{#if account.userId === $currentUser?.id}
-										<span class="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary">Current</span>
-									{:else if switchingUserId === account.userId}
+									{#if switchingUserId === account.userId}
 										<span class="text-[10px] text-text-muted">Switching...</span>
 									{/if}
 								</button>

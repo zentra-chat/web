@@ -231,7 +231,7 @@ class WebSocketManager {
 				);
 				break;
 			case 'NOTIFICATION':
-				this.handleNotification(event.data as Notification);
+				void this.handleNotification(event.data as Notification);
 				break;
 			case 'NOTIFICATION_READ':
 				this.handleNotificationRead(event.data as { notificationId?: string; all?: boolean });
@@ -373,7 +373,7 @@ class WebSocketManager {
 		removeMessageReaction(data.channelId, data.messageId, data.userId, data.emoji);
 	}
 
-	private handleNotification(notification: Notification): void {
+	private async handleNotification(notification: Notification): Promise<void> {
 		prependNotification(notification);
 		showNotificationPreview({
 			actorAvatarUrl: notification.actor?.avatarUrl ?? null,
@@ -382,7 +382,7 @@ class WebSocketManager {
 			body: notification.body ?? null,
 			duration: 5000
 		});
-		sendNativeNotification(notification.title, { body: notification.body ?? undefined });
+		await sendNativeNotification(notification.title, { body: notification.body ?? undefined });
 	}
 
 	private handleNotificationRead(data: { notificationId?: string; all?: boolean }): void {

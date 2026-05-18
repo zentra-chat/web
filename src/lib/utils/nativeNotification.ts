@@ -1,17 +1,33 @@
-/**
- * Native push notification helper.
- *
- * Works on:
- *  - Browser   - via the standard Web Notification API (user must grant permission)
- *  - Tauri app - the WebView supports the same Web Notification API, so no plugin is needed
- *
- * Usage:
- *   await requestNotificationPermission();
- *   sendNativeNotification('New message', 'Hello from Alice');
- */
+let tauriNotification: typeof import('@tauri-apps/plugin-notification') | null = null;
+
+async function getTauriNotification() {
+	if (tauriNotification) return tauriNotification;
+	try {
+		tauriNotification = await import('@tauri-apps/plugin-notification');
+		return tauriNotification;
+	} catch {
+		return null;
+	}
+}
+
+function isTauri(): boolean {
+	return typeof window !== 'undefined' && '__TAURI__' in window;
+}
 
 /** Request browser/OS notification permission. Returns true if granted. */
 export async function requestNotificationPermission(): Promise<boolean> {
+	if (isTauri()) {
+		const plugin = await getTauriNotification();
+		if (plugin) {
+			let granted = await plugin.isPermissionGranted();
+			if (!granted) {
+				const permission = await plugin.requestPermission();
+				granted = permission === 'granted';
+			}
+			return granted;
+		}
+	}
+
 	if (typeof window === 'undefined' || !('Notification' in window)) return false;
 
 	if (Notification.permission === 'granted') return true;
@@ -22,7 +38,14 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /** Whether native notifications are available and permitted. */
-export function canSendNativeNotification(): boolean {
+export async function canSendNativeNotification(): Promise<boolean> {
+	if (isTauri()) {
+		const plugin = await getTauriNotification();
+		if (plugin) {
+			return plugin.isPermissionGranted();
+		}
+	}
+
 	if (typeof window === 'undefined' || !('Notification' in window)) return false;
 	return Notification.permission === 'granted';
 }
@@ -40,15 +63,23 @@ export interface NativeNotificationOptions {
  * notification is silently skipped (the in-app toast is sufficient in that case).
  * Pass `force: true` to always show regardless of focus.
  */
-export function sendNativeNotification(
+export async function sendNativeNotification(
 	title: string,
 	options: NativeNotificationOptions & { force?: boolean } = {}
-): void {
-	if (!canSendNativeNotification()) return;
+): Promise<void> {
+	if (!(await canSendNativeNotification())) return;
 
-	// Skip when the user already has the tab / window in focus
 	if (!options.force && typeof document !== 'undefined' && document.visibilityState === 'visible') {
 		return;
+	}
+
+	if (isTauri()) {
+		const plugin = await getTauriNotification();
+		if (plugin) {
+			const { body, icon } = options;
+			plugin.sendNotification({ title, body, icon });
+			return;
+		}
 	}
 
 	const { body, icon, tag, onClick } = options;

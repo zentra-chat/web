@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 	import { Avatar, Spinner, Modal, Button } from '$lib/components/ui';
-	import { Edit, Trash, Reply, Pin, File, Smile, Copy } from 'lucide-svelte';
+	import { Trash, Reply, Pin, File, Smile, Copy, SquarePen } from 'lucide-svelte';
 	import type { Attachment, Message, User } from '$lib/types';
 	import { currentUserId } from '$lib/stores/instance';
 	import {
@@ -27,7 +27,6 @@
 	import { renderMarkdown, type MentionResolver, type EmojiResolver } from '$lib/utils/markdown';
 	import { customEmojiById } from '$lib/stores/emoji';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		message: Message;
@@ -217,7 +216,7 @@
 		return '[Message unavailable]';
 	}
 
-	function handleMentionClick(event: MouseEvent) {
+	function handleMentionClick(event: Event) {
 		const target = event.target as HTMLElement;
 		const mention = target.closest('.mention-user');
 		if (!mention) return;
@@ -236,7 +235,7 @@
 		}
 
 		if (user) {
-			openProfileCard(user, event);
+			openProfileCard(user, event as MouseEvent);
 		}
 	}
 
@@ -419,7 +418,14 @@
 
 			<!-- Message content -->
 			{#if hasContent}
-				<div class="message-content text-text-secondary" onclick={handleMentionClick} use:renderHTML={renderMarkdown(message.content || '', mentionResolver, emojiResolver)}></div>
+				<div
+					class="message-content text-text-secondary"
+					role="button"
+					tabindex="0"
+					onclick={handleMentionClick}
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMentionClick(e); } }}
+					use:renderHTML={renderMarkdown(message.content || '', mentionResolver, emojiResolver)}
+				></div>
 				{#if message.isEdited}
 					<div class="text-xs text-text-muted mt-1">(edited)</div>
 				{/if}
@@ -430,9 +436,9 @@
 				<div class="mt-2 flex flex-col gap-2">
 					{#each message.linkPreviews as preview (preview.url)}
 						<a
-							href={resolve(preview.url)}
+							href={preview.url}
 							target="_blank"
-							rel="noopener noreferrer"
+							rel="noopener noreferrer external"
 							class="group/link-preview block max-w-xl rounded-lg border border-border bg-surface/60 hover:border-primary transition-colors"
 						>
 							<div class="flex gap-3 p-3">
@@ -473,9 +479,9 @@
 					{#each message.attachments as attachment (attachment.id)}
 						{#if attachment.contentType?.startsWith('image/')}
 							<a
-								href={resolve(attachment.url)}
+								href={attachment.url}
 								target="_blank"
-								rel="noopener noreferrer"
+								rel="noopener noreferrer external"
 								class="block max-w-md rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
 							>
 								<img
@@ -494,7 +500,7 @@
 									class="w-full max-h-100 bg-background"
 								>
 									<track kind="captions" />
-									<a href={resolve(attachment.url)} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+									<a href={attachment.url} target="_blank" rel="noopener noreferrer external">{attachment.filename}</a>
 								</video>
 								<div class="px-3 py-2 border-t border-border">
 									<p class="text-sm text-text-primary truncate">{attachment.filename}</p>
@@ -510,15 +516,15 @@
 									preload="metadata"
 									class="w-full"
 								>
-									<a href={resolve(attachment.url)} target="_blank" rel="noopener noreferrer">{attachment.filename}</a>
+									<a href={attachment.url} target="_blank" rel="noopener noreferrer external">{attachment.filename}</a>
 								</audio>
 								<p class="text-xs text-text-muted mt-2">{formatFileSize(attachment.size)}</p>
 							</div>
 						{:else}
 							<a
-								href={resolve(attachment.url)}
+								href={attachment.url}
 								target="_blank"
-								rel="noopener noreferrer"
+								rel="noopener noreferrer external"
 								class="flex items-center gap-2 p-3 bg-surface border border-border rounded-lg hover:border-primary transition-colors"
 								onclick={(e) => handleFileClick(e, attachment)}
 							>
@@ -621,7 +627,7 @@
 					class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
 					aria-label="Edit"
 				>
-					<Edit size={16} />
+					<SquarePen size={16} />
 				</button>
 			{/if}
 			{#if canPinMessages}

@@ -100,6 +100,9 @@ export const messagesCache = writable<Record<string, Message[]>>({});
 // Unread counts per channel
 export const unreadCounts = writable<Record<string, number>>({});
 
+// Roles cache per community
+export const rolesCache = writable<Record<string, Role[]>>({});
+
 // Loading states
 export const isLoadingCommunities = writable(false);
 export const isLoadingChannels = writable(false);
@@ -142,6 +145,14 @@ export const activeCommunityCategories = derived(
 
 export const activeCommunityMembers = derived(
 	[membersCache, activeCommunityId],
+	([$cache, $communityId]) => {
+		if (!$communityId) return [];
+		return $cache[$communityId] || [];
+	}
+);
+
+export const activeCommunityRoles = derived(
+	[rolesCache, activeCommunityId],
 	([$cache, $communityId]) => {
 		if (!$communityId) return [];
 		return $cache[$communityId] || [];
@@ -212,6 +223,11 @@ export function removeCommunity(communityId: string): void {
 		void removed;
 		return rest;
 	});
+	rolesCache.update((cache) => {
+		const { [communityId]: removed, ...rest } = cache;
+		void removed;
+		return rest;
+	});
 }
 
 export function setChannels(communityId: string, channels: Channel[]): void {
@@ -262,6 +278,13 @@ export function setMembers(communityId: string, members: CommunityMember[]): voi
 	membersCache.update((cache) => ({
 		...cache,
 		[communityId]: members
+	}));
+}
+
+export function setRoles(communityId: string, roles: Role[]): void {
+	rolesCache.update((cache) => ({
+		...cache,
+		[communityId]: roles
 	}));
 }
 

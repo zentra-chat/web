@@ -2,7 +2,7 @@
 	import { Spinner } from '$lib/components/ui';
 	import { Send, Plus, X, Smile, Paperclip } from 'lucide-svelte';
 	import { replyingToMessage, editingMessageId, typingUsers, setReplyingTo, setEditingMessage, addToast } from '$lib/stores/ui';
-	import { addMessage, updateMessage, messages, activeCommunityMembers } from '$lib/stores/community';
+	import { addMessage, updateMessage, messages, activeCommunityMembers, activeCommunityRoles, setRoles, activeCommunityId } from '$lib/stores/community';
 	import {
 		addDmMessage,
 		updateDmMessage,
@@ -95,6 +95,15 @@
 
 		const specials = SPECIAL_MENTIONS.filter((s) => s.label.includes(q));
 
+		const roles = $activeCommunityRoles
+			.filter((r) => r.name.toLowerCase().includes(q))
+			.slice(0, 5)
+			.map((r) => ({
+				id: r.id,
+				label: `@${r.name}`,
+				insert: `<@&${r.id}>`
+			}));
+
 		const members = $activeCommunityMembers
 			.filter((m) => {
 				const name = (m.nickname ?? m.user?.displayName ?? m.user?.username ?? '').toLowerCase();
@@ -108,7 +117,7 @@
 				insert: `<@${m.userId}>`
 			}));
 
-		return [...specials, ...members].slice(0, 12);
+		return [...specials, ...roles, ...members].slice(0, 12);
 	});
 
 	function detectMention() {
@@ -248,6 +257,20 @@
 			? $dmMessagesCache[dmConversationId] || []
 			: $messages[channelId as string] || [];
 		return channelMsgs.find(m => m.id === $editingMessageId) || null;
+	});
+
+	// Fetch roles for the active community so role mentions can be autocompleted
+	let fetchedRolesFor = $state<string | null>(null);
+	$effect(() => {
+		const comId = $activeCommunityId;
+		if (!comId || isDm || comId === fetchedRolesFor) return;
+		const cached = $activeCommunityRoles;
+		if (cached.length > 0) {
+			fetchedRolesFor = comId;
+			return;
+		}
+		fetchedRolesFor = comId;
+		api.getRoles(comId).then((roles) => setRoles(comId, roles));
 	});
 
 	// Load content when editing, convert stored <:name:UUID> tokens back to :name: for editing

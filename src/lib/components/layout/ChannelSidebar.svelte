@@ -16,19 +16,22 @@
 	import VoiceChannelUsers from '$lib/components/chat/VoiceChannelUsers.svelte';
 	import VoiceCallOverlay from '$lib/components/chat/VoiceCallOverlay.svelte';
 	import { getChannelIcon } from '$lib/channelTypes';
-	import {
-		activeCommunity,
-		activeCommunityMembers,
-		activeCommunityChannels,
-		activeCommunityCategories,
-		activeChannelId,
-		selectChannel,
-		setChannels,
-		setCategories,
-		memberHasPermission,
-		Permission,
-		unreadCounts
-	} from '$lib/stores/community';
+import {
+	activeCommunity,
+	activeCommunityMembers,
+	activeCommunityChannels,
+	activeCommunityCategories,
+	activeChannelId,
+	selectChannel,
+	setChannels,
+	setCategories,
+	setUnreadCounts,
+	setMentionCounts,
+	memberHasPermission,
+	Permission,
+	unreadCounts,
+	mentionCounts
+} from '$lib/stores/community';
 	import {
 		openModal,
 		isMobileMenuOpen,
@@ -104,7 +107,7 @@
 	let isChannelSettingsOpen = $state(false);
 	let channelSettingsChannelId = $state<string | null>(null);
 	let isDeleting = $state(false);
-	let subscribedVoiceChannelIds = new SvelteSet<string>();
+	let subscribedChannelIds = new SvelteSet<string>();
 	let channelSettingsChannel = $derived.by(() => {
 		if (!channelSettingsChannelId) return null;
 		return $activeCommunityChannels.find((channel) => channel.id === channelSettingsChannelId) || null;
@@ -152,32 +155,30 @@
 	});
 
 	onDestroy(() => {
-		for (const channelId of subscribedVoiceChannelIds) {
+		for (const channelId of subscribedChannelIds) {
 			websocket.unsubscribe(channelId);
 		}
-		subscribedVoiceChannelIds = new SvelteSet();
+		subscribedChannelIds = new SvelteSet();
 	});
 
 	$effect(() => {
-		const nextVoiceChannelIds = new SvelteSet(
-			$activeCommunityChannels
-				.filter((channel) => channel.type === 'voice')
-				.map((channel) => channel.id)
+		const nextChannelIds = new SvelteSet(
+			$activeCommunityChannels.map((channel) => channel.id)
 		);
 
-		for (const channelId of subscribedVoiceChannelIds) {
-			if (!nextVoiceChannelIds.has(channelId)) {
+		for (const channelId of subscribedChannelIds) {
+			if (!nextChannelIds.has(channelId)) {
 				websocket.unsubscribe(channelId);
 			}
 		}
 
-		for (const channelId of nextVoiceChannelIds) {
-			if (!subscribedVoiceChannelIds.has(channelId)) {
+		for (const channelId of nextChannelIds) {
+			if (!subscribedChannelIds.has(channelId)) {
 				websocket.subscribe(channelId);
 			}
 		}
 
-		subscribedVoiceChannelIds = nextVoiceChannelIds;
+		subscribedChannelIds = nextChannelIds;
 	});
 
 	async function loadChannelsAndCategories() {
@@ -185,12 +186,15 @@
 
 		isLoading = true;
 		try {
-			const [channels, categories] = await Promise.all([
+			const [channels, categories, unreadData] = await Promise.all([
 				api.getChannels($activeCommunity.id),
-				api.getCategories($activeCommunity.id)
+				api.getCategories($activeCommunity.id),
+				api.getChannelUnreadCounts($activeCommunity.id)
 			]);
 			setChannels($activeCommunity.id, channels);
 			setCategories($activeCommunity.id, categories);
+			setUnreadCounts(unreadData.unread);
+			setMentionCounts(unreadData.mentions);
 
 			// Load voice states for voice channels
 			const voiceChannels = channels.filter((c) => c.type === 'voice');
@@ -729,6 +733,7 @@
 					{#each channelsByCategory['uncategorized'] as channel (channel.id)}
 						{@const Icon = getChannelIcon(channel.type)}
 						{@const unreadCount = $unreadCounts[channel.id] || 0}
+						{@const mentionCount = $mentionCounts[channel.id] || 0}
 						{@const isVoice = channel.type === 'voice'}
 						{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}
 						{@const isSelected = $activeChannelId === channel.id}
@@ -753,9 +758,9 @@
 							>
 								<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
 								<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
-								{#if unreadCount > 0 && !isVoice}
+								{#if mentionCount > 0 && !isVoice}
 									<span class="text-xs bg-danger text-white px-1.5 py-0.5 rounded-full">
-										{unreadCount > 99 ? '99+' : unreadCount}
+										{mentionCount > 99 ? '99+' : mentionCount}
 									</span>
 								{/if}
 							</button>
@@ -825,6 +830,7 @@
 							{#each categoryChannels as channel (channel.id)}
 								{@const Icon = getChannelIcon(channel.type)}
 								{@const unreadCount = $unreadCounts[channel.id] || 0}
+								{@const mentionCount = $mentionCounts[channel.id] || 0}
 								{@const isVoice = channel.type === 'voice'}
 								{@const isActiveVoice = isVoice && $voiceChannelId === channel.id}
 								{@const isSelected = $activeChannelId === channel.id}
@@ -849,9 +855,9 @@
 									>
 									<Icon size={18} class="shrink-0 {isActiveVoice ? 'text-success' : 'opacity-70'}" />
 									<span class="truncate flex-1 text-left text-sm {unreadCount > 0 ? 'font-semibold text-text-primary' : ''}">{channel.name}</span>
-									{#if unreadCount > 0 && !isVoice}
+									{#if mentionCount > 0 && !isVoice}
 										<span class="text-xs bg-danger text-white px-1.5 py-0.5 rounded-full">
-											{unreadCount > 99 ? '99+' : unreadCount}
+											{mentionCount > 99 ? '99+' : mentionCount}
 										</span>
 									{/if}
 								</button>

@@ -10,7 +10,13 @@ import {
 	updateCommunity,
 	updateMemberUser,
 	addMessageReaction,
-	removeMessageReaction
+	removeMessageReaction,
+	activeChannelId,
+	activeCommunity,
+	incrementUnread,
+	setUnreadCounts,
+	incrementMention,
+	setMentionCounts
 } from '$lib/stores/community';
 import {
 	addDmMessage,
@@ -244,10 +250,24 @@ class WebSocketManager {
 
 	private handleReady(data: ReadyEvent): void {
 		console.log('WebSocket ready, session:', data.sessionId);
+
+		const community = get(activeCommunity);
+		if (community) {
+			api.getChannelUnreadCounts(community.id)
+				.then((data) => {
+					setUnreadCounts(data.unread);
+					setMentionCounts(data.mentions);
+				})
+				.catch(() => {});
+		}
 	}
 
 	private handleMessageCreate(message: Message): void {
 		addMessage(message.channelId, message);
+
+		if (get(activeChannelId) !== message.channelId && get(currentUserId) !== message.authorId) {
+			incrementUnread(message.channelId);
+		}
 	}
 
 	private handleMessageUpdate(message: Message): void {
@@ -383,6 +403,18 @@ class WebSocketManager {
 			duration: 5000
 		});
 		await sendNativeNotification(notification.title, { body: notification.body ?? undefined });
+
+		// Track mention counts per channel for the red badge indicator
+		if (
+			notification.channelId &&
+			(notification.type === 'mention_user' ||
+				notification.type === 'mention_role' ||
+				notification.type === 'mention_everyone' ||
+				notification.type === 'mention_here' ||
+				notification.type === 'reply')
+		) {
+			incrementMention(notification.channelId);
+		}
 	}
 
 	private handleNotificationRead(data: { notificationId?: string; all?: boolean }): void {

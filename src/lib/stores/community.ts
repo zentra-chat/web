@@ -8,6 +8,7 @@ import type {
 	User,
 	Role
 } from '$lib/types';
+import { api } from '$lib/api';
 import { activeInstance } from './instance';
 import { clearReplyingTo } from './ui';
 
@@ -99,6 +100,9 @@ export const messagesCache = writable<Record<string, Message[]>>({});
 
 // Unread counts per channel
 export const unreadCounts = writable<Record<string, number>>({});
+
+// Mention/ping counts per channel (affects red badge)
+export const mentionCounts = writable<Record<string, number>>({});
 
 // Roles cache per community
 export const rolesCache = writable<Record<string, Role[]>>({});
@@ -473,6 +477,34 @@ export function clearUnread(channelId: string): void {
 		...counts,
 		[channelId]: 0
 	}));
+	mentionCounts.update((counts) => ({
+		...counts,
+		[channelId]: 0
+	}));
+
+	api.markChannelRead(channelId).catch(() => {});
+}
+
+export function setUnreadCounts(counts: Record<string, number>): void {
+	unreadCounts.set(counts);
+}
+
+export function incrementMention(channelId: string): void {
+	mentionCounts.update((counts) => ({
+		...counts,
+		[channelId]: (counts[channelId] || 0) + 1
+	}));
+}
+
+export function clearMention(channelId: string): void {
+	mentionCounts.update((counts) => ({
+		...counts,
+		[channelId]: 0
+	}));
+}
+
+export function setMentionCounts(counts: Record<string, number>): void {
+	mentionCounts.set(counts);
 }
 
 export function incrementUnread(channelId: string): void {

@@ -760,6 +760,24 @@ class ApiClient {
 		return { data: result.data, total: result.total };
 	}
 
+	// Channel read state endpoints
+	async getChannelUnreadCounts(communityId: string): Promise<{
+		unread: Record<string, number>;
+		mentions: Record<string, number>;
+	}> {
+		const result = await this.request<
+			ApiResponse<{
+				unread: Record<string, number>;
+				mentions: Record<string, number>;
+			}>
+		>(`/channels/communities/${communityId}/unread`);
+		return result.data || { unread: {}, mentions: {} };
+	}
+
+	async markChannelRead(channelId: string): Promise<void> {
+		await this.request(`/channels/${channelId}/read`, { method: 'POST' });
+	}
+
 	// Channel endpoints
 	async getChannels(communityId: string): Promise<Channel[]> {
 		const result = await this.request<ApiResponse<Channel[]>>(

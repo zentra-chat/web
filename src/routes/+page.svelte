@@ -105,9 +105,9 @@
 	const features = [
 		{
 			icon: Lock,
-			title: 'End-to-End Encrypted',
+			title: 'Privacy First',
 			description:
-				'Every message is encrypted in transit and at rest. Only you and your intended recipients can read your conversations.',
+				'Every message is encrypted with TLS in transit and AES-256-GCM at rest. Self-host for full control over your data.',
 			iconClass: 'text-primary',
 			bgClass: 'bg-primary/10'
 		},

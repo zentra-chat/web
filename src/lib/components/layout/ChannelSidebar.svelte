@@ -196,9 +196,9 @@ import {
 			setUnreadCounts(unreadData.unread);
 			setMentionCounts(unreadData.mentions);
 
-			// Load voice states for voice channels
+			// Load voice states for voice channels in parallel
 			const voiceChannels = channels.filter((c) => c.type === 'voice');
-			voiceChannels.forEach((vc) => loadVoiceStates(vc.id));
+			await Promise.all(voiceChannels.map((vc) => loadVoiceStates(vc.id)));
 
 			// Select first channel if none selected
 			if (!$activeChannelId && channels.length > 0) {

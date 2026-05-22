@@ -11,7 +11,6 @@
 		communitiesCache,
 		setCommunities,
 		setActiveCommunity,
-		setChannels,
 		setActiveChannel
 	} from '$lib/stores/community';
 	import { activeInstance } from '$lib/stores/instance';
@@ -21,7 +20,6 @@
 	import { loadCommunityPluginFrontends, resetPluginRuntimeCache } from '$lib/pluginRuntime';
 
 	let isLoadingCommunities = $state(true);
-	let isLoadingChannels = $state(false);
 	let loadingCommunitiesForInstanceId = $state<string | null>(null);
 	let communityRetryAfterByInstance = $state<Record<string, number>>({});
 	let communitiesLoadedByInstance = $state<Record<string, boolean>>({});
@@ -114,10 +112,10 @@
 		}
 	});
 
-	// Load channels when community changes
+	// Load plugin frontends when community changes.
+	// Channel/sidebar data is handled by ChannelSidebar internal.
 	$effect(() => {
 		if ($activeCommunity) {
-			loadChannels($activeCommunity.id);
 			loadCommunityPluginFrontends($activeCommunity.id).catch((err) => {
 				console.warn('Could not load plugin frontend bundles:', err);
 			});
@@ -125,27 +123,9 @@
 			setActiveChannel(null);
 		}
 	});
-
-	async function loadChannels(communityId: string) {
-		isLoadingChannels = true;
-
-		try {
-			const channels = (await api.getChannels(communityId)) || [];
-			setChannels(communityId, channels);
-
-			// Select first channel if available
-			if (channels.length > 0 && !$activeChannel) {
-				setActiveChannel(channels[0]);
-			}
-		} catch (err) {
-			console.error('Failed to load channels:', err);
-		} finally {
-			isLoadingChannels = false;
-		}
-	}
 </script>
 
-{#if isLoadingCommunities || isLoadingChannels}
+{#if isLoadingCommunities}
 	<div class="flex-1 flex items-center justify-center">
 		<Spinner size="lg" />
 	</div>

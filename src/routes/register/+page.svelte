@@ -8,12 +8,9 @@
 	import {
 		activeInstance,
 		setInstanceAuth,
-		isLoggedIn,
-		shouldSkipAutoPortableAuth,
-		clearSkipAutoPortableAuth
+		isLoggedIn
 	} from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';
-	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
 	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
@@ -34,14 +31,10 @@
 	let pendingInvite = $state<string | null>(null);
 	let captchaContainer = $state<HTMLDivElement | null>(null);
 	let captchaWidgetId = $state<string | null>(null);
-	let attemptedPortableAuth = false;
-	let skipAutoPortableAuth = false;
 
 	const turnstileSiteKey = (env.PUBLIC_TURNSTILE_SITE_KEY ?? '').trim();
 
 	onMount(() => {
-		skipAutoPortableAuth = shouldSkipAutoPortableAuth();
-
 		// Check for pending invite
 		pendingInvite = sessionStorage.getItem('pendingInvite');
 
@@ -55,7 +48,6 @@
 		}
 
 		loadCaptchaWidget();
-		attemptPortableAuth();
 	});
 
 	onDestroy(() => {
@@ -65,38 +57,6 @@
 		window.turnstile.remove?.(captchaWidgetId);
 		captchaWidgetId = null;
 	});
-
-	function canTryPortableAuth(): boolean {
-		return Boolean(
-			$activeInstance && !attemptedPortableAuth && !skipAutoPortableAuth && hasPortableProfile()
-		);
-	}
-
-	async function attemptPortableAuth() {
-		if (!canTryPortableAuth()) return;
-
-		attemptedPortableAuth = true;
-		isLoading = true;
-
-		try {
-			const response = await api.portableAuth();
-
-			setInstanceAuth($activeInstance!.id, {
-				instanceId: $activeInstance!.id,
-				accessToken: response.accessToken,
-				refreshToken: response.refreshToken,
-				expiresAt: response.expiresAt,
-				user: response.user
-			});
-
-			showToast('success', `Signed in as ${response.user.displayName || response.user.username}`);
-			handleRedirectAfterRegister();
-		} catch {
-			// Fall through to normal register flow.
-		} finally {
-			isLoading = false;
-		}
-	}
 
 	function handleRedirectAfterRegister() {
 		if (pendingInvite) {
@@ -239,7 +199,6 @@
 				password,
 				captchaToken: captchaToken || undefined
 			});
-			clearSkipAutoPortableAuth();
 			resetCaptchaWidget();
 
 			if (!response.requiresEmailVerification) {

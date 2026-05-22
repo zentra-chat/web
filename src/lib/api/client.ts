@@ -7,7 +7,6 @@ import {
 	logout as logoutFromStore
 } from '$lib/stores/instance';
 import { showToast } from '$lib/stores/ui';
-import { applyProfileSync, getPortableProfileForAuth } from '$lib/stores/profile';
 import type {
 	ApiResponse,
 	PaginatedResponse,
@@ -284,7 +283,6 @@ class ApiClient {
 			}
 
 			const result: ApiResponse<AuthResponse> = await response.json();
-			applyProfileSync(result.data.profileSync);
 			setInstanceAuth(instance.id, {
 				instanceId: instance.id,
 				accessToken: result.data.accessToken,
@@ -304,16 +302,11 @@ class ApiClient {
 
 	// Auth endpoints
 	async register(data: RegisterRequest): Promise<RegisterResponse> {
-		const payload: RegisterRequest = {
-			...data,
-			portableProfile: data.portableProfile ?? getPortableProfileForAuth()
-		};
-
 		const result = await this.request<ApiResponse<RegisterResponse>>(
 			'/auth/register',
 			{
 				method: 'POST',
-				body: JSON.stringify(payload)
+				body: JSON.stringify(data)
 			},
 			false
 		);
@@ -345,40 +338,15 @@ class ApiClient {
 	}
 
 	async login(data: LoginRequest): Promise<AuthResponse> {
-		const payload: LoginRequest = {
-			...data,
-			portableProfile: data.portableProfile ?? getPortableProfileForAuth()
-		};
-
 		const result = await this.request<ApiResponse<AuthResponse>>(
 			'/auth/login',
 			{
 				method: 'POST',
-				body: JSON.stringify(payload)
+				body: JSON.stringify(data)
 			},
 			false
 		);
 		this.authFailureHandled = false;
-		applyProfileSync(result.data.profileSync);
-		return result.data;
-	}
-
-	async portableAuth(): Promise<AuthResponse> {
-		const portableProfile = getPortableProfileForAuth();
-		if (!portableProfile) {
-			throw { error: 'Portable profile not available', code: 'PROFILE_REQUIRED' };
-		}
-
-		const result = await this.request<ApiResponse<AuthResponse>>(
-			'/auth/portable',
-			{
-				method: 'POST',
-				body: JSON.stringify({ portableProfile })
-			},
-			false
-		);
-		this.authFailureHandled = false;
-		applyProfileSync(result.data.profileSync);
 		return result.data;
 	}
 

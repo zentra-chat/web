@@ -8,12 +8,9 @@
 	import {
 		activeInstance,
 		setInstanceAuth,
-		isLoggedIn,
-		shouldSkipAutoPortableAuth,
-		clearSkipAutoPortableAuth
+		isLoggedIn
 	} from '$lib/stores/instance';
 	import { showToast } from '$lib/stores/ui';
-	import { hasPortableProfile } from '$lib/stores/profile';
 	import { InstanceModal } from '$lib/components/instance';
 	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
@@ -30,8 +27,6 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
 	let isAddAccountMode = $derived($page.url.searchParams.get('addAccount') === '1');
-	let attemptedPortableAuth = false;
-	let skipAutoPortableAuth = false;
 
 	onMount(() => {
 		const authNotice = sessionStorage.getItem('zentra_auth_notice');
@@ -39,8 +34,6 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 			error = 'Your session expired. Please sign in again.';
 			sessionStorage.removeItem('zentra_auth_notice');
 		}
-
-		skipAutoPortableAuth = shouldSkipAutoPortableAuth();
 
 		// Check for pending invite
 		pendingInvite = sessionStorage.getItem('pendingInvite');
@@ -53,47 +46,7 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 		if (!$activeInstance) {
 			showInstanceModal = true;
 		}
-
-		attemptPortableAuth();
 	});
-
-	function canTryPortableAuth(): boolean {
-		return Boolean(
-			$activeInstance &&
-			!attemptedPortableAuth &&
-			!isAddAccountMode &&
-			!skipAutoPortableAuth &&
-			hasPortableProfile()
-		);
-	}
-
-	async function attemptPortableAuth() {
-		if (!canTryPortableAuth()) return;
-
-		attemptedPortableAuth = true;
-		isLoading = true;
-		error = '';
-		errorCode = '';
-
-		try {
-			const response = await api.portableAuth();
-
-			setInstanceAuth($activeInstance!.id, {
-				instanceId: $activeInstance!.id,
-				accessToken: response.accessToken,
-				refreshToken: response.refreshToken,
-				expiresAt: response.expiresAt,
-				user: response.user
-			});
-
-			showToast('success', `Signed in as ${response.user.displayName || response.user.username}`);
-			handleRedirectAfterLogin();
-		} catch {
-			// No-op; user can continue with normal login.
-		} finally {
-			isLoading = false;
-		}
-	}
 
 	function handleRedirectAfterLogin() {
 		if (pendingInvite) {
@@ -143,7 +96,6 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 				expiresAt: response.expiresAt,
 				user: response.user
 			});
-			clearSkipAutoPortableAuth();
 
 			showToast('success', `Welcome back, ${response.user.displayName || response.user.username}!`);
 			handleRedirectAfterLogin();

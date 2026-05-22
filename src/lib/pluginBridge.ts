@@ -95,7 +95,6 @@ export const BLOCKED_METHODS = new Set([
 	'login',
 	'logout',
 	'register',
-	'portableAuth',
 	'deleteAccount',
 	'changePassword',
 	'enable2FA',

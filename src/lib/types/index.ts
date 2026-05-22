@@ -60,31 +60,12 @@ export interface AuthResponse {
 	refreshToken: string;
 	expiresAt: string;
 	requires2FA?: boolean;
-	profileSync?: PortableProfileSync;
-}
-
-export interface PortableProfile {
-	identityId: string;
-	username: string;
-	displayName: string | null;
-	avatarUrl: string | null;
-	bio: string | null;
-	customStatus: string | null;
-	profileVersion: string;
-}
-
-export interface PortableProfileSync {
-	profile?: PortableProfile;
-	shouldStore: boolean;
-	profileSource?: 'client' | 'instance';
-	identityMatched: boolean;
 }
 
 export interface LoginRequest {
 	login: string;
 	password: string;
 	totpCode?: string;
-	portableProfile?: PortableProfile;
 }
 
 export interface RegisterRequest {
@@ -92,7 +73,6 @@ export interface RegisterRequest {
 	email: string;
 	password: string;
 	captchaToken?: string;
-	portableProfile?: PortableProfile;
 }
 
 export interface RegisterResponse {

@@ -1,14 +1,12 @@
 import { writable, derived, get } from 'svelte/store';
 import { PUBLIC_DEFAULT_INSTANCE_URL, PUBLIC_DEFAULT_INSTANCE_NAME } from '$env/static/public';
 import type { Instance, InstanceAuth, FullUser } from '$lib/types';
-import { upsertPortableProfileFromUser } from '$lib/stores/profile';
 
 // Storage keys
 const INSTANCES_KEY = 'zentra_instances';
 const AUTH_KEY = 'zentra_auth';
 const SAVED_ACCOUNTS_KEY = 'zentra_saved_accounts';
 const ACTIVE_INSTANCE_KEY = 'zentra_active_instance';
-const SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY = 'zentra_skip_auto_portable_auth_once';
 
 export interface SavedAccountSession {
 	userId: string;
@@ -166,8 +164,6 @@ export function setInstanceAuth(instanceId: string, auth: InstanceAuth): void {
 		[instanceId]: auth
 	}));
 
-	upsertPortableProfileFromUser(auth.user);
-
 	const user = auth.user;
 	const now = new Date().toISOString();
 	savedAccounts.update((current) => {
@@ -233,8 +229,6 @@ export function switchActiveAccount(userId: string): boolean {
 }
 
 export function updateInstanceUser(instanceId: string, user: FullUser): void {
-	upsertPortableProfileFromUser(user);
-
 	instanceAuth.update((current) => {
 		if (!current[instanceId]) return current;
 		return {
@@ -273,9 +267,6 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 	if (!activeId) return;
 
 	const current = get(instanceAuth)[activeId]?.user;
-	if (current) {
-		upsertPortableProfileFromUser({ ...current, ...updates } as FullUser);
-	}
 
 	instanceAuth.update((current) => {
 		if (!current[activeId]) return current;
@@ -319,22 +310,8 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 	});
 }
 
-export function shouldSkipAutoPortableAuth(): boolean {
-	if (typeof window === 'undefined') return false;
-	return sessionStorage.getItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY) === '1';
-}
-
-export function clearSkipAutoPortableAuth(): void {
-	if (typeof window === 'undefined') return;
-	sessionStorage.removeItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY);
-}
-
 // Logout from current instance
 export function logout(options?: { removeSavedAccount?: boolean }): void {
-	if (typeof window !== 'undefined') {
-		sessionStorage.setItem(SKIP_AUTO_PORTABLE_AUTH_ONCE_KEY, '1');
-	}
-
 	const activeId = get(activeInstanceId);
 	if (activeId) {
 		if (options?.removeSavedAccount) {

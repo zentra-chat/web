@@ -266,8 +266,6 @@ export function updateCurrentUser(updates: Partial<FullUser>): void {
 	const activeId = get(activeInstanceId);
 	if (!activeId) return;
 
-	const current = get(instanceAuth)[activeId]?.user;
-
 	instanceAuth.update((current) => {
 		if (!current[activeId]) return current;
 		const baseUser = current[activeId].user ?? ({} as FullUser);

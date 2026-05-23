@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -26,7 +27,7 @@ import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte
 	let errorCode = $state('');
 	let showInstanceModal = $state(false);
 	let pendingInvite = $state<string | null>(null);
-	let isAddAccountMode = $derived($page.url.searchParams.get('addAccount') === '1');
+	let isAddAccountMode = $derived(browser && $page.url.searchParams.get('addAccount') === '1');
 
 	onMount(() => {
 		const authNotice = sessionStorage.getItem('zentra_auth_notice');

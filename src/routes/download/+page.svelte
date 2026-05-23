@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui';
-	import { resolve } from '$app/paths';
 	import SEOMeta from '$lib/components/seo/SEOMeta.svelte';
 	import AnimatedBackground from '$lib/components/layout/AnimatedBackground.svelte';
 	import PublicHeader from '$lib/components/layout/PublicHeader.svelte';
@@ -205,7 +204,7 @@
 					</div>
 					<h2 class="text-xl font-semibold text-text-primary mb-2">Linux</h2>
 					<p class="text-text-secondary mb-4">AppImage or deb selected automatically from the latest release assets.</p>
-					<a href={resolve(downloadLinks.linux)} target="_blank" rel="noopener noreferrer">
+					<a href={downloadLinks.linux} target="_blank" rel="noopener noreferrer">
 						<Button class="w-full">Download Linux</Button>
 					</a>
 				</article>
@@ -216,7 +215,7 @@
 					</div>
 					<h2 class="text-xl font-semibold text-text-primary mb-2">macOS</h2>
 					<p class="text-text-secondary mb-4">Matches your architecture first and falls back to the best available installer.</p>
-					<a href={resolve(downloadLinks.macos)} target="_blank" rel="noopener noreferrer">
+					<a href={downloadLinks.macos} target="_blank" rel="noopener noreferrer">
 						<Button class="w-full">Download macOS</Button>
 					</a>
 				</article>
@@ -227,7 +226,7 @@
 					</div>
 					<h2 class="text-xl font-semibold text-text-primary mb-2">Windows</h2>
 					<p class="text-text-secondary mb-4">Selects a direct installer link from the latest GitHub release assets.</p>
-					<a href={resolve(downloadLinks.windows)} target="_blank" rel="noopener noreferrer">
+					<a href={downloadLinks.windows} target="_blank" rel="noopener noreferrer">
 						<Button class="w-full">Download Windows</Button>
 					</a>
 				</article>

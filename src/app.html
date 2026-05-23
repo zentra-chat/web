@@ -33,12 +33,21 @@
 
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-		<!-- Default Open Graph / Social Meta -->
+		%sveltekit.head%
+
+		<!-- Fallback Open Graph / Social Meta (used when sveltekit.head has no page-specific tags) -->
+		<title>Zentra</title>
+		<meta name="description" content="Open-source, encrypted, community-hostable chat platform. Your conversations, your control." />
+		<meta property="og:title" content="Zentra - Encrypted Community Chat" />
+		<meta property="og:description" content="Open-source, encrypted, community-hostable chat platform. Your conversations, your control." />
+		<meta property="og:url" content="https://zentra.abstractmelon.net" />
+		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="Zentra" />
 		<meta property="og:image" content="https://zentra.abstractmelon.net/og-image.svg" />
 		<meta name="twitter:card" content="summary_large_image" />
-
-		%sveltekit.head%
+		<meta name="twitter:title" content="Zentra - Encrypted Community Chat" />
+		<meta name="twitter:description" content="Open-source, encrypted, community-hostable chat platform. Your conversations, your control." />
+		<meta name="twitter:image" content="https://zentra.abstractmelon.net/og-image.svg" />
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>

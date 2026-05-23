@@ -7,6 +7,7 @@
 		image?: string;
 		url?: string;
 		type?: string;
+		logo?: string;
 	}
 
 	let {
@@ -14,7 +15,8 @@
 		description = 'Open-source, encrypted, community-hostable chat platform. Your conversations, your control.',
 		image = `${BASE}/og-image.svg`,
 		url = BASE,
-		type = 'website'
+		type = 'website',
+		logo = `${BASE}/favicon.svg`
 	}: Props = $props();
 
 	function absolute(path: string): string {
@@ -36,6 +38,7 @@
 	<meta property="og:image" content={absoluteImage} />
 	<meta property="og:url" content={absoluteUrl} />
 	<meta property="og:type" content={type} />
+	<meta property="og:logo" content={logo} />
 
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content={title} />

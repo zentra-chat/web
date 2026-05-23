@@ -204,6 +204,7 @@ export interface VoiceState {
 	isSelfMuted: boolean;
 	isSelfDeafened: boolean;
 	isScreenSharing: boolean;
+	isWebcamOn: boolean;
 	joinedAt: string;
 	user?: User;
 }

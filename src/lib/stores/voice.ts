@@ -29,13 +29,17 @@ export const voiceConnectionState = writable<VoiceConnectionState>('disconnected
 // Participants in the current voice channel (channelId -> VoiceState[])
 export const voiceParticipants = writable<Record<string, VoiceState[]>>({});
 
-// Self mute/deafen state
+// Self mute/deafen/webcam state
 export const isSelfMuted = writable(false);
 export const isSelfDeafened = writable(false);
 export const isSelfScreenSharing = writable(false);
+export const isSelfWebcamOn = writable(false);
 
 // Remote screen-share streams (userId -> MediaStream)
 export const screenShareStreams = writable<Record<string, MediaStream>>({});
+
+// Remote webcam video streams (userId -> MediaStream)
+export const webcamStreams = writable<Record<string, MediaStream>>({});
 
 // Users currently speaking (userId -> boolean)
 export const speakingUsers = writable<Record<string, boolean>>({});
@@ -43,8 +47,11 @@ export const speakingUsers = writable<Record<string, boolean>>({});
 // Audio streams from peers (userId -> MediaStream)
 const peerStreams = new Map<string, MediaStream>();
 
-// Screen stream IDs by user so we can distinguish screen-share audio from mic audio
+// Screen stream IDs by user so we can distinguish screen-share video/audio from webcam/mic
 const screenShareStreamIds = new Map<string, string>();
+
+// Webcam stream IDs by user so we can distinguish webcam video from screen-share
+const webcamStreamIds = new Map<string, string>();
 
 // Peer connections (userId -> RTCPeerConnection)
 const peerConnections = new Map<string, RTCPeerConnection>();
@@ -61,9 +68,10 @@ const audioAnalysers = new Map<
 	{ analyser: AnalyserNode; interval: ReturnType<typeof setInterval> }
 >();
 
-// Local media stream
+// Local media streams
 let localStream: MediaStream | null = null;
 let localScreenStream: MediaStream | null = null;
+let localWebcamStream: MediaStream | null = null;
 
 // Monotonic join attempt counter used to cancel stale join operations
 let joinAttemptCounter = 0;
@@ -116,6 +124,30 @@ function setScreenShareStream(userId: string, stream: MediaStream | null) {
 			delete next[userId];
 		}
 		return next;
+	});
+}
+
+function setWebcamStream(userId: string, stream: MediaStream | null) {
+	webcamStreams.update((streams) => {
+		const next = { ...streams };
+		if (stream) {
+			next[userId] = stream;
+		} else {
+			delete next[userId];
+		}
+		return next;
+	});
+}
+
+function setParticipantWebcamOn(channelId: string, userId: string, isWebcamOn: boolean) {
+	voiceParticipants.update((participants) => {
+		const existing = participants[channelId] || [];
+		return {
+			...participants,
+			[channelId]: existing.map((state) =>
+				state.userId === userId ? { ...state, isWebcamOn } : state
+			)
+		};
 	});
 }
 
@@ -190,6 +222,11 @@ function createPeerConnection(userId: string, channelId: string, initiator: bool
 			pc.addTrack(track, localScreenStream!);
 		});
 	}
+	if (localWebcamStream) {
+		localWebcamStream.getTracks().forEach((track) => {
+			pc.addTrack(track, localWebcamStream!);
+		});
+	}
 
 	// Handle ICE candidates
 	pc.onicecandidate = (event) => {
@@ -210,12 +247,39 @@ function createPeerConnection(userId: string, channelId: string, initiator: bool
 	pc.ontrack = (event) => {
 		const track = event.track;
 		if (track.kind === 'video') {
-			const screenStream = event.streams[0] || new MediaStream([track]);
-			screenShareStreamIds.set(userId, screenStream.id);
-			setScreenShareStream(userId, screenStream);
+			const stream = event.streams[0] || new MediaStream([track]);
+
+			// Check if this stream is already tracked as a screen share
+			if (screenShareStreamIds.get(userId) === stream.id) {
+				setScreenShareStream(userId, stream);
+				return;
+			}
+
+			// Check if this is a known webcam stream
+			if (webcamStreamIds.get(userId) === stream.id) {
+				setWebcamStream(userId, stream);
+				return;
+			}
+
+			// New unknown video stream — determine type from voice state
+			const channelId = get(voiceChannelId);
+			const participants = get(voiceParticipants);
+			const channelStates = (channelId && participants[channelId]) || [];
+			const userState = channelStates.find((s) => s.userId === userId);
+
+			if (userState?.isScreenSharing) {
+				screenShareStreamIds.set(userId, stream.id);
+				setScreenShareStream(userId, stream);
+			} else {
+				webcamStreamIds.set(userId, stream.id);
+				setWebcamStream(userId, stream);
+			}
+
 			track.onended = () => {
 				screenShareStreamIds.delete(userId);
+				webcamStreamIds.delete(userId);
 				setScreenShareStream(userId, null);
+				setWebcamStream(userId, null);
 			};
 			return;
 		}
@@ -400,7 +464,9 @@ function handleVoiceLeave(data: VoiceLeaveEvent) {
 	}
 	peerStreams.delete(data.userId);
 	screenShareStreamIds.delete(data.userId);
+	webcamStreamIds.delete(data.userId);
 	setScreenShareStream(data.userId, null);
+	setWebcamStream(data.userId, null);
 	pendingIceCandidates.delete(data.userId);
 	removeAudioElement(data.userId);
 	stopSpeakingDetection(data.userId);
@@ -409,7 +475,19 @@ function handleVoiceLeave(data: VoiceLeaveEvent) {
 // Handle voice state update (mute/deafen)
 function handleVoiceStateUpdate(data: VoiceStateUpdateEvent) {
 	if (!data.state.isScreenSharing) {
+		screenShareStreamIds.delete(data.userId);
 		setScreenShareStream(data.userId, null);
+	}
+
+	if (!data.state.isWebcamOn) {
+		webcamStreamIds.delete(data.userId);
+		setWebcamStream(data.userId, null);
+	}
+
+	// Clean up screen share / webcam streams when their state is turned off remotely
+	if (!data.state.isWebcamOn) {
+		webcamStreamIds.delete(data.userId);
+		setWebcamStream(data.userId, null);
 	}
 
 	voiceParticipants.update((p) => {
@@ -517,6 +595,7 @@ export async function joinVoiceChannel(channelId: string) {
 		isSelfMuted.set(false);
 		isSelfDeafened.set(false);
 		isSelfScreenSharing.set(false);
+		isSelfWebcamOn.set(false);
 		voiceConnectionState.set('connected');
 
 		const myId = get(currentUserId);
@@ -578,7 +657,9 @@ function cleanupVoiceResources() {
 	peerConnections.clear();
 	peerStreams.clear();
 	screenShareStreamIds.clear();
+	webcamStreamIds.clear();
 	screenShareStreams.set({});
+	webcamStreams.set({});
 	pendingIceCandidates.clear();
 
 	// Stop local stream
@@ -589,6 +670,10 @@ function cleanupVoiceResources() {
 	if (localScreenStream) {
 		localScreenStream.getTracks().forEach((track) => track.stop());
 		localScreenStream = null;
+	}
+	if (localWebcamStream) {
+		localWebcamStream.getTracks().forEach((track) => track.stop());
+		localWebcamStream = null;
 	}
 
 	// Close audio context
@@ -609,6 +694,7 @@ function cleanupVoiceResources() {
 	isSelfMuted.set(false);
 	isSelfDeafened.set(false);
 	isSelfScreenSharing.set(false);
+	isSelfWebcamOn.set(false);
 }
 
 // Toggle self mute
@@ -788,6 +874,131 @@ export function toggleScreenShare() {
 		return;
 	}
 	void startScreenShare();
+}
+
+// --- Webcam ---
+
+async function stopWebcamInternal(notifyServer: boolean) {
+	const channelId = get(voiceChannelId);
+	if (!localWebcamStream) {
+		if (notifyServer && channelId) {
+			websocket.send({
+				type: 'VOICE_STATE_UPDATE',
+				data: {
+					channelId,
+					isWebcamOn: false
+				}
+			});
+		}
+		isSelfWebcamOn.set(false);
+		return;
+	}
+
+	const myId = get(currentUserId);
+
+	// Remove webcam tracks from all peer connections
+	const stream = localWebcamStream;
+	peerConnections.forEach((pc) => {
+		pc.getSenders().forEach((sender) => {
+			if (sender.track && stream.getTracks().some((track) => track.id === sender.track?.id)) {
+				pc.removeTrack(sender);
+			}
+		});
+	});
+
+	localWebcamStream.getTracks().forEach((track) => track.stop());
+	localWebcamStream = null;
+	isSelfWebcamOn.set(false);
+	if (myId) {
+		setWebcamStream(myId, null);
+	}
+
+	if (channelId && myId) {
+		setParticipantWebcamOn(channelId, myId, false);
+		renegotiateAllPeers(channelId);
+	}
+
+	if (notifyServer && channelId) {
+		websocket.send({
+			type: 'VOICE_STATE_UPDATE',
+			data: {
+				channelId,
+				isWebcamOn: false
+			}
+		});
+	}
+}
+
+export async function startWebcam() {
+	const channelId = get(voiceChannelId);
+	if (!channelId || get(voiceConnectionState) !== 'connected') {
+		addToast({ type: 'error', message: 'Join a voice channel before enabling your webcam.' });
+		return;
+	}
+
+	if (localWebcamStream) {
+		return;
+	}
+
+	try {
+		const stream = await navigator.mediaDevices.getUserMedia({
+			video: {
+				width: { ideal: 1280 },
+				height: { ideal: 720 },
+				frameRate: 30
+			},
+			audio: false
+		});
+
+		localWebcamStream = stream;
+		isSelfWebcamOn.set(true);
+
+		const myId = get(currentUserId);
+		if (myId) {
+			setWebcamStream(myId, stream);
+			setParticipantWebcamOn(channelId, myId, true);
+		}
+
+		stream.getVideoTracks().forEach((track) => {
+			track.onended = () => {
+				void stopWebcamInternal(true);
+			};
+		});
+
+		peerConnections.forEach((pc) => {
+			stream.getTracks().forEach((track) => {
+				pc.addTrack(track, stream);
+			});
+		});
+
+		renegotiateAllPeers(channelId);
+
+		websocket.send({
+			type: 'VOICE_STATE_UPDATE',
+			data: {
+				channelId,
+				isWebcamOn: true
+			}
+		});
+	} catch (err: unknown) {
+		if (err instanceof Error && err.name === 'NotAllowedError') {
+			addToast({ type: 'error', message: 'Webcam access denied. Please allow camera access.' });
+			return;
+		}
+		addToast({ type: 'error', message: 'Failed to start webcam.' });
+	}
+}
+
+export async function stopWebcam() {
+	await stopWebcamInternal(true);
+}
+
+export function toggleWebcam() {
+	if (get(isSelfWebcamOn)) {
+		void stopWebcam();
+		return;
+	}
+	void startWebcam();
 }
 
 // Load voice states for a channel (used in sidebar)

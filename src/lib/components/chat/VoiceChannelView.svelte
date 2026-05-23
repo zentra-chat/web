@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Volume2, Mic, MicOff, VolumeX, PhoneOff, Monitor, Maximize2 } from 'lucide-svelte';
+	import { Volume2, Mic, MicOff, VolumeX, PhoneOff, Monitor, Maximize2, Camera, CameraOff } from 'lucide-svelte';
 	import { Avatar, Tooltip } from '$lib/components/ui';
 	import {
 		voiceChannelId,
@@ -7,11 +7,14 @@
 		isSelfMuted,
 		isSelfDeafened,
 		isSelfScreenSharing,
+		isSelfWebcamOn,
 		screenShareStreams,
+		webcamStreams,
 		speakingUsers,
 		toggleMute,
 		toggleDeafen,
 		toggleScreenShare,
+		toggleWebcam,
 		leaveVoiceChannel,
 		joinVoiceChannel
 	} from '$lib/stores/voice';
@@ -64,6 +67,24 @@
 		const node = screenShareVideoEls.get(userId);
 		if (!node) return;
 		void node.requestFullscreen().catch(() => {});
+	}
+
+	function attachWebcamStream(node: HTMLVideoElement, stream: MediaStream | null) {
+		node.srcObject = stream;
+		if (stream) {
+			void node.play().catch(() => {});
+		}
+		return {
+			update(nextStream: MediaStream | null) {
+				node.srcObject = nextStream;
+				if (nextStream) {
+					void node.play().catch(() => {});
+				}
+			},
+			destroy() {
+				node.srcObject = null;
+			}
+		};
 	}
 
 	function attachMediaStream(node: HTMLVideoElement, params: { userId: string; stream: MediaStream | null }) {
@@ -152,8 +173,8 @@
 			{/if}
 
 			<!-- Participant grid -->
-			<div class="grid gap-4 w-full max-w-4xl"
-				style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));"
+			<div class="grid gap-4 w-full max-w-5xl"
+				style:grid-template-columns="repeat(auto-fill, minmax(360px, 1fr))"
 			>
 				{#each participants as participant (participant.userId)}
 					{@const isMe = participant.userId === $currentUserId}
@@ -161,38 +182,74 @@
 					{@const isSpeaking = $speakingUsers[participant.userId] || false}
 					{@const isMuted = participant.isSelfMuted || participant.isMuted}
 					{@const isDeafened = participant.isSelfDeafened || participant.isDeafened}
+					{@const hasWebcam = participant.isWebcamOn}
+					{@const webcamStream = $webcamStreams[participant.userId] || null}
 					<div
-						class="flex flex-col items-center gap-3 p-5 rounded-xl bg-surface transition-all duration-200
+						class="rounded-xl bg-surface transition-all duration-200 overflow-hidden relative aspect-video
 							{isSpeaking ? 'ring-2 ring-success shadow-lg shadow-success/10' : 'ring-1 ring-border'}"
 					>
-						<div class="rounded-full transition-shadow duration-200 {isSpeaking ? 'ring-2 ring-success ring-offset-2 ring-offset-surface' : ''}">
-							<Avatar
-								src={participant.user?.avatarUrl || null}
-								alt={displayName}
-								size="xl"
-							/>
-						</div>
-						<div class="text-center min-w-0 w-full">
-							<p class="text-sm font-medium text-text-primary truncate">
-								{displayName}{#if isMe} (You){/if}
-							</p>
-						</div>
-						<div class="flex items-center gap-1.5">
-							{#if isMuted}
-								<Tooltip text="Muted" position="top">
-									<MicOff size={14} class="text-error" />
-								</Tooltip>
-							{:else}
-								<Tooltip text="Unmuted" position="top">
-									<Mic size={14} class="text-text-muted" />
-								</Tooltip>
-							{/if}
-							{#if isDeafened}
-								<Tooltip text="Deafened" position="top">
-									<VolumeX size={14} class="text-error" />
-								</Tooltip>
-							{/if}
-						</div>
+						{#if hasWebcam && webcamStream}
+							<video
+								class="absolute inset-0 w-full h-full object-cover bg-black"
+								autoplay
+								playsinline
+								muted={isMe}
+								use:attachWebcamStream={webcamStream}
+							></video>
+							<!-- Overlay gradient + info -->
+							<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-8 pb-3 px-3">
+								<p class="text-sm font-medium text-white truncate">
+									{displayName}{#if isMe} (You){/if}
+								</p>
+								<div class="flex items-center gap-1.5 mt-1">
+									{#if isMuted}
+										<Tooltip text="Muted" position="top">
+											<MicOff size={14} class="text-error" />
+										</Tooltip>
+									{/if}
+									{#if isDeafened}
+										<Tooltip text="Deafened" position="top">
+											<VolumeX size={14} class="text-error" />
+										</Tooltip>
+									{/if}
+								</div>
+							</div>
+						{:else if hasWebcam && !webcamStream}
+							<div class="absolute inset-0 flex items-center justify-center text-text-muted text-sm bg-surface-hover">
+								Waiting for video...
+							</div>
+						{:else}
+							<div class="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4">
+								<div class="rounded-full transition-shadow duration-200 {isSpeaking ? 'ring-2 ring-success ring-offset-2 ring-offset-surface' : ''}">
+									<Avatar
+										src={participant.user?.avatarUrl || null}
+										alt={displayName}
+										size="xl"
+									/>
+								</div>
+								<div class="text-center min-w-0 w-full">
+									<p class="text-sm font-medium text-text-primary truncate">
+										{displayName}{#if isMe} (You){/if}
+									</p>
+								</div>
+								<div class="flex items-center gap-1.5">
+									{#if isMuted}
+										<Tooltip text="Muted" position="top">
+											<MicOff size={14} class="text-error" />
+										</Tooltip>
+									{:else}
+										<Tooltip text="Unmuted" position="top">
+											<Mic size={14} class="text-text-muted" />
+										</Tooltip>
+									{/if}
+									{#if isDeafened}
+										<Tooltip text="Deafened" position="top">
+											<VolumeX size={14} class="text-error" />
+										</Tooltip>
+									{/if}
+								</div>
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -221,6 +278,19 @@
 							<VolumeX size={22} />
 						{:else}
 							<Volume2 size={22} />
+						{/if}
+					</button>
+				</Tooltip>
+
+				<Tooltip text={$isSelfWebcamOn ? 'Turn off camera' : 'Turn on camera'} position="top">
+					<button
+						onclick={toggleWebcam}
+						class="p-3 rounded-full transition-colors {$isSelfWebcamOn ? 'bg-success/20 text-success hover:bg-success/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
+					>
+						{#if $isSelfWebcamOn}
+							<Camera size={22} />
+						{:else}
+							<CameraOff size={22} />
 						{/if}
 					</button>
 				</Tooltip>
@@ -263,6 +333,19 @@
 								<MicOff size={22} />
 							{:else}
 								<Mic size={22} />
+							{/if}
+						</button>
+					</Tooltip>
+
+					<Tooltip text={$isSelfWebcamOn ? 'Turn off camera' : 'Turn on camera'} position="top">
+						<button
+							onclick={toggleWebcam}
+							class="p-3 rounded-full transition-colors {$isSelfWebcamOn ? 'bg-success/20 text-success hover:bg-success/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
+						>
+							{#if $isSelfWebcamOn}
+								<Camera size={22} />
+							{:else}
+								<CameraOff size={22} />
 							{/if}
 						</button>
 					</Tooltip>

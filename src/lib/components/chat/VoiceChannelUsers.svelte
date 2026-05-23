@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Avatar } from '$lib/components/ui';
-	import { MicOff, VolumeX } from 'lucide-svelte';
+	import { MicOff, VolumeX, Camera } from 'lucide-svelte';
 	import { voiceParticipants, speakingUsers } from '$lib/stores/voice';
 	import { currentUserId } from '$lib/stores/instance';
 	import { openProfileCard } from '$lib/stores/ui';
@@ -37,6 +37,9 @@
 				</div>
 				<span class="truncate flex-1 {isSpeaking ? 'text-success font-medium' : ''}">{displayName}</span>
 				<div class="flex items-center gap-0.5">
+					{#if participant.isWebcamOn}
+						<Camera size={12} class="text-success" />
+					{/if}
 					{#if participant.isSelfMuted || participant.isMuted}
 						<MicOff size={12} class="text-error" />
 					{/if}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Mic, MicOff, PhoneOff, VolumeX, Volume2, Monitor } from 'lucide-svelte';
+	import { Mic, MicOff, PhoneOff, VolumeX, Volume2, Monitor, Camera, CameraOff } from 'lucide-svelte';
 	import { Tooltip } from '$lib/components/ui';
 	import {
 		voiceChannelId,
@@ -8,10 +8,12 @@
 		isSelfMuted,
 		isSelfDeafened,
 		isSelfScreenSharing,
+		isSelfWebcamOn,
 		currentVoiceParticipants,
 		toggleMute,
 		toggleDeafen,
 		toggleScreenShare,
+		toggleWebcam,
 		leaveVoiceChannel
 	} from '$lib/stores/voice';
 	import { activeCommunityChannels } from '$lib/stores/community';
@@ -66,6 +68,19 @@
 						<VolumeX size={18} />
 					{:else}
 						<Volume2 size={18} />
+					{/if}
+				</button>
+			</Tooltip>
+
+			<Tooltip text={$isSelfWebcamOn ? 'Turn off camera' : 'Turn on camera'} position="top">
+				<button
+					onclick={toggleWebcam}
+					class="p-2 rounded-full transition-colors {$isSelfWebcamOn ? 'bg-success/20 text-success hover:bg-success/30' : 'bg-surface-hover text-text-secondary hover:text-text-primary hover:bg-surface-active'}"
+				>
+					{#if $isSelfWebcamOn}
+						<Camera size={18} />
+					{:else}
+						<CameraOff size={18} />
 					{/if}
 				</button>
 			</Tooltip>

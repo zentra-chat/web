@@ -38,6 +38,7 @@ import {
 	markNotificationReadLocal,
 	markAllNotificationsReadLocal
 } from '$lib/stores/notification';
+import { clearUnread } from '$lib/stores/community';
 import { sendNativeNotification } from '$lib/utils/nativeNotification';
 import type {
 	WebSocketEvent,
@@ -417,9 +418,11 @@ class WebSocketManager {
 		}
 	}
 
-	private handleNotificationRead(data: { notificationId?: string; all?: boolean }): void {
+	private handleNotificationRead(data: { notificationId?: string; all?: boolean; channelId?: string }): void {
 		if (data.all) {
 			markAllNotificationsReadLocal();
+		} else if (data.channelId) {
+			clearUnread(data.channelId);
 		} else if (data.notificationId) {
 			markNotificationReadLocal(data.notificationId);
 		}

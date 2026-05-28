@@ -496,13 +496,6 @@ export function incrementMention(channelId: string): void {
 	}));
 }
 
-export function clearMention(channelId: string): void {
-	mentionCounts.update((counts) => ({
-		...counts,
-		[channelId]: 0
-	}));
-}
-
 export function setMentionCounts(counts: Record<string, number>): void {
 	mentionCounts.set(counts);
 }

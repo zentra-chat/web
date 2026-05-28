@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { Component } from 'svelte';
-	import { getSDK } from '@zentra/plugin-sdk/runtime';
-
-	const sdk = getSDK();
-	const { activeChannel, activeCommunity, activeCommunityMembers, currentUserId } = sdk.stores;
-	const { memberHasPermission, Permission } = sdk.permissions;
-
-	let MessageListComponent: Component | null = null;
-	let MessageInputComponent: Component | null = null;
+	import {
+		activeChannel,
+		activeCommunity,
+		activeCommunityMembers,
+		memberHasPermission,
+		Permission
+	} from '$lib/stores/community';
+	import { currentUserId } from '$lib/stores/instance';
+	import MessageList from '$lib/components/chat/MessageList.svelte';
+	import MessageInput from '$lib/components/chat/MessageInput.svelte';
 
 	$: isOwner = Boolean($activeCommunity && $activeCommunity.ownerId === $currentUserId);
 	$: myMember = $activeCommunityMembers.find((m) => m.userId === $currentUserId) || null;
@@ -16,32 +16,14 @@
 		isOwner ||
 		memberHasPermission(myMember, Permission.ManageChannels) ||
 		memberHasPermission(myMember, Permission.ManageMessages);
-
-	onMount(() => {
-		sdk.components.MessageList().then((mod) => {
-			MessageListComponent = mod.default;
-		});
-		sdk.components.MessageInput().then((mod) => {
-			MessageInputComponent = mod.default;
-		});
-
-		return () => {
-			MessageListComponent = null;
-			MessageInputComponent = null;
-		};
-	});
 </script>
 
 <div class="flex-1 flex flex-col min-h-0">
-	{#if MessageListComponent}
-		{@const MessageList = MessageListComponent}
-		<MessageList channelId={$activeChannel?.id ?? ''} />
-	{/if}
+	<MessageList channelId={$activeChannel?.id ?? ''} />
 
-	{#if canPost && MessageInputComponent}
-		{@const MessageInput = MessageInputComponent}
+	{#if canPost}
 		<MessageInput channelId={$activeChannel?.id ?? ''} />
-	{:else if !canPost}
+	{:else}
 		<div class="px-4 py-3 border-t border-border bg-surface">
 			<p class="text-sm text-text-muted text-center">
 				Only moderators can post in announcement channels.

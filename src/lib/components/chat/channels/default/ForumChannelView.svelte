@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { Component } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { getSDK } from '@zentra/plugin-sdk/runtime';
-
-	const sdk = getSDK();
-	const { activeChannel, activeChannelMessages } = sdk.stores;
+	import { api } from '$lib/api';
+	import { activeChannel, activeChannelMessages, addMessage } from '$lib/stores/community';
+	import { addToast } from '$lib/stores/ui';
+	import MessageInput from '$lib/components/chat/MessageInput.svelte';
+	import MessageItem from '$lib/components/chat/MessageItem.svelte';
 
 	interface ForumMessage {
 		id: string;
@@ -50,8 +49,6 @@
 	let newTopicBody = '';
 	let sortBy: 'latest' | 'popular' = 'latest';
 	let loadedChannelId = '';
-	let MessageInputComponent: Component | null = null;
-	let MessageItemComponent: Component | null = null;
 
 	$: liveMessages = (($activeChannelMessages || []) as ForumMessage[]).filter(Boolean);
 	$: allMessages = mergeMessages(fetchedMessages, liveMessages);
@@ -74,25 +71,6 @@
 		newTopicBody = '';
 		void loadChannelMessages($activeChannel.id);
 	}
-
-	onMount(() => {
-		sdk.components.MessageInput().then((mod) => {
-			MessageInputComponent = mod.default;
-		});
-		sdk.components.MessageItem?.().then((mod) => {
-			MessageItemComponent = mod.default;
-		});
-
-		if ($activeChannel?.id) {
-			loadedChannelId = $activeChannel.id;
-			void loadChannelMessages($activeChannel.id);
-		}
-
-		return () => {
-			MessageInputComponent = null;
-			MessageItemComponent = null;
-		};
-	});
 
 	function mergeMessages(base: ForumMessage[], incoming: ForumMessage[]) {
 		const byId = new SvelteMap<string, ForumMessage>();
@@ -182,11 +160,11 @@
 	async function loadChannelMessages(channelId: string) {
 		loadingTopics = true;
 		try {
-			const messages = (await sdk.api.getMessages(channelId, { limit: 250 })) as ForumMessage[];
+			const messages = (await api.getMessages(channelId, { limit: 250 })) as ForumMessage[];
 			fetchedMessages = Array.isArray(messages) ? messages : [];
 		} catch (error) {
 			console.error('Failed to load forum messages:', error);
-			sdk.ui.addToast({ type: 'error', message: 'Failed to load forum topics' });
+			addToast({ type: 'error', message: 'Failed to load forum topics' });
 		} finally {
 			loadingTopics = false;
 		}
@@ -209,8 +187,8 @@
 				? `${newTopicTitle.trim()}\n\n${newTopicBody.trim()}`
 				: newTopicTitle.trim();
 
-			const message = (await sdk.api.sendMessage($activeChannel.id, { content })) as ForumMessage;
-			sdk.ui.addMessage($activeChannel.id, message);
+			const message = (await api.sendMessage($activeChannel.id, { content })) as ForumMessage;
+			addMessage($activeChannel.id, message);
 			fetchedMessages = mergeMessages(fetchedMessages, [message]);
 			newTopicTitle = '';
 			newTopicBody = '';
@@ -218,7 +196,7 @@
 			selectedTopicId = message.id;
 		} catch (error) {
 			console.error('Failed to create topic:', error);
-			sdk.ui.addToast({ type: 'error', message: 'Failed to create topic' });
+			addToast({ type: 'error', message: 'Failed to create topic' });
 		} finally {
 			creatingTopic = false;
 		}
@@ -247,7 +225,7 @@
 		<div class="h-12 px-4 border-b border-border bg-background flex items-center gap-2 shrink-0">
 			<button
 				type="button"
-				on:click={closeTopic}
+				onclick={closeTopic}
 				class="px-2 py-1 rounded border border-border bg-surface text-sm text-text-secondary hover:text-text-primary"
 			>
 				Back to topics
@@ -265,14 +243,11 @@
 					</span>
 				</div>
 
-				{#if MessageItemComponent}
-					{@const MessageItem = MessageItemComponent}
-					<MessageItem
-						message={normalizeMessage(selectedTopicRootMessage)}
-						enableReactions={true}
-						enableReply={true}
-					/>
-				{/if}
+				<MessageItem
+					message={normalizeMessage(selectedTopicRootMessage)}
+					enableReactions={true}
+					enableReply={true}
+				/>
 			</div>
 
 			<div class="px-1 pt-2">
@@ -286,23 +261,17 @@
 			{:else}
 				<div class="space-y-2">
 					{#each selectedTopicReplies as reply (reply.id)}
-						{#if MessageItemComponent}
-							{@const MessageItem = MessageItemComponent}
-							<MessageItem
-								message={normalizeMessage(reply)}
-								enableReactions={true}
-								enableReply={true}
-							/>
-						{/if}
+						<MessageItem
+							message={normalizeMessage(reply)}
+							enableReactions={true}
+							enableReply={true}
+						/>
 					{/each}
 				</div>
 			{/if}
 		</div>
 
-		{#if MessageInputComponent}
-			{@const MessageInput = MessageInputComponent}
-			<MessageInput channelId={$activeChannel?.id ?? ''} />
-		{/if}
+		<MessageInput channelId={$activeChannel?.id ?? ''} />
 	{:else}
 		<div class="px-4 py-3 border-b border-border bg-surface space-y-3 shrink-0">
 			<div class="flex items-center justify-between gap-3">
@@ -313,7 +282,7 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						on:click={() => {
+						onclick={() => {
 							sortBy = 'latest';
 						}}
 						class="px-2 py-1 rounded border text-xs {sortBy === 'latest'
@@ -324,7 +293,7 @@
 					</button>
 					<button
 						type="button"
-						on:click={() => {
+						onclick={() => {
 							sortBy = 'popular';
 						}}
 						class="px-2 py-1 rounded border text-xs {sortBy === 'popular'
@@ -335,7 +304,7 @@
 					</button>
 					<button
 						type="button"
-						on:click={() => {
+						onclick={() => {
 							showTopicForm = !showTopicForm;
 						}}
 						class="px-3 py-2 rounded bg-primary text-primary-foreground text-sm font-semibold"
@@ -363,7 +332,7 @@
 					<div class="flex justify-end">
 						<button
 							type="button"
-							on:click={createTopic}
+							onclick={createTopic}
 							disabled={creatingTopic || !newTopicTitle.trim()}
 							class="px-3 py-2 rounded bg-primary text-primary-foreground text-sm disabled:opacity-60"
 						>
@@ -388,7 +357,7 @@
 					{#each topics as topic (topic.id)}
 						<button
 							type="button"
-							on:click={() => openTopic(topic.id)}
+							onclick={() => openTopic(topic.id)}
 							class="w-full px-4 py-3 text-left hover:bg-surface transition-colors"
 						>
 							<div class="flex items-start justify-between gap-3">

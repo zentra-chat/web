@@ -250,7 +250,7 @@ register('forum', {
 
 register('voice', {
 	icon: Volume2,
-	viewComponent: () => import('$lib/components/chat/channels/default/VoiceChannelViewWrapper.svelte'),
+	viewComponent: () => import('$lib/components/chat/VoiceChannelView.svelte'),
 	label: 'Voice',
 	description: 'Hang out with real-time voice chat',
 	showHash: false

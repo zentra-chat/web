@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { getSDK } from '@zentra/plugin-sdk/runtime';
-
-	const sdk = getSDK();
-	const { activeChannel, activeChannelMessages } = sdk.stores;
+	import { api } from '$lib/api';
+	import { activeChannel, activeChannelMessages, addMessage } from '$lib/stores/community';
+	import { addToast } from '$lib/stores/ui';
 
 	let imageInput: HTMLInputElement | null = $state(null);
 	let uploading = $state(false);
@@ -45,21 +44,21 @@
 		try {
 			const attachmentIds: string[] = [];
 			for (const file of selectedFiles) {
-				const uploaded = await sdk.api.uploadAttachment(file, $activeChannel.id);
+				const uploaded = await api.uploadAttachment(file, $activeChannel.id);
 				attachmentIds.push(uploaded.id);
 			}
 
-			const message = await sdk.api.sendMessage($activeChannel.id, {
+			const message = await api.sendMessage($activeChannel.id, {
 				content: caption.trim(),
 				attachments: attachmentIds
 			});
 
-			sdk.ui.addMessage($activeChannel.id, message);
+			addMessage($activeChannel.id, message);
 			selectedFiles = [];
 			caption = '';
 		} catch (error) {
 			console.error('Failed to send gallery post:', error);
-			sdk.ui.addToast({ type: 'error', message: 'Failed to send gallery post' });
+			addToast({ type: 'error', message: 'Failed to send gallery post' });
 		} finally {
 			uploading = false;
 		}

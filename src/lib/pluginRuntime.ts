@@ -7,18 +7,11 @@
 // grantedPermissions bitmask on CommunityPlugin - it never gets the full SDK.
 
 import { api } from '$lib/api';
-import { ZentraSDK } from '$lib/pluginSDK';
-import type { ZentraPluginSDK } from '@zentra/plugin-sdk';
 import { createPluginSandbox, destroyAllPluginSandboxes } from '$lib/pluginSandbox';
 import type { CommunityPlugin } from '$lib/types';
 
 const loadedBundleUrls = new Set<string>();
 const loadedCommunityIds = new Set<string>();
-
-// Expose the SDK on window for built-in views that use getSDK().
-const win = window as Window & { ZentraSDK?: ZentraPluginSDK; ZentraPluginAPI?: ZentraPluginSDK };
-win.ZentraSDK = ZentraSDK as unknown as ZentraPluginSDK;
-win.ZentraPluginAPI = ZentraSDK as unknown as ZentraPluginSDK;
 
 function normalizeBundleUrl(bundlePath: string): string {
 	if (!bundlePath) return '';

@@ -146,6 +146,22 @@ export function getChannelIcon(typeId: string): IconComponent {
 export function mergeServerDefinitions(definitions: ChannelTypeDefinition[]): void {
 	for (const def of definitions) {
 		if (registry.has(def.id)) continue;
+
+		if (def.pluginId) {
+			// Plugin-registered channel type without a frontend bundle.
+			// Use PluginChannelView which connects to the server-side WASM runtime
+			// via the bridge auth endpoint.
+			register(def.id, {
+				icon: HelpCircle,
+				viewComponent: () => import('$lib/components/chat/channels/PluginChannelView.svelte'),
+				label: def.name,
+				description: def.description || 'Plugin channel type',
+				showHash: false,
+				headerActionIds: ['pinned', 'members']
+			});
+			return;
+		}
+
 		// Server knows about a type we don't have a component for yet -
 		// register it with the fallback so it at least appears in the UI
 		register(def.id, {

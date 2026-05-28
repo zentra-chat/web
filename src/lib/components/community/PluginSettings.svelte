@@ -13,6 +13,9 @@
 		type Plugin,
 		type CommunityPlugin,
 		type PluginSource,
+		type EventTrigger,
+		type ChannelTypeDef,
+		type CommandDef,
 	} from '$lib/types';
 	import { resolve } from '$app/paths';
 
@@ -338,6 +341,26 @@
 		permissionModalPlugin = null;
 		permissionModalCommunityPlugin = null;
 	}
+
+	function getTriggerEvents(manifest: PluginManifest): string[] {
+		if (!manifest.triggers) return [];
+		return manifest.triggers.map((t) => (typeof t === 'string' ? t : t.event));
+	}
+
+	function getChannelTypeNames(manifest: PluginManifest): string[] {
+		if (!manifest.channelTypes) return [];
+		return manifest.channelTypes.map((t) => (typeof t === 'string' ? t : t.name || t.id));
+	}
+
+	function getCommandNames(manifest: PluginManifest): string[] {
+		if (!manifest.commands) return [];
+		return manifest.commands.map((c) => (typeof c === 'string' ? c : c.name));
+	}
+
+	function hasChannelTypeDefs(manifest: PluginManifest): boolean {
+		if (!manifest.channelTypes) return false;
+		return manifest.channelTypes.some((t) => typeof t !== 'string');
+	}
 </script>
 
 <div class="space-y-4">
@@ -509,17 +532,73 @@
 								<!-- Manifest features -->
 								{#if plugin.manifest}
 									{@const m = plugin.manifest}
-									<div class="flex flex-wrap gap-3 text-xs text-text-muted">
-										{#if m.channelTypes?.length}
-											<span>{m.channelTypes.length} channel type{m.channelTypes.length > 1 ? 's' : ''}</span>
+									{@const triggerEvents = getTriggerEvents(m)}
+									{@const channelNames = getChannelTypeNames(m)}
+									{@const cmdNames = getCommandNames(m)}
+									<div class="flex flex-wrap gap-2 text-xs">
+										{#if m.wasmModule}
+											<span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-medium flex items-center gap-1" title="WASM plugin - runs server-side">
+												WASM
+											</span>
 										{/if}
-										{#if m.commands?.length}
-											<span>{m.commands.length} command{m.commands.length > 1 ? 's' : ''}</span>
+										{#if m.frontendBundle}
+											<span class="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 font-medium flex items-center gap-1" title="Has a frontend UI bundle">
+												UI
+											</span>
 										{/if}
-										{#if m.hooks?.length}
-											<span>{m.hooks.length} hook{m.hooks.length > 1 ? 's' : ''}</span>
+										{#if channelNames.length}
+											<span class="px-1.5 py-0.5 rounded bg-surface-hover text-text-muted" title="Registered channel types">
+												{channelNames.length} type{channelNames.length > 1 ? 's' : ''}
+											</span>
+										{/if}
+										{#if cmdNames.length}
+											<span class="px-1.5 py-0.5 rounded bg-surface-hover text-text-muted" title="Slash commands">
+												{cmdNames.length} command{cmdNames.length > 1 ? 's' : ''}
+											</span>
+										{/if}
+										{#if triggerEvents.length}
+											<span class="px-1.5 py-0.5 rounded bg-surface-hover text-text-muted" title="Events this plugin listens to">
+												{triggerEvents.length} trigger{triggerEvents.length > 1 ? 's' : ''}
+											</span>
 										{/if}
 									</div>
+
+									<!-- Triggers detail -->
+									{#if triggerEvents.length > 0}
+										<div>
+											<p class="text-xs font-medium text-text-muted mb-1">Triggers</p>
+											<div class="flex flex-wrap gap-1">
+												{#each triggerEvents as event (event)}
+													<span class="text-[11px] px-2 py-0.5 rounded-full bg-surface-hover text-text-muted font-mono">
+														{event}
+													</span>
+												{/each}
+											</div>
+										</div>
+									{/if}
+
+									<!-- Channel type detail -->
+									{#if hasChannelTypeDefs(m) && m.channelTypes}
+										{@const channelTypeDefs = m.channelTypes.filter((t): t is ChannelTypeDef => typeof t !== 'string')}
+										{#if channelTypeDefs.length > 0}
+											<div>
+												<p class="text-xs font-medium text-text-muted mb-1">Channel Types</p>
+												<div class="space-y-1">
+													{#each channelTypeDefs as ct (ct.id)}
+														<div class="text-xs bg-surface-hover rounded-lg p-2">
+															<div class="flex items-center gap-1.5">
+																<span class="font-medium text-text-primary">{ct.name || ct.id}</span>
+																<span class="text-text-muted">({ct.id})</span>
+															</div>
+															{#if ct.description}
+																<p class="text-text-muted mt-0.5">{ct.description}</p>
+															{/if}
+														</div>
+													{/each}
+												</div>
+											</div>
+										{/if}
+									{/if}
 								{/if}
 
 								<!-- Uninstall (only for non-built-in) -->

@@ -597,12 +597,40 @@ export const PluginPermissionLabels: Record<
 	}
 };
 
+export interface ArgDef {
+	name: string;
+	type: string;
+	required: boolean;
+	description?: string;
+}
+
+export interface CommandDef {
+	name: string;
+	description: string;
+	args?: ArgDef[];
+	permissions?: number;
+}
+
+export interface ChannelTypeDef {
+	id: string;
+	name: string;
+	description: string;
+	icon: string;
+	viewFrame?: string;
+}
+
+export interface EventTrigger {
+	event: string;
+	filter?: string;
+}
+
 export interface PluginManifest {
-	channelTypes?: string[];
-	commands?: string[];
-	triggers?: string[];
+	channelTypes?: ChannelTypeDef[] | string[];
+	commands?: CommandDef[] | string[];
+	triggers?: EventTrigger[] | string[];
 	hooks?: string[];
 	frontendBundle?: string;
+	wasmModule?: string;
 }
 
 export interface Plugin {

@@ -23,7 +23,6 @@ const config = {
 
 	kit: {
 		alias: {
-			'@zentra/default-plugin': './default-plugin/src',
 			...pluginSdkAlias
 		},
 		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.

@@ -46,7 +46,6 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	resolve: {
 		alias: {
-			'@zentra/default-plugin': new URL('./default-plugin/src', import.meta.url).pathname,
 			...pluginSdkAlias
 		}
 	},

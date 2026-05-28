@@ -9,28 +9,16 @@
 import { api } from '$lib/api';
 import { ZentraSDK } from '$lib/pluginSDK';
 import type { ZentraPluginSDK } from '@zentra/plugin-sdk';
-import { register as registerDefaultPlugin } from '@zentra/default-plugin';
 import { createPluginSandbox, destroyAllPluginSandboxes } from '$lib/pluginSandbox';
 import type { CommunityPlugin } from '$lib/types';
 
 const loadedBundleUrls = new Set<string>();
 const loadedCommunityIds = new Set<string>();
-let defaultPluginLoaded = false;
 
-// Load the built-in default plugin. This runs synchronously since the
-// plugin is compiled into the main bundle. Called once before any
-// third-party plugins are loaded.
-export function loadDefaultPlugin(): void {
-	if (defaultPluginLoaded) return;
-	defaultPluginLoaded = true;
-	const sdk = ZentraSDK as unknown as ZentraPluginSDK;
-	// Built-in plugins are compiled into the app and trusted, so they get the
-	// full SDK. The window assignment here is only for the built-in plugin.
-	const win = window as Window & { ZentraSDK?: ZentraPluginSDK; ZentraPluginAPI?: ZentraPluginSDK };
-	win.ZentraSDK = sdk;
-	win.ZentraPluginAPI = sdk;
-	registerDefaultPlugin(sdk);
-}
+// Expose the SDK on window for built-in views that use getSDK().
+const win = window as Window & { ZentraSDK?: ZentraPluginSDK; ZentraPluginAPI?: ZentraPluginSDK };
+win.ZentraSDK = ZentraSDK as unknown as ZentraPluginSDK;
+win.ZentraPluginAPI = ZentraSDK as unknown as ZentraPluginSDK;
 
 function normalizeBundleUrl(bundlePath: string): string {
 	if (!bundlePath) return '';
@@ -115,9 +103,6 @@ function pluginChannelTypes(plugin: CommunityPlugin): string[] {
 }
 
 export async function loadCommunityPluginFrontends(communityId: string): Promise<void> {
-	// Always load the default plugin first
-	loadDefaultPlugin();
-
 	if (!communityId || loadedCommunityIds.has(communityId)) {
 		return;
 	}
@@ -148,12 +133,6 @@ export async function loadCommunityPluginFrontends(communityId: string): Promise
 			continue;
 		}
 
-		// Built-in plugins are compiled into the bundle, no need to load dynamically
-		if (cp.plugin?.builtIn) {
-			seenSlugs.add(slug);
-			continue;
-		}
-
 		const bundlePath = cp.plugin?.manifest?.frontendBundle;
 		if (!bundlePath) {
 			continue;
@@ -179,7 +158,5 @@ export async function loadCommunityPluginFrontends(communityId: string): Promise
 export function resetPluginRuntimeCache(): void {
 	loadedBundleUrls.clear();
 	loadedCommunityIds.clear();
-	// Tear down all sandboxed plugin iframes
 	destroyAllPluginSandboxes();
-	// Don't reset defaultPluginLoaded - it stays loaded across communities
 }

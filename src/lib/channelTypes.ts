@@ -4,7 +4,10 @@
 
 import type { ChannelTypeDefinition } from '$lib/types';
 import { writable } from 'svelte/store';
-import { Hash, HelpCircle } from 'lucide-svelte';
+import {
+	Hash, Megaphone, Image, MessagesSquare, Volume2,
+	Pin, Users, HelpCircle
+} from 'lucide-svelte';
 
 // Use the lucide icon type as the baseline for icon components -
 // works with both Svelte 4 class components and Svelte 5 function components
@@ -184,3 +187,71 @@ const fallbackRegistration: ChannelTypeRegistration = {
 	showHash: false,
 	headerActionIds: ['pinned', 'members']
 };
+
+// ---------------------------------------------------------------------------
+// Native channel type and header action registrations
+// These were previously registered by the "Zentra Core" default plugin.
+// Now they are registered directly as part of the main application.
+// ---------------------------------------------------------------------------
+
+registerHeaderAction({
+	id: 'pinned',
+	title: 'Pinned Messages',
+	icon: Pin,
+	onClick: async (context) => {
+		await context.togglePinnedDropdown();
+	}
+});
+
+registerHeaderAction({
+	id: 'members',
+	title: 'Toggle Member List',
+	icon: Users,
+	onClick: (context) => {
+		context.toggleMemberSidebar();
+	}
+});
+
+register('text', {
+	icon: Hash,
+	viewComponent: () => import('$lib/components/chat/channels/default/TextChannelView.svelte'),
+	label: 'Text',
+	description: 'Send messages, images, and files',
+	showHash: true,
+	headerActionIds: ['pinned', 'members']
+});
+
+register('announcement', {
+	icon: Megaphone,
+	viewComponent: () => import('$lib/components/chat/channels/default/AnnouncementChannelView.svelte'),
+	label: 'Announcement',
+	description: 'Important updates - only moderators can post',
+	showHash: true,
+	headerActionIds: ['pinned', 'members']
+});
+
+register('gallery', {
+	icon: Image,
+	viewComponent: () => import('$lib/components/chat/channels/default/GalleryChannelView.svelte'),
+	label: 'Gallery',
+	description: 'Share and browse images and media',
+	showHash: false,
+	headerActionIds: ['pinned', 'members']
+});
+
+register('forum', {
+	icon: MessagesSquare,
+	viewComponent: () => import('$lib/components/chat/channels/default/ForumChannelView.svelte'),
+	label: 'Forum',
+	description: 'Organized discussions with topics and threads',
+	showHash: true,
+	headerActionIds: ['pinned', 'members']
+});
+
+register('voice', {
+	icon: Volume2,
+	viewComponent: () => import('$lib/components/chat/channels/default/VoiceChannelViewWrapper.svelte'),
+	label: 'Voice',
+	description: 'Hang out with real-time voice chat',
+	showHash: false
+});

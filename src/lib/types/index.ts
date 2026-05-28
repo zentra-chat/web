@@ -645,7 +645,6 @@ export interface Plugin {
 	iconUrl?: string;
 	requestedPermissions: number;
 	manifest: PluginManifest;
-	builtIn: boolean;
 	source: string;
 	isVerified: boolean;
 	createdAt: string;

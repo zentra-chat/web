@@ -59,7 +59,7 @@
 
 	// Filtered catalog - hide what's already installed
 	let filteredCatalog = $derived(
-		(catalogPlugins ?? []).filter((p) => !p.builtIn && !installedPluginIds.has(p.id) && p.slug !== 'core')
+		(catalogPlugins ?? []).filter((p) => !installedPluginIds.has(p.id))
 	);
 
 	// Load installed plugins on mount
@@ -154,11 +154,6 @@
 
 	// Opens the permission review modal before installing
 	function startInstall(plugin: Plugin) {
-		if (plugin.builtIn || plugin.slug === 'core') {
-			addToast({ type: 'error', message: 'Built-in plugins are already installed by default' });
-			return;
-		}
-
 		permissionModalMode = 'install';
 		permissionModalPlugin = plugin;
 		permissionModalCommunityPlugin = null;
@@ -167,7 +162,7 @@
 	}
 
 	function startEditPermissions(cp: CommunityPlugin) {
-		if (!cp.plugin || cp.plugin.builtIn) return;
+		if (!cp.plugin) return;
 
 		permissionModalMode = 'edit';
 		permissionModalPlugin = cp.plugin;
@@ -436,9 +431,6 @@
 							<div class="flex-1 min-w-0">
 								<div class="flex items-center gap-2">
 									<span class="font-medium text-text-primary text-sm">{plugin?.name || 'Unknown Plugin'}</span>
-									{#if plugin?.builtIn}
-										<span class="text-[10px] px-1.5 py-0.5 bg-secondary/20 text-primary rounded-full font-medium">Built-in</span>
-									{/if}
 									{#if plugin?.isVerified}
 										<Check size={14} class="text-green-400" />
 									{/if}
@@ -449,22 +441,20 @@
 
 							<!-- Actions -->
 							<div class="flex items-center gap-1.5 shrink-0">
-								{#if !plugin?.builtIn}
-									<button
-										onclick={() => togglePlugin(cp)}
-										disabled={isTogglingId === cp.pluginId}
-										class="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
-										title={cp.enabled ? 'Disable' : 'Enable'}
-									>
-										{#if isTogglingId === cp.pluginId}
-											<Spinner size="sm" />
-										{:else if cp.enabled}
-											<ToggleRight size={20} class="text-green-400" />
-										{:else}
-											<ToggleLeft size={20} class="text-text-muted" />
-										{/if}
-									</button>
-								{/if}
+								<button
+									onclick={() => togglePlugin(cp)}
+									disabled={isTogglingId === cp.pluginId}
+									class="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
+									title={cp.enabled ? 'Disable' : 'Enable'}
+								>
+									{#if isTogglingId === cp.pluginId}
+										<Spinner size="sm" />
+									{:else if cp.enabled}
+										<ToggleRight size={20} class="text-green-400" />
+									{:else}
+										<ToggleLeft size={20} class="text-text-muted" />
+									{/if}
+								</button>
 
 								<button
 									onclick={() => expandedPluginId = isExpanded ? null : cp.pluginId}
@@ -601,31 +591,28 @@
 									{/if}
 								{/if}
 
-								<!-- Uninstall (only for non-built-in) -->
-								{#if !plugin.builtIn}
-									<div class="pt-2 border-t border-border">
-										<div class="flex items-center gap-2">
-											<Button variant="ghost" size="sm" onclick={() => startEditPermissions(cp)}>
-												<Shield size={14} class="mr-1" />
-												Permissions
-											</Button>
-											<Button
-												variant="danger"
-												size="sm"
-												onclick={() => uninstallPlugin(cp)}
-												disabled={isUninstallingId === cp.pluginId}
-											>
-												{#if isUninstallingId === cp.pluginId}
-													<Spinner size="sm" />
-													Removing...
-												{:else}
-													<Trash size={14} class="mr-1" />
-													Uninstall
-												{/if}
-											</Button>
-										</div>
+								<div class="pt-2 border-t border-border">
+									<div class="flex items-center gap-2">
+										<Button variant="ghost" size="sm" onclick={() => startEditPermissions(cp)}>
+											<Shield size={14} class="mr-1" />
+											Permissions
+										</Button>
+										<Button
+											variant="danger"
+											size="sm"
+											onclick={() => uninstallPlugin(cp)}
+											disabled={isUninstallingId === cp.pluginId}
+										>
+											{#if isUninstallingId === cp.pluginId}
+												<Spinner size="sm" />
+												Removing...
+											{:else}
+												<Trash size={14} class="mr-1" />
+												Uninstall
+											{/if}
+										</Button>
 									</div>
-								{/if}
+								</div>
 							</div>
 						{/if}
 					</div>

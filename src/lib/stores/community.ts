@@ -473,6 +473,11 @@ export function prependMessages(channelId: string, messages: Message[]): void {
 }
 
 export function clearUnread(channelId: string): void {
+	clearUnreadLocal(channelId);
+	api.markChannelRead(channelId).catch(() => {});
+}
+
+export function clearUnreadLocal(channelId: string): void {
 	unreadCounts.update((counts) => ({
 		...counts,
 		[channelId]: 0
@@ -481,8 +486,6 @@ export function clearUnread(channelId: string): void {
 		...counts,
 		[channelId]: 0
 	}));
-
-	api.markChannelRead(channelId).catch(() => {});
 }
 
 export function setUnreadCounts(counts: Record<string, number>): void {

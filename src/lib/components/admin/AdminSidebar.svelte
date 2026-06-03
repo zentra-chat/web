@@ -36,9 +36,6 @@
 >
 	<div class="px-6 py-5 border-b border-border">
 		<div class="flex items-center gap-3">
-			<div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-				<Shield size={18} class="text-primary" />
-			</div>
 			<div>
 				<h1 class="text-sm font-semibold text-text-primary">Admin Panel</h1>
 				<p class="text-xs text-text-muted">Instance Management</p>
@@ -68,7 +65,7 @@
 		{/each}
 	</nav>
 
-	<div class="px-6 py-4 border-t border-border">
+	<div class="px-6 py-4 border-t border-border space-y-1">
 		<a
 			href="/"
 			class="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors"
@@ -86,6 +83,7 @@
 			><path d="m15 18-6-6 6-6" /></svg>
 			Back to App
 		</a>
+		<p class="text-xs text-text-muted px-0.5">v{__APP_VERSION__}</p>
 	</div>
 </aside>
 

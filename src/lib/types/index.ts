@@ -792,6 +792,39 @@ export interface AnalyticsStats {
 	activeWeekdays: DailyStat[];
 }
 
+// Server management types
+export interface ServiceStatus {
+	status: 'connected' | 'disconnected' | 'error';
+	latency?: string;
+	error?: string;
+}
+
+export interface ServerInfo {
+	version: string;
+	goVersion: string;
+	os: string;
+	arch: string;
+	cpuCount: number;
+	goRoutines: number;
+	uptime: number;
+	startTime: string;
+	database: ServiceStatus;
+	redis: ServiceStatus;
+}
+
+export interface ServerConfig {
+	registrationOpen: boolean;
+	captchaEnabled: boolean;
+	emailVerificationRequired: boolean;
+	maintenanceMode: boolean;
+	maintenanceMessage?: string;
+}
+
+export interface UpdateServerConfigRequest {
+	maintenanceEnabled?: boolean;
+	maintenanceMessage?: string;
+}
+
 // Public GitHub stats used on the landing page
 export interface GithubContributor {
 	login: string;

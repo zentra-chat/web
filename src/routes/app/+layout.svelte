@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { Server, AlertTriangle } from 'lucide-svelte';
 	import { ToastContainer, NotificationPreviewContainer } from '$lib/components/ui';
 	import { AppLayout } from '$lib/components/layout';
 	import { InstanceModal } from '$lib/components/instance';
@@ -11,7 +12,7 @@
 		FilePreviewModal
 	} from '$lib/components/modals';
 	import { ProfileCard } from '$lib/components/user';
-	import { instanceModalOpen } from '$lib/stores/ui';
+	import { instanceModalOpen, maintenanceMode } from '$lib/stores/ui';
 	import {
 		currentInstance,
 		isAuthenticated,
@@ -73,6 +74,22 @@
 {#if isLoading}
 	<div class="h-screen w-screen bg-background flex items-center justify-center">
 		<div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+	</div>
+{:else if $maintenanceMode.active}
+	<div class="h-screen w-screen bg-background flex items-center justify-center">
+		<div class="text-center max-w-md px-6">
+			<div class="mx-auto w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-6">
+				<AlertTriangle size={32} class="text-warning" />
+			</div>
+			<h1 class="text-2xl font-bold text-text-primary mb-2">Under Maintenance</h1>
+			<p class="text-text-muted mb-8">
+				{$maintenanceMode.message || 'This server is currently undergoing maintenance. Please check back shortly.'}
+			</p>
+			<div class="flex items-center justify-center gap-2 text-sm text-text-muted">
+				<Server size={14} />
+				<span>Zentra</span>
+			</div>
+		</div>
 	</div>
 {:else}
 	<AppLayout>

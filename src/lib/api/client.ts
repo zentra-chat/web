@@ -6,7 +6,7 @@ import {
 	setInstanceAuth,
 	logout as logoutFromStore
 } from '$lib/stores/instance';
-import { showToast } from '$lib/stores/ui';
+import { maintenanceMode, showToast } from '$lib/stores/ui';
 import type {
 	ApiResponse,
 	PaginatedResponse,
@@ -52,7 +52,10 @@ import type {
 	AdminUserListItem,
 	AdminUserDetail,
 	AdminUpdateUserRequest,
-	AnalyticsStats
+	AnalyticsStats,
+	ServerInfo,
+	ServerConfig,
+	UpdateServerConfigRequest
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
 import { normalizeApiError } from '$lib/utils/apiError';
@@ -190,6 +193,12 @@ class ApiClient {
 
 			(error as ApiError & { status?: number }).status = response.status;
 
+			// Handle maintenance mode
+			if (response.status === 503 && error.code === 'MAINTENANCE_MODE') {
+				maintenanceMode.set({ active: true, message: error.error });
+				throw error;
+			}
+
 			// Handle token expiration
 			if (includeAuth && response.status === 401) {
 				const refreshed = await this.refreshToken();
@@ -202,6 +211,9 @@ class ApiClient {
 
 			throw error;
 		}
+
+		// Clear maintenance mode on successful responses
+		maintenanceMode.set({ active: false, message: '' });
 
 		// Handle 204 No Content
 		if (response.status === 204) {
@@ -1504,6 +1516,26 @@ class ApiClient {
 		await this.request(`/admin/users/${userId}/restore`, {
 			method: 'POST'
 		});
+	}
+
+	// Server management endpoints
+
+	async getServerInfo(): Promise<ServerInfo> {
+		const result = await this.request<ApiResponse<ServerInfo>>('/admin/server/info');
+		return result.data;
+	}
+
+	async getServerConfig(): Promise<ServerConfig> {
+		const result = await this.request<ApiResponse<ServerConfig>>('/admin/server/config');
+		return result.data;
+	}
+
+	async updateServerConfig(data: UpdateServerConfigRequest): Promise<ServerConfig> {
+		const result = await this.request<ApiResponse<ServerConfig>>('/admin/server/config', {
+			method: 'PATCH',
+			body: JSON.stringify(data)
+		});
+		return result.data;
 	}
 }
 

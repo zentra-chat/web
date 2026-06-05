@@ -66,6 +66,12 @@ export const userPresence = writable<Record<string, { status: UserStatus; custom
 // Instance selector visibility
 export const instanceSelectorMode = writable<InstanceSelectorMode>('disabled');
 
+// Maintenance mode
+export const maintenanceMode = writable<{ active: boolean; message: string }>({
+	active: false,
+	message: ''
+});
+
 // User settings cache
 export const userSettings = writable<UserSettings | null>(null);
 

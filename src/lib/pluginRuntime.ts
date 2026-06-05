@@ -1,9 +1,8 @@
-// Plugin runtime - handles loading plugin frontend bundles and managing
+// Plugin runtime - handles loading third-party plugin frontend bundles and managing
 // the lifecycle of plugins across community switches.
 //
-// The default plugin is loaded at build time via direct import.
 // Third-party plugins are loaded dynamically from their bundle URLs.
-// Each third-party plugin only receives a capability-scoped SDK built from the
+// Each third-party plugin receives a capability-scoped SDK built from the
 // grantedPermissions bitmask on CommunityPlugin - it never gets the full SDK.
 
 import { api } from '$lib/api';

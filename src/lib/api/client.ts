@@ -556,6 +556,13 @@ class ApiClient {
 		await this.request(`/communities/${communityId}`, { method: 'DELETE' });
 	}
 
+	async reorderCommunities(communityIds: string[]): Promise<void> {
+		await this.request('/communities/reorder', {
+			method: 'PUT',
+			body: JSON.stringify({ communityIds })
+		});
+	}
+
 	async joinCommunity(communityId: string): Promise<void> {
 		await this.request(`/communities/${communityId}/join`, { method: 'POST' });
 	}

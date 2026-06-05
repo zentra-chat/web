@@ -154,6 +154,13 @@ export function updateInstance(instanceId: string, updates: Partial<Instance>): 
 	instances.update((list) => list.map((i) => (i.id === instanceId ? { ...i, ...updates } : i)));
 }
 
+export function reorderInstances(orderedIds: string[]): void {
+	instances.update((list) => {
+		const map = new Map(list.map((i) => [i.id, i]));
+		return orderedIds.map((id) => map.get(id)).filter((i): i is Instance => i !== undefined);
+	});
+}
+
 export function setActiveInstance(instanceId: string | null): void {
 	activeInstanceId.set(instanceId);
 }

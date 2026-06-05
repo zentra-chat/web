@@ -1,5 +1,5 @@
 // Plugin SDK - the interface all plugins use to interact with Zentra.
-// Built-in plugins (like the default plugin) import this directly.
+// Built-in channel types are registered directly in channelTypes.ts.
 // Third-party plugins receive a capability-scoped SDK as an argument to their
 // register() function - they do NOT get it via window.
 

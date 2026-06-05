@@ -190,8 +190,6 @@ const fallbackRegistration: ChannelTypeRegistration = {
 
 // ---------------------------------------------------------------------------
 // Native channel type and header action registrations
-// These were previously registered by the "Zentra Core" default plugin.
-// Now they are registered directly as part of the main application.
 // ---------------------------------------------------------------------------
 
 registerHeaderAction({

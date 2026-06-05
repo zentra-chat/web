@@ -35,6 +35,9 @@
 	let profileMenuOpen = $state(false);
 	let profileMenuCloseTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
 	let otherAccounts = $derived($activeInstanceSavedAccounts.filter((a) => a.userId !== $currentUser?.id));
+	let draggedCommunityId = $state<string | null>(null);
+	let dragOverPosition = $state<{ communityId: string; position: 'above' | 'below' } | null>(null);
+	let isReorderingCommunities = $state(false);
 
 	function openProfileMenu() {
 		if (profileMenuCloseTimeout) {
@@ -96,6 +99,7 @@
 	});
 
 	function handleCommunityClick(community: Community) {
+		if (isReorderingCommunities) return;
 		selectCommunity(community.id);
 		if (
 			$page.url.pathname.startsWith('/app/discover') ||
@@ -123,6 +127,92 @@
 			addToast({ type: 'error', message: 'Failed to copy server ID' });
 		}
 		contextMenu = null;
+	}
+
+	async function reloadCommunities() {
+		const instance = $activeInstance;
+		if (!instance) return;
+		try {
+			const list = await api.getMyCommunities();
+			communitiesCache.update((cache) => ({
+				...cache,
+				[instance.id]: list || []
+			}));
+		} catch (err) {
+			console.error('Failed to reload communities:', err);
+		}
+	}
+
+	function handleCommunityDragStart(event: DragEvent, communityId: string) {
+		if (isReorderingCommunities) return;
+		draggedCommunityId = communityId;
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			event.dataTransfer.setData('text/plain', communityId);
+		}
+	}
+
+	function handleCommunityDragOver(event: DragEvent, communityId: string) {
+		if (!draggedCommunityId || draggedCommunityId === communityId) return;
+		event.preventDefault();
+
+		const element = event.currentTarget as HTMLElement;
+		const rect = element.getBoundingClientRect();
+		const midY = rect.top + rect.height / 2;
+		const position = event.clientY < midY ? 'above' : 'below';
+		dragOverPosition = { communityId, position };
+	}
+
+	function handleCommunityDragLeave() {
+		dragOverPosition = null;
+	}
+
+	async function handleCommunityDrop(event: DragEvent, targetCommunityId: string) {
+		event.preventDefault();
+		const sourceCommunityId = draggedCommunityId;
+		const sourcePosition = dragOverPosition?.position || 'below';
+		draggedCommunityId = null;
+		dragOverPosition = null;
+
+		if (!sourceCommunityId || sourceCommunityId === targetCommunityId) return;
+
+		const orderedIds = communities.map((c) => c.id);
+		let sourceIndex = orderedIds.indexOf(sourceCommunityId);
+		let targetIndex = orderedIds.indexOf(targetCommunityId);
+		if (sourceIndex < 0 || targetIndex < 0) return;
+
+		orderedIds.splice(sourceIndex, 1);
+		targetIndex = orderedIds.indexOf(targetCommunityId);
+		if (sourcePosition === 'above') {
+			orderedIds.splice(targetIndex, 0, sourceCommunityId);
+		} else {
+			orderedIds.splice(targetIndex + 1, 0, sourceCommunityId);
+		}
+
+		isReorderingCommunities = true;
+		try {
+			await api.reorderCommunities(orderedIds);
+			const reordered = communities
+				.slice()
+				.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+			const instance = $activeInstance;
+			if (instance) {
+				communitiesCache.update((cache) => ({
+					...cache,
+					[instance.id]: reordered
+				}));
+			}
+		} catch (err: unknown) {
+			console.error('Failed to reorder communities:', err);
+			await reloadCommunities();
+		} finally {
+			isReorderingCommunities = false;
+		}
+	}
+
+	function handleCommunityDragEnd() {
+		draggedCommunityId = null;
+		dragOverPosition = null;
 	}
 
 	function handleHomeClick() {
@@ -284,7 +374,18 @@
 			{/each}
 		{:else}
 			{#each communities as community (community.id)}
-				<div class="relative group">
+				{@const isDragOver = dragOverPosition?.communityId === community.id}
+				<div
+					class="relative group
+					{isDragOver && dragOverPosition?.position === 'above' ? 'before:absolute before:left-0 before:right-0 before:-top-px before:h-0.5 before:bg-primary before:content-[\'\']' : ''}
+					{isDragOver && dragOverPosition?.position === 'below' ? 'after:absolute after:left-0 after:right-0 after:-bottom-px after:h-0.5 after:bg-primary after:content-[\'\']' : ''}"
+					draggable={!isReorderingCommunities}
+					ondragstart={(event) => handleCommunityDragStart(event, community.id)}
+					ondragover={(event) => handleCommunityDragOver(event, community.id)}
+					ondragleave={handleCommunityDragLeave}
+					ondrop={(event) => handleCommunityDrop(event, community.id)}
+					ondragend={handleCommunityDragEnd}
+				>
 					<div
 						class="absolute -left-3 top-1/2 -translate-y-1/2 w-1.5 bg-text-primary rounded-r-full transition-all duration-200
 						{$activeCommunityId === community.id ? 'h-10' : 'h-0 group-hover:h-5'}"

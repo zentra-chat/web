@@ -4,12 +4,9 @@ The frontend web-ui for zentra made in svelte
 
 ## Submodule setup
 
-The frontend uses submodules for docs (`frontend/docs`) and the built-in default plugin (`frontend/default-plugin`).
+The frontend uses a submodule for docs (`frontend/docs`).
 
-Initialize/update both submodules:
-
-```bash
-git submodule update --init --recursive docs default-plugin
+    git submodule update --init --recursive docs
 ```
 
 ## Deploy build + host binary

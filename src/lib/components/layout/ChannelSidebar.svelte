@@ -49,7 +49,7 @@ import {
 	import { getErrorMessage } from '$lib/utils/apiError';
 	import type { Channel, ChannelCategory } from '$lib/types';
 
-	let collapsedCategories = new SvelteSet<string>();
+	let collapsedCategories = $state<Record<string, boolean>>({});
 	let developerModeEnabled = $derived(Boolean($userSettings?.settings?.developerMode));
 	let contextMenu = $state<
 		| { x: number; y: number; type: 'channel'; channelId: string }
@@ -212,13 +212,7 @@ import {
 	}
 
 	function toggleCategory(categoryId: string) {
-		if (collapsedCategories.has(categoryId)) {
-			collapsedCategories.delete(categoryId);
-			collapsedCategories = new SvelteSet(collapsedCategories);
-			return;
-		}
-
-		collapsedCategories = new SvelteSet([...collapsedCategories, categoryId]);
+		collapsedCategories[categoryId] = !collapsedCategories[categoryId];
 	}
 
 	function handleChannelClick(channel: Channel) {
@@ -775,7 +769,7 @@ import {
 				<!-- Categorized channels -->
 				{#each $activeCommunityCategories.sort((a, b) => a.position - b.position) as category (category.id)}
 				{@const categoryChannels = channelsByCategory[category.id] || []}
-				{@const isCollapsed = collapsedCategories.has(category.id)}
+				{@const isCollapsed = collapsedCategories[category.id] ?? false}
 
 				<div class="mb-2">
 					<button

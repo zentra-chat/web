@@ -55,7 +55,8 @@ import type {
 	AnalyticsStats,
 	ServerInfo,
 	ServerConfig,
-	UpdateServerConfigRequest
+	UpdateServerConfigRequest,
+	ServerUpdateStatus
 } from '$lib/types';
 import { mapDmMessage, type RawDmConversation, type RawDmMessage } from '$lib/utils/dm';
 import { normalizeApiError } from '$lib/utils/apiError';
@@ -1535,6 +1536,30 @@ class ApiClient {
 			method: 'PATCH',
 			body: JSON.stringify(data)
 		});
+		return result.data;
+	}
+
+	// Server update endpoints
+
+	async triggerUpdate(target: string): Promise<ServerUpdateStatus> {
+		const result = await this.request<ApiResponse<ServerUpdateStatus>>('/admin/server/update', {
+			method: 'POST',
+			body: JSON.stringify({ target })
+		});
+		return result.data;
+	}
+
+	async getServerUpdateStatus(id: string): Promise<ServerUpdateStatus> {
+		const result = await this.request<ApiResponse<ServerUpdateStatus>>(
+			`/admin/server/update/status?id=${id}`
+		);
+		return result.data;
+	}
+
+	async listServerUpdateStatuses(): Promise<ServerUpdateStatus[]> {
+		const result = await this.request<ApiResponse<ServerUpdateStatus[]>>(
+			'/admin/server/update/status'
+		);
 		return result.data;
 	}
 }

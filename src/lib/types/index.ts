@@ -810,6 +810,7 @@ export interface ServerInfo {
 	startTime: string;
 	database: ServiceStatus;
 	redis: ServiceStatus;
+	updateMethod: string;
 }
 
 export interface ServerConfig {
@@ -823,6 +824,20 @@ export interface ServerConfig {
 export interface UpdateServerConfigRequest {
 	maintenanceEnabled?: boolean;
 	maintenanceMessage?: string;
+}
+
+export type ServerUpdateTarget = 'backend' | 'frontend' | 'all';
+
+export type ServerUpdateStatusEnum = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface ServerUpdateStatus {
+	id: string;
+	target: ServerUpdateTarget;
+	status: ServerUpdateStatusEnum;
+	message: string;
+	output?: string;
+	startedAt: string;
+	finishedAt?: string;
 }
 
 // Public GitHub stats used on the landing page

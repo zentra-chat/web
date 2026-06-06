@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import {
 		Server,
 		Activity,
@@ -13,12 +13,18 @@
 		Wifi,
 		WifiOff,
 		AlertTriangle,
-		Save
+		Save,
+		Play,
+		CheckCircle,
+		XCircle,
+		ChevronDown,
+		ChevronRight,
+		Settings
 	} from 'lucide-svelte';
 	import { api } from '$lib/api';
 	import { maintenanceMode, showToast } from '$lib/stores/ui';
 	import Button from '$lib/components/ui/Button.svelte';
-	import type { ServerInfo, ServerConfig } from '$lib/types';
+	import type { ServerInfo, ServerConfig, ServerUpdateStatus } from '$lib/types';
 
 	let serverInfo: ServerInfo | null = $state(null);
 	let serverConfig: ServerConfig | null = $state(null);
@@ -28,22 +34,40 @@
 	let maintenanceEnabled = $state(false);
 	let maintenanceMessage = $state('');
 
+	let updaterRunning = $state(false);
+	let activeStatus: ServerUpdateStatus | null = $state(null);
+	let updateStatuses = $state<ServerUpdateStatus[]>([]);
+	let expandedOutput = $state<Record<string, boolean>>({});
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
+
 	onMount(async () => {
 		try {
-			const [info, config] = await Promise.all([
+			const [info, config, statuses] = await Promise.all([
 				api.getServerInfo(),
-				api.getServerConfig()
+				api.getServerConfig(),
+				api.listServerUpdateStatuses()
 			]);
 			serverInfo = info;
 			serverConfig = config;
 			maintenanceEnabled = config.maintenanceMode;
 			maintenanceMessage = config.maintenanceMessage ?? '';
+			updateStatuses = statuses;
+
+			const running = statuses.find(s => s.status === 'running' || s.status === 'pending');
+			if (running) {
+				activeStatus = running;
+				startPolling(running.id);
+			}
 		} catch (e) {
 			showToast('error', 'Failed to load server data');
 			console.error(e);
 		} finally {
 			loading = false;
 		}
+	});
+
+	onDestroy(() => {
+		if (pollTimer) clearInterval(pollTimer);
 	});
 
 	function formatUptime(seconds: number): string {
@@ -67,6 +91,66 @@
 			hour: '2-digit',
 			minute: '2-digit'
 		});
+	}
+
+	function toggleOutput(id: string) {
+		expandedOutput[id] = !expandedOutput[id];
+	}
+
+	function startPolling(id: string) {
+		if (pollTimer) clearInterval(pollTimer);
+		pollTimer = setInterval(async () => {
+			try {
+				const updated = await api.getServerUpdateStatus(id);
+				activeStatus = updated;
+				const idx = updateStatuses.findIndex(s => s.id === updated.id);
+				if (idx >= 0) {
+					updateStatuses[idx] = updated;
+				} else {
+					updateStatuses = [updated, ...updateStatuses];
+				}
+				updateStatuses = [...updateStatuses];
+
+				if (updated.status !== 'running' && updated.status !== 'pending') {
+					updaterRunning = false;
+					if (pollTimer) {
+						clearInterval(pollTimer);
+						pollTimer = null;
+					}
+					if (updated.status === 'completed') {
+						showToast('success', `${updated.target} update completed`);
+					} else if (updated.status === 'failed') {
+						showToast('error', `${updated.target} update failed: ${updated.message}`);
+					}
+				}
+			} catch {
+				// Server may be restarting - stop polling and show a message
+				if (pollTimer) {
+					clearInterval(pollTimer);
+					pollTimer = null;
+				}
+				updaterRunning = false;
+				if (activeStatus) {
+					showToast('info', 'Update in progress, server may be restarting...');
+				}
+			}
+		}, 2000);
+	}
+
+	async function triggerUpdate(target: string) {
+		if (updaterRunning) return;
+		updaterRunning = true;
+
+		try {
+			const result = await api.triggerUpdate(target);
+			activeStatus = result;
+			updateStatuses = [result, ...updateStatuses.filter(s => s.id !== result.id)];
+			startPolling(result.id);
+		} catch (e) {
+			updaterRunning = false;
+			showToast('error', 'Failed to start update');
+			console.error(e);
+		}
 	}
 
 	async function saveMaintenance() {
@@ -165,19 +249,26 @@
 						</div>
 						<span class="text-sm font-medium text-text-primary">{serverInfo?.goRoutines ?? '-'}</span>
 					</div>
-					<div class="flex items-center justify-between py-2 border-b border-border/50">
+				<div class="flex items-center justify-between py-2 border-b border-border/50">
 						<div class="flex items-center gap-2">
 							<Clock size={14} class="text-text-muted" />
 							<span class="text-sm text-text-muted">Uptime</span>
 						</div>
 						<span class="text-sm font-medium text-text-primary">{serverInfo ? formatUptime(serverInfo.uptime) : '-'}</span>
 					</div>
-					<div class="flex items-center justify-between py-2">
+					<div class="flex items-center justify-between py-2 border-b border-border/50">
 						<div class="flex items-center gap-2">
 							<Calendar size={14} class="text-text-muted" />
 							<span class="text-sm text-text-muted">Started</span>
 						</div>
 						<span class="text-sm font-medium text-text-primary">{serverInfo ? formatDate(serverInfo.startTime) : '-'}</span>
+					</div>
+					<div class="flex items-center justify-between py-2">
+						<div class="flex items-center gap-2">
+							<Settings size={14} class="text-text-muted" />
+							<span class="text-sm text-text-muted">Update Method</span>
+						</div>
+						<span class="text-sm font-medium text-text-primary capitalize">{serverInfo?.updateMethod ?? '-'}</span>
 					</div>
 				</div>
 			</div>
@@ -383,6 +474,93 @@
 						{/snippet}
 					</Button>
 				</div>
+			</div>
+		</div>
+
+		<!-- Updates -->
+		<div class="mt-6">
+			<div class="bg-surface border border-border rounded-xl p-6">
+				<div class="flex items-center gap-3 mb-5">
+					<div class="p-2 rounded-lg bg-accent/10">
+						<Terminal size={20} class="text-accent" />
+					</div>
+					<h2 class="text-lg font-semibold text-text-primary">Updates</h2>
+				</div>
+
+				<div class="flex flex-wrap gap-3 mb-6">
+					<Button variant="secondary" size="sm" onclick={() => triggerUpdate('backend')} disabled={updaterRunning}>
+						{#snippet children()}
+							<Terminal size={14} />
+							Update Backend
+						{/snippet}
+					</Button>
+					<Button variant="secondary" size="sm" onclick={() => triggerUpdate('frontend')} disabled={updaterRunning}>
+						{#snippet children()}
+							<Terminal size={14} />
+							Update Frontend
+						{/snippet}
+					</Button>
+					<Button variant="primary" size="sm" onclick={() => triggerUpdate('all')} disabled={updaterRunning}>
+						{#snippet children()}
+							<Play size={14} />
+							Update All
+						{/snippet}
+					</Button>
+				</div>
+
+				{#if activeStatus}
+					<div class="rounded-lg border border-border p-4 mb-4">
+						<div class="flex items-center justify-between mb-2">
+							<div class="flex items-center gap-2">
+								{#if activeStatus.status === 'running'}
+									<div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+								{:else if activeStatus.status === 'completed'}
+									<CheckCircle size={16} class="text-green-500" />
+								{:else if activeStatus.status === 'failed'}
+									<XCircle size={16} class="text-red-500" />
+								{/if}
+								<span class="text-sm font-medium text-text-primary capitalize">{activeStatus.target}</span>
+								<span class="text-xs px-1.5 py-0.5 rounded bg-background text-text-muted">{activeStatus.status}</span>
+							</div>
+							<span class="text-xs text-text-muted">{activeStatus.message}</span>
+						</div>
+						{#if activeStatus.output}
+							<button
+								onclick={() => activeStatus && toggleOutput(activeStatus.id)}
+								class="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors"
+							>
+								{#if expandedOutput[activeStatus.id]}
+									<ChevronDown size={12} />
+								{:else}
+									<ChevronRight size={12} />
+								{/if}
+								{expandedOutput[activeStatus.id] ? 'Hide output' : 'Show output'}
+							</button>
+							{#if expandedOutput[activeStatus.id]}
+								<pre class="mt-2 p-3 bg-background rounded-lg text-xs text-text-muted font-mono overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap">{activeStatus.output}</pre>
+							{/if}
+						{/if}
+					</div>
+				{/if}
+
+				{#if updateStatuses.length > 0}
+					<div class="space-y-2">
+						<h3 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">History</h3>
+						{#each updateStatuses.filter(s => s.id !== activeStatus?.id).slice(0, 5) as status}
+							<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-background/50">
+								<div class="flex items-center gap-2">
+									{#if status.status === 'completed'}
+										<CheckCircle size={14} class="text-green-500" />
+									{:else if status.status === 'failed'}
+										<XCircle size={14} class="text-red-500" />
+									{/if}
+									<span class="text-sm text-text-primary capitalize">{status.target}</span>
+								</div>
+								<span class="text-xs text-text-muted">{status.message}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

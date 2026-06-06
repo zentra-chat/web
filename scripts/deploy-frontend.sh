@@ -52,7 +52,7 @@ EOF
 detect_package_manager() {
 	if command -v pnpm >/dev/null 2>&1; then
 		PACKAGE_MANAGER="pnpm"
-		INSTALL_CMD=(pnpm install --frozen-lockfile)
+		INSTALL_CMD=(pnpm install)
 		BUILD_CMD=(pnpm build)
 	elif command -v npm >/dev/null 2>&1; then
 		PACKAGE_MANAGER="npm"
@@ -73,6 +73,13 @@ ensure_dependencies() {
 	echo "Installing dependencies..."
 	(
 		cd "$FRONTEND_DIR"
+
+		# Remove stale node_modules from a different platform
+		# so pnpm installs the correct platform-specific native binaries.
+		if [[ -d node_modules ]]; then
+			rm -rf node_modules .pnpm-store 2>/dev/null || true
+		fi
+
 		"${INSTALL_CMD[@]}"
 	)
 }

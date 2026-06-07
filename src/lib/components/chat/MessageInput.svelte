@@ -642,8 +642,8 @@
 
 <div class="px-4 pb-4">
 	<!-- Typing indicator -->
-	{#if typingInChannel.length > 0}
-		<div class="flex items-center gap-2 px-2 pt-1 text-xs mb-2 text-text-muted">
+	<div class="flex items-center gap-2 px-2 pt-1 text-xs mb-2 text-text-muted h-5">
+		{#if typingInChannel.length > 0}
 			<div class="flex gap-1">
 				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 0ms"></span>
 				<span class="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style="animation-delay: 150ms"></span>
@@ -658,8 +658,8 @@
 					Several people are typing...
 				{/if}
 			</span>
-		</div>
-	{/if}
+		{/if}
+	</div>
 
 	<!-- Reply/Edit indicator -->
 	{#if $replyingToMessage}

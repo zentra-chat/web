@@ -88,7 +88,7 @@
 				.slice(0, 10)
 				.map((participant) => ({
 					id: participant.id,
-					label: `${participant.displayName ?? participant.username}`,
+					label: `@${participant.displayName ?? participant.username}`,
 					insert: `<@${participant.id}>`,
 					type: 'member' as const,
 					user: participant
@@ -103,7 +103,7 @@
 			.slice(0, 5)
 			.map((r) => ({
 				id: r.id,
-				label: `${r.name}`,
+				label: `@${r.name}`,
 				insert: `<@&${r.id}>`,
 				type: 'role' as const,
 				user: null
@@ -118,7 +118,7 @@
 			.slice(0, 10)
 			.map((m) => ({
 				id: m.userId,
-				label: `${m.nickname ?? m.user?.displayName ?? m.user?.username ?? m.userId.slice(0, 8)}`,
+				label: `@${m.nickname ?? m.user?.displayName ?? m.user?.username ?? m.userId.slice(0, 8)}`,
 				insert: `<@${m.userId}>`,
 				type: 'member' as const,
 				user: m.user ?? null
@@ -150,21 +150,56 @@
 		mentionSelectedIndex = 0;
 	}
 
-	function insertMention(insert: string) {
+	function insertMention(label: string) {
 		if (mentionStartIndex < 0 || !textareaRef) return;
 		const el = textareaRef;
 		const cursor = el.selectionStart;
 		const before = content.slice(0, mentionStartIndex);
 		const after = content.slice(cursor);
-		content = before + insert + ' ' + after;
+		content = before + label + ' ' + after;
 		resizeTextarea();
 		closeMention();
 		// Re-focus and position
-		const newCursor = before.length + insert.length + 1;
+		const newCursor = before.length + label.length + 1;
 		requestAnimationFrame(() => {
 			el.focus();
 			el.setSelectionRange(newCursor, newCursor);
 		});
+	}
+
+	function resolveMentions(text: string): string {
+		if (!text.includes('@')) return text;
+
+		const lookup = new Map<string, string>();
+
+		lookup.set('@everyone', '@everyone');
+		lookup.set('@here', '@here');
+
+		if (isDm) {
+			const participants = $activeDmConversation?.participants ?? [];
+			for (const p of participants) {
+				if (p.id === $currentUserId) continue;
+				const name = p.displayName ?? p.username;
+				if (name) lookup.set(`@${name}`, `<@${p.id}>`);
+			}
+		} else {
+			for (const role of $activeCommunityRoles) {
+				lookup.set(`@${role.name}`, `<@&${role.id}>`);
+			}
+			for (const member of $activeCommunityMembers) {
+				const name = member.nickname ?? member.user?.displayName ?? member.user?.username;
+				if (name) lookup.set(`@${name}`, `<@${member.userId}>`);
+			}
+		}
+
+		const sorted = [...lookup.entries()].sort((a, b) => b[0].length - a[0].length);
+
+		let result = text;
+		for (const [label, insert] of sorted) {
+			const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			result = result.replace(new RegExp(`(?<=^|[\\s])${escaped}(?=$|[\\s.,!?;:])`, 'g'), insert);
+		}
+		return result;
 	}
 
 	// ---- Emoji shortcode autocomplete ----
@@ -280,22 +315,38 @@
 		api.getRoles(comId).then((roles) => setRoles(comId, roles));
 	});
 
-	// Load content when editing, convert stored <:name:UUID> tokens back to :name: for editing
+	// Load content when editing, convert stored tokens back to human-readable form
 	$effect(() => {
 		if (editingMessage) {
-			content = (editingMessage.content || '').replace(
-				/<:([a-zA-Z0-9_+-]{2,32}):([0-9a-f-]{36})>/gi,
-				(_, name) => `:${name}:`
-			);
+			content = (editingMessage.content || '')
+				// Expand custom emoji wire format <:name:UUID> back to :name:
+				.replace(/<:([a-zA-Z0-9_+-]{2,32}):([0-9a-f-]{36})>/gi, (_, name) => `:${name}:`)
+				// Expand role mention wire format <@&UUID> back to @rolename
+				.replace(/<@&([0-9a-f-]{36})>/gi, (_, id) => {
+					const role = $activeCommunityRoles.find((r) => r.id === id);
+					return `@${role?.name ?? id.slice(0, 8)}`;
+				})
+				// Expand user mention wire format <@UUID> back to @name
+				.replace(/<@([0-9a-f-]{36})>/gi, (_, id) => {
+					const member = $activeCommunityMembers.find((m) => m.userId === id);
+					if (member) {
+						return `@${member.nickname ?? member.user?.displayName ?? member.user?.username ?? id.slice(0, 8)}`;
+					}
+					const participant = $activeDmConversation?.participants.find((p) => p.id === id);
+					return `@${participant?.displayName ?? participant?.username ?? id.slice(0, 8)}`;
+				});
 			resizeTextarea();
 			textareaRef?.focus();
 		}
 	});
 
 	async function handleSubmit() {
+		// Resolve @displayName / @rolename back to raw mention tokens
+		const mentionResolved = resolveMentions(content);
+
 		// Expand :customEmojiName: shortcodes to their wire format <:name:UUID>
 		// This handles both autocomplete insertions and manually typed :name: tokens
-		const expandedContent = content.replace(
+		const expandedContent = mentionResolved.replace(
 			/:([a-zA-Z0-9_+-]{2,32}):/g,
 			(match, name) => {
 				const emoji = customEmojiByName.get(name.toLowerCase());
@@ -406,7 +457,7 @@
 			}
 			if (e.key === 'Enter' || e.key === 'Tab') {
 				e.preventDefault();
-				insertMention(mentionResults[mentionSelectedIndex].insert);
+				insertMention(mentionResults[mentionSelectedIndex].label);
 				return;
 			}
 			if (e.key === 'Escape') {
@@ -780,7 +831,7 @@
 						</div>
 					{/if}
 					<button
-						onclick={() => insertMention(result.insert)}
+						onclick={() => insertMention(result.label)}
 						class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover transition-colors
 						{i === mentionSelectedIndex ? 'bg-surface-hover text-text-primary' : 'text-text-secondary'}"
 						role="option"

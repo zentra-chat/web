@@ -395,15 +395,25 @@ class WebSocketManager {
 	}
 
 	private async handleNotification(notification: Notification): Promise<void> {
+		const activeDmId = get(activeDmConversationId);
+		const activeChanId = get(activeChannelId);
+		const isViewingChannel =
+			(notification.channelId != null &&
+				(activeChanId === notification.channelId || activeDmId === notification.channelId)) ||
+			(notification.type === 'dm_message' && notification.channelId == null && activeDmId != null);
+
 		prependNotification(notification);
-		showNotificationPreview({
-			actorAvatarUrl: notification.actor?.avatarUrl ?? null,
-			actorName: notification.actor?.displayName ?? notification.actor?.username ?? 'Zentra',
-			title: notification.title,
-			body: notification.body ?? null,
-			duration: 5000
-		});
-		await sendNativeNotification(notification.title, { body: notification.body ?? undefined });
+
+		if (!isViewingChannel) {
+			showNotificationPreview({
+				actorAvatarUrl: notification.actor?.avatarUrl ?? null,
+				actorName: notification.actor?.displayName ?? notification.actor?.username ?? 'Zentra',
+				title: notification.title,
+				body: notification.body ?? null,
+				duration: 5000
+			});
+			await sendNativeNotification(notification.title, { body: notification.body ?? undefined });
+		}
 
 		// Track mention counts per channel for the red badge indicator
 		if (

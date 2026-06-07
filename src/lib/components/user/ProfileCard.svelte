@@ -185,7 +185,7 @@
 			transition:scale={{ duration: 150, start: 0.95 }}
 		>
 			<!-- Banner -->
-			<div class="h-20 bg-primary/20"></div>
+			<div class="h-24 bg-primary/20"></div>
 
 			<!-- Avatar + Actions -->
 			<div class="flex items-start -mt-10">

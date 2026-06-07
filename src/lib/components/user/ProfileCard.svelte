@@ -180,41 +180,42 @@
 		transition:fade={{ duration: 150 }}
 	>
 		<div
-			class="pointer-events-auto w-75 bg-background-secondary rounded-xl shadow-2xl border border-border overflow-visible bg-background"
+			class="pointer-events-auto w-75 bg-background-secondary rounded-xl shadow-2xl border border-border overflow-hidden bg-background"
 			use:clickOutside={closeProfileCard}
 			transition:scale={{ duration: 150, start: 0.95 }}
 		>
-			<!-- Header/Banner -->
-			<div class="h-20 bg-primary/20 relative overflow-visible">
-				<div class="absolute -bottom-10 left-4 profile-avatar-wrapper border-4 border-background-secondary rounded-full bg-background-secondary overflow-hidden flex items-center justify-center">
+			<!-- Banner -->
+			<div class="h-20 bg-primary/20"></div>
+
+			<!-- Avatar + Actions -->
+			<div class="flex items-start -mt-10">
+				<div class="ml-4 border-4 border-background-secondary rounded-full bg-background-secondary overflow-hidden shrink-0">
 					<Avatar {user} size="xl" />
+				</div>
+				<div class="ml-auto mr-2 pt-11">
+					{#if isOwnProfile}
+						<button
+							class="p-1.5 hover:bg-background-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
+							onclick={handleEditProfile}
+							title="Edit Profile"
+						>
+							<Edit size={18} />
+						</button>
+					{:else}
+						<div class="relative">
+							<button
+								class="p-1.5 hover:bg-background-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
+								onclick={handleOpenUserContextMenu}
+							>
+								<MoreHorizontal size={18} />
+							</button>
+						</div>
+					{/if}
 				</div>
 			</div>
 
-			<!-- Actions -->
-			<div class="flex justify-end p-2 min-h-10">
-				{#if isOwnProfile}
-					<button
-						class="p-1.5 hover:bg-background-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
-						onclick={handleEditProfile}
-						title="Edit Profile"
-					>
-						<Edit size={18} />
-					</button>
-				{:else}
-					<div class="relative">
-						<button
-						class="p-1.5 hover:bg-background-tertiary rounded-full transition-colors text-text-muted hover:text-text-primary"
-						onclick={handleOpenUserContextMenu}
-					>
-						<MoreHorizontal size={18} />
-						</button>
-					</div>
-				{/if}
-			</div>
-
 			<!-- Content -->
-			<div class="px-4 pb-4 mt-2">
+			<div class="px-4 pb-4">
 				<div class="mb-4">
 					<h2
 						class="text-xl font-bold text-text-primary truncate"

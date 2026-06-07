@@ -441,7 +441,11 @@
 							rel="noopener noreferrer external"
 							class="group/link-preview block max-w-xl rounded-lg border border-border bg-surface/60 hover:border-primary transition-colors"
 						>
-							<div class="flex gap-3 p-3">
+							<div
+								class="p-3"
+								class:flex={!!preview.imageUrl}
+								class:gap-3={!!preview.imageUrl}
+							>
 								{#if preview.imageUrl}
 									<img
 										src={preview.imageUrl}
@@ -449,7 +453,7 @@
 										class="h-24 w-auto rounded-md object-cover border border-border"
 									/>
 								{/if}
-								<div class="min-w-0">
+								<div class={preview.imageUrl ? 'min-w-0' : ''}>
 									<div class="flex items-center gap-2 text-xs text-text-muted">
 										{#if preview.faviconUrl}
 											<img src={preview.faviconUrl} alt="" class="h-4 w-4 rounded-sm" />

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Spinner } from '$lib/components/ui';
+	import { Spinner, Avatar } from '$lib/components/ui';
 	import { Send, Plus, X, Smile, Paperclip } from 'lucide-svelte';
 	import { replyingToMessage, editingMessageId, typingUsers, setReplyingTo, setEditingMessage, addToast } from '$lib/stores/ui';
 	import { addMessage, updateMessage, messages, activeCommunityMembers, activeCommunityRoles, setRoles, activeCommunityId } from '$lib/stores/community';
@@ -88,20 +88,25 @@
 				.slice(0, 10)
 				.map((participant) => ({
 					id: participant.id,
-					label: `@${participant.displayName ?? participant.username}`,
-					insert: `<@${participant.id}>`
+					label: `${participant.displayName ?? participant.username}`,
+					insert: `<@${participant.id}>`,
+					type: 'member' as const,
+					user: participant
 				}));
 		}
 
-		const specials = SPECIAL_MENTIONS.filter((s) => s.label.includes(q));
+		const specials = SPECIAL_MENTIONS.filter((s) => s.label.includes(q))
+			.map((s) => ({ ...s, type: 'special' as const, user: null }));
 
 		const roles = $activeCommunityRoles
 			.filter((r) => r.name.toLowerCase().includes(q))
 			.slice(0, 5)
 			.map((r) => ({
 				id: r.id,
-				label: `@${r.name}`,
-				insert: `<@&${r.id}>`
+				label: `${r.name}`,
+				insert: `<@&${r.id}>`,
+				type: 'role' as const,
+				user: null
 			}));
 
 		const members = $activeCommunityMembers
@@ -113,8 +118,10 @@
 			.slice(0, 10)
 			.map((m) => ({
 				id: m.userId,
-				label: `@${m.nickname ?? m.user?.displayName ?? m.user?.username ?? m.userId.slice(0, 8)}`,
-				insert: `<@${m.userId}>`
+				label: `${m.nickname ?? m.user?.displayName ?? m.user?.username ?? m.userId.slice(0, 8)}`,
+				insert: `<@${m.userId}>`,
+				type: 'member' as const,
+				user: m.user ?? null
 			}));
 
 		return [...specials, ...roles, ...members].slice(0, 12);
@@ -593,7 +600,7 @@
 
 			const items = Array.from(clipboardData.items);
 			const fileItems = items.filter(item => item.kind === 'file');
-			
+
 			if (fileItems.length > 0) {
 				e.preventDefault();
 
@@ -608,7 +615,7 @@
 						files.push(file);
 					}
 				}
-				
+
 				if (files.length > 0) {
 					addAttachments(files);
 				}
@@ -760,8 +767,18 @@
 				role="listbox"
 				aria-label="Mention suggestions"
 			>
-				<div class="px-3 py-1.5 text-xs text-text-muted border-b border-border">Mentions</div>
 				{#each mentionResults as result, i (result.id)}
+					{#if !isDm && (i === 0 || result.type !== mentionResults[i - 1].type)}
+						<div class="px-3 py-1.5 text-xs font-semibold text-text-muted border-b border-border">
+							{#if result.type === 'special'}
+								Suggestions
+							{:else if result.type === 'role'}
+								Roles
+							{:else if result.type === 'member'}
+								Members
+							{/if}
+						</div>
+					{/if}
 					<button
 						onclick={() => insertMention(result.insert)}
 						class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover transition-colors
@@ -769,6 +786,13 @@
 						role="option"
 						aria-selected={i === mentionSelectedIndex}
 					>
+						{#if result.type === 'member' && result.user}
+							<Avatar user={result.user} size="xs" />
+						{:else if result.type === 'role'}
+							<div class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs text-primary font-medium shrink-0">
+								@
+							</div>
+						{/if}
 						<span class="font-medium">{result.label}</span>
 					</button>
 				{/each}

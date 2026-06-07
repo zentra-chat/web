@@ -545,9 +545,6 @@
 					/>
 				</div>
 			{/each}
-
-			<!-- Bottom padding -->
-			<div class="h-6"></div>
 		{/if}
 	</div>
 </div>

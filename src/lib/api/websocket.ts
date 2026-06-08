@@ -36,7 +36,8 @@ import { setTyping, setUserPresence, showToast, showNotificationPreview } from '
 import {
 	prependNotification,
 	markNotificationReadLocal,
-	markAllNotificationsReadLocal
+	markAllNotificationsReadLocal,
+	navigateToNotification
 } from '$lib/stores/notification';
 import { clearUnreadLocal } from '$lib/stores/community';
 import { sendNativeNotification } from '$lib/utils/nativeNotification';
@@ -405,14 +406,19 @@ class WebSocketManager {
 		prependNotification(notification);
 
 		if (!isViewingChannel) {
+			const onClick = () => navigateToNotification(notification);
 			showNotificationPreview({
 				actorAvatarUrl: notification.actor?.avatarUrl ?? null,
 				actorName: notification.actor?.displayName ?? notification.actor?.username ?? 'Zentra',
 				title: notification.title,
 				body: notification.body ?? null,
-				duration: 5000
+				duration: 5000,
+				onClick
 			});
-			await sendNativeNotification(notification.title, { body: notification.body ?? undefined });
+			await sendNativeNotification(notification.title, {
+				body: notification.body ?? undefined,
+				onClick
+			});
 		}
 
 		// Track mention counts per channel for the red badge indicator

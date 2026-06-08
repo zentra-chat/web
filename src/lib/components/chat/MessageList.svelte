@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { tick } from 'svelte';
+	import { get } from 'svelte/store';
 	import { Spinner, Avatar } from '$lib/components/ui';
 	import { Hash, Megaphone, Lock, Users } from 'lucide-svelte';
 	import { getChannelHeaderActions, getChannelIcon as getRegistryChannelIcon } from '$lib/channelTypes';
@@ -15,7 +16,8 @@
 	import {
 		showMemberSidebar,
 		toggleMemberSidebar,
-		addToast
+		addToast,
+		pendingMessageId
 	} from '$lib/stores/ui';
 	import {
 		activeDmConversation,
@@ -73,6 +75,7 @@
 		const streamId = dmConversationId || channelId;
 		if (streamId) {
 			isFirstLoad = true;
+			hasMore = true;
 			stickToBottomUntil = Date.now() + 1500;
 			loadMessages();
 
@@ -88,9 +91,8 @@
 	// Auto-scroll to bottom when new messages arrive
 	$effect(() => {
 		if (channelMessages.length && containerRef) {
-			// If it's the first load, scroll to bottom immediately
 			if (isFirstLoad) {
-				void forceScrollToBottom();
+				// First-load scroll is handled in loadMessages
 				isFirstLoad = false;
 				return;
 			}
@@ -162,7 +164,16 @@
 			}
 			hasMore = reversedMsgs.length >= 50;
 
-			// Scroll to bottom after initial load
+			// Check for a pending message jump from a notification
+			const pendingId = get(pendingMessageId);
+			if (pendingId) {
+				pendingMessageId.set(null);
+				// Wait for DOM to render, then jump to the message
+				await tick();
+				jumpToMessage(pendingId);
+				return;
+			}
+
 			await forceScrollToBottom();
 		} catch (err) {
 			error = getErrorMessage(err, 'Failed to load messages');

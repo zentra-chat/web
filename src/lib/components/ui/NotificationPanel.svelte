@@ -10,14 +10,10 @@
 		closeNotificationPanel,
 		setNotifications,
 		setUnreadCount,
-		markNotificationReadLocal,
-		markAllNotificationsReadLocal
+		markAllNotificationsReadLocal,
+		navigateToNotification
 	} from '$lib/stores/notification';
 	import { api } from '$lib/api';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { selectCommunity, activeChannelId } from '$lib/stores/community';
-	import { setActiveDmConversationId } from '$lib/stores/dm';
 	import type { Notification } from '$lib/types';
 
 	let isLoading = $state(false);
@@ -52,28 +48,9 @@
 		}
 	}
 
-	async function handleNotificationClick(notif: Notification) {
-		// Mark as read
-		if (!notif.isRead) {
-			try {
-				await api.markNotificationRead(notif.id);
-				markNotificationReadLocal(notif.id);
-			} catch {
-				// ignore
-			}
-		}
-
+	function handleNotificationClick(notif: Notification) {
 		closeNotificationPanel();
-
-		// Navigate to the relevant context
-		if (notif.type === 'dm_message' && notif.channelId) {
-			setActiveDmConversationId(notif.channelId);
-			goto(resolve('/app'));
-		} else if (notif.communityId && notif.channelId) {
-			selectCommunity(notif.communityId);
-			activeChannelId.set(notif.channelId);
-			goto(resolve('/app'));
-		}
+		navigateToNotification(notif);
 	}
 
 	function formatTime(dateStr: string): string {

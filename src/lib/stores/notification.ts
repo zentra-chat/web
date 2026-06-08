@@ -1,6 +1,12 @@
 import { writable, derived, get } from 'svelte/store';
+import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import type { Notification } from '$lib/types';
 import { activeInstance } from './instance';
+import { selectCommunity, activeChannelId } from './community';
+import { setActiveDmConversationId } from './dm';
+import { pendingMessageId } from './ui';
+import { api } from '$lib/api';
 
 // Per-instance notification storage (keyed by instanceId)
 export const notificationsCache = writable<Record<string, Notification[]>>({});
@@ -100,6 +106,34 @@ function decrementUnreadCount(): void {
 		...c,
 		[instance.id]: Math.max(0, (c[instance.id] ?? 0) - 1)
 	}));
+}
+
+export async function navigateToNotification(notif: Notification): Promise<void> {
+	const instance = get(activeInstance);
+	if (!instance) return;
+
+	if (!notif.isRead) {
+		try {
+			await api.markNotificationRead(notif.id);
+			markNotificationReadLocal(notif.id);
+		} catch {
+			// ignore
+		}
+	}
+
+	if (notif.messageId) {
+		pendingMessageId.set(notif.messageId);
+	}
+
+	if (notif.type === 'dm_message' && notif.channelId) {
+		selectCommunity(null);
+		setActiveDmConversationId(notif.channelId);
+		goto(resolve('/app'));
+	} else if (notif.communityId && notif.channelId) {
+		selectCommunity(notif.communityId);
+		activeChannelId.set(notif.channelId);
+		goto(resolve('/app'));
+	}
 }
 
 export function toggleNotificationPanel(): void {

@@ -40,6 +40,7 @@ export interface NotificationPreview {
 }
 
 export const notificationPreviews = writable<NotificationPreview[]>([]);
+export const pendingMessageId = writable<string | null>(null);
 
 // Quick switcher (Ctrl+K)
 export const isQuickSwitcherOpen = writable(false);

@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Input, Textarea, Button, Spinner, Avatar } from '$lib/components/ui';
-	import { Image, X, Trash, LogOut } from 'lucide-svelte';
+	import { Image, X, Trash, LogOut, Clock } from 'lucide-svelte';
 	import {
 		addToast,
 		instanceSelectorMode,
@@ -24,6 +24,7 @@
 	import { updateDmUser } from '$lib/stores/dm';
 	import { getErrorMessage } from '$lib/utils/apiError';
 	import { isDesktop } from '$lib/utils/platform';
+	import { format } from 'date-fns';
 	import type { InstanceSelectorMode } from '$lib/types';
 
 	let displayName = $state('');
@@ -32,6 +33,8 @@
 	let customStatus = $state('');
 	let avatar = $state<File | null>(null);
 	let avatarPreview = $state<string | null>(null);
+	let banner = $state<File | null>(null);
+	let bannerPreview = $state<string | null>(null);
 	let activeTab = $state<'profile' | 'account' | 'appearance' | 'developer' | 'legal'>('profile');
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
@@ -40,8 +43,17 @@
 	let isLoggingOut = $state(false);
 	let switchingAccountId = $state<string | null>(null);
 	let platform = $derived(typeof window !== 'undefined' && (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ ? 'Zentra Desktop' : 'Zentra Web');
+	let previewInitials = $derived(
+		(displayName || username || 'U')
+			.split(' ')
+			.map((n) => n[0])
+			.join('')
+			.slice(0, 2)
+			.toUpperCase()
+	);
 
 	let fileInputRef: HTMLInputElement | null = $state(null);
+	let bannerFileInputRef: HTMLInputElement | null = $state(null);
 
 	onMount(() => {
 		if ($currentUser) {
@@ -50,6 +62,7 @@
 			bio = $currentUser.bio || '';
 			customStatus = $currentUser.customStatus || '';
 			avatarPreview = $currentUser.avatarUrl || null;
+			bannerPreview = $currentUser.bannerUrl || null;
 		}
 
 		api.getCurrentUser()
@@ -60,6 +73,7 @@
 				bio = user.bio || '';
 				customStatus = user.customStatus || '';
 				avatarPreview = user.avatarUrl || null;
+				bannerPreview = user.bannerUrl || null;
 			})
 			.catch((err) => {
 				console.error('Failed to fetch latest user data:', err);
@@ -200,6 +214,33 @@
 		if (fileInputRef) fileInputRef.value = '';
 	}
 
+	function handleBannerSelect(e: Event) {
+		const input = e.target as HTMLInputElement;
+		if (input.files && input.files[0]) {
+			const file = input.files[0];
+
+			if (!file.type.startsWith('image/')) {
+				errors = { ...errors, banner: 'Please select an image file' };
+				return;
+			}
+
+			if (file.size > 10 * 1024 * 1024) {
+				errors = { ...errors, banner: 'Image must be less than 10MB' };
+				return;
+			}
+
+			banner = file;
+			bannerPreview = URL.createObjectURL(file);
+			delete errors.banner;
+		}
+	}
+
+	function removeBanner() {
+		banner = null;
+		bannerPreview = null;
+		if (bannerFileInputRef) bannerFileInputRef.value = '';
+	}
+
 	function validate(): boolean {
 		const newErrors: Record<string, string> = {};
 
@@ -253,6 +294,22 @@
 					user.avatarUrl = null;
 				} catch (err) {
 					console.error('Failed to remove avatar:', err);
+				}
+			}
+
+			if (banner) {
+				try {
+					const bannerUrl = await api.updateBanner(banner);
+					user.bannerUrl = bannerUrl;
+				} catch (err) {
+					console.error('Failed to upload banner:', err);
+				}
+			} else if (bannerPreview === null && $currentUser?.bannerUrl) {
+				try {
+					await api.removeBanner();
+					user.bannerUrl = null;
+				} catch (err) {
+					console.error('Failed to remove banner:', err);
 				}
 			}
 
@@ -352,43 +409,96 @@
 
 			<div class="flex-1 min-w-0">
 				{#if activeTab === 'profile'}
-					<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
-						<div class="flex items-center gap-4">
-							<input bind:this={fileInputRef} type="file" accept="image/*" onchange={handleAvatarSelect} class="hidden" />
+					<input bind:this={fileInputRef} type="file" accept="image/*" onchange={handleAvatarSelect} class="hidden" />
+					<input bind:this={bannerFileInputRef} type="file" accept="image/*" onchange={handleBannerSelect} class="hidden" />
 
-							{#if avatarPreview}
-								<div class="relative">
-									<img src={avatarPreview} alt="Avatar" class="w-20 h-20 rounded-full object-cover" />
-									<button type="button" onclick={removeAvatar} class="absolute -top-1 -right-1 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center" aria-label="Remove avatar">
-										<X size={12} />
-									</button>
+					<div class="flex flex-col md:flex-row gap-6">
+						<div class="flex-1 min-w-0">
+							<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
+								<Input label="Display Name" bind:value={displayName} placeholder="How you want to be shown" error={errors.displayName} maxlength={32} />
+								<Input label="Username" bind:value={username} placeholder="your_username" error={errors.username} required maxlength={32} />
+								<Textarea label="Bio" bind:value={bio} placeholder="Tell us about yourself" rows={3} maxlength={200} error={errors.bio} />
+								<Input label="Custom Status" bind:value={customStatus} placeholder="What are you up to?" error={errors.customStatus} maxlength={128} />
+
+								{#if errors.submit}<p class="text-sm text-error">{errors.submit}</p>{/if}
+
+								<div class="flex justify-end pt-4">
+									<Button type="submit" disabled={isSubmitting}>
+										{#if isSubmitting}<Spinner size="sm" />Saving...{:else}Save Changes{/if}
+									</Button>
 								</div>
-							{:else}
-								<button type="button" onclick={() => fileInputRef?.click()} class="w-20 h-20 rounded-full border-2 border-dashed border-border hover:border-primary flex flex-col items-center justify-center gap-1 transition-colors">
-									<Image size={24} class="text-text-muted" />
-								</button>
-							{/if}
+							</form>
+						</div>
 
-							<div>
-								<p class="text-sm text-text-secondary">Avatar</p>
-								<p class="text-xs text-text-muted">Recommended size: 256x256</p>
-								{#if errors.avatar}<p class="text-xs text-error mt-1">{errors.avatar}</p>{/if}
+						<div class="w-75 shrink-0 hidden md:block">
+							<div class="bg-background-secondary rounded-xl border border-border overflow-hidden bg-background sticky top-6">
+								<!-- Banner -->
+								<div onclick={() => bannerFileInputRef?.click()} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') bannerFileInputRef?.click(); }} class="relative group cursor-pointer">
+									{#if bannerPreview}
+										<div class="h-26 bg-surface-hover overflow-hidden">
+											<img src={bannerPreview} alt="" class="w-full h-full object-cover" />
+										</div>
+									{:else}
+										<div class="h-24 bg-primary/20"></div>
+									{/if}
+									<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+										<Image size={20} class="text-white" />
+										<span class="text-white text-sm font-medium">Change Banner</span>
+									</div>
+									{#if bannerPreview}
+										<button type="button" onclick={(e) => { e.stopPropagation(); removeBanner(); }} class="absolute top-2 right-2 w-6 h-6 bg-error/80 hover:bg-error text-white rounded-full flex items-center justify-center transition-colors" aria-label="Remove banner">
+											<X size={14} />
+										</button>
+									{/if}
+								</div>
+
+								<!-- Avatar -->
+								<div class="flex items-start -mt-10 px-4">
+									<div onclick={() => fileInputRef?.click()} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef?.click(); }} class="relative group border-4 border-background-secondary rounded-full bg-background-secondary overflow-hidden shrink-0 cursor-pointer">
+										{#if avatarPreview}
+											<img src={avatarPreview} alt="" class="w-16 h-16 rounded-full object-cover" />
+										{:else}
+											<div class="w-16 h-16 rounded-full bg-linear-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-xl font-medium text-primary">
+												{previewInitials}
+											</div>
+										{/if}
+										<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
+											<Image size={18} class="text-white" />
+										</div>
+										{#if avatarPreview}
+											<button type="button" onclick={(e) => { e.stopPropagation(); removeAvatar(); }} class="absolute -top-1 -right-1 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center" aria-label="Remove avatar">
+												<X size={12} />
+											</button>
+										{/if}
+									</div>
+								</div>
+
+								<!-- Content -->
+								<div class="px-4 pb-4">
+									<div class="mb-4">
+										<h2 class="text-xl font-bold text-text-primary truncate">{displayName || username || 'User'}</h2>
+										<p class="text-sm text-text-muted">@{username}</p>
+									</div>
+
+									{#if customStatus}
+										<div class="mb-4 p-2 bg-background-tertiary rounded-lg text-sm text-text-secondary italic">{customStatus}</div>
+									{/if}
+
+									{#if bio}
+										<div class="mb-4">
+											<h3 class="text-xs font-bold uppercase text-text-muted mb-1">About Me</h3>
+											<p class="text-sm text-text-secondary whitespace-pre-wrap">{bio}</p>
+										</div>
+									{/if}
+
+									<div class="flex items-center gap-2 text-xs text-text-muted pt-2 border-t border-border">
+										<Clock size={12} />
+										<span>Member since {format(new Date($currentUser?.createdAt || new Date()), 'MMM d, yyyy')}</span>
+									</div>
+								</div>
 							</div>
 						</div>
-
-						<Input label="Display Name" bind:value={displayName} placeholder="How you want to be shown" error={errors.displayName} maxlength={32} />
-						<Input label="Username" bind:value={username} placeholder="your_username" error={errors.username} required maxlength={32} />
-						<Textarea label="Bio" bind:value={bio} placeholder="Tell us about yourself" rows={3} maxlength={200} error={errors.bio} />
-						<Input label="Custom Status" bind:value={customStatus} placeholder="What are you up to?" error={errors.customStatus} maxlength={128} />
-
-						{#if errors.submit}<p class="text-sm text-error">{errors.submit}</p>{/if}
-
-						<div class="flex justify-end pt-4">
-							<Button type="submit" disabled={isSubmitting}>
-								{#if isSubmitting}<Spinner size="sm" />Saving...{:else}Save Changes{/if}
-							</Button>
-						</div>
-					</form>
+					</div>
 				{:else if activeTab === 'account'}
 					<div class="space-y-6">
 						<div>

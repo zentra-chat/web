@@ -13,7 +13,7 @@
 		addToast,
 		openContextMenu
 	} from '$lib/stores/ui';
-	import { currentUserId } from '$lib/stores/instance';
+	import { currentUserId, currentUser } from '$lib/stores/instance';
 	import { activeCommunityMembers, selectCommunity, getMemberNameColor } from '$lib/stores/community';
 	import { setActiveDmConversationId, upsertDmConversation } from '$lib/stores/dm';
 	import { loadFriendsData } from '$lib/stores/friends';
@@ -25,6 +25,7 @@
 	let user = $derived($profileCardUser);
 	let position = $derived($profileCardPosition);
 	let isOwnProfile = $derived(user?.id === $currentUserId);
+	let bannerUrl = $derived(isOwnProfile ? ($currentUser?.bannerUrl ?? user?.bannerUrl) : user?.bannerUrl);
 	let isStartingDm = $state(false);
 	let relationship = $state<RelationshipStatus>('none');
 	let isRelationshipLoading = $state(false);
@@ -185,7 +186,13 @@
 			transition:scale={{ duration: 150, start: 0.95 }}
 		>
 			<!-- Banner -->
-			<div class="h-24 bg-primary/20"></div>
+			{#if bannerUrl}
+				<div class="h-26 bg-surface-hover overflow-hidden">
+					<img src={bannerUrl} alt="" class="w-full h-full object-cover" />
+				</div>
+			{:else}
+				<div class="h-24 bg-primary/20"></div>
+			{/if}
 
 			<!-- Avatar + Actions -->
 			<div class="flex items-start -mt-10">
@@ -328,7 +335,7 @@
 							</Button>
 						{/if}
 					{/if}
-					
+
 					<div class="flex items-center gap-2 text-xs text-text-muted">
 						<Clock size={12} />
 						<span>Member since {format(new Date(user.createdAt || new Date()), 'MMM d, yyyy')}</span>

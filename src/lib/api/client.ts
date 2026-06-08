@@ -417,6 +417,22 @@ class ApiClient {
 		await this.request('/users/me/avatar', { method: 'DELETE' });
 	}
 
+	async updateBanner(file: File): Promise<string> {
+		const formData = new FormData();
+		formData.append('banner', file);
+
+		const result = await this.request<ApiResponse<{ url: string }>>('/media/banners/user', {
+			method: 'POST',
+			body: formData
+		});
+
+		return this.withCacheBuster(result.data.url);
+	}
+
+	async removeBanner(): Promise<void> {
+		await this.request('/users/me/banner', { method: 'DELETE' });
+	}
+
 	async updateStatus(status: string): Promise<void> {
 		await this.request('/users/me/status', {
 			method: 'PUT',

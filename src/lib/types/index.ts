@@ -4,6 +4,7 @@ export interface User {
 	username: string;
 	displayName: string | null;
 	avatarUrl: string | null;
+	bannerUrl: string | null;
 	bio: string | null;
 	status: UserStatus;
 	customStatus: string | null;

@@ -88,7 +88,7 @@
 				.slice(0, 10)
 				.map((participant) => ({
 					id: participant.id,
-					label: `${participant.displayName ?? participant.username}`,
+					label: `@${participant.displayName ?? participant.username}`,
 					insert: `<@${participant.id}>`,
 					type: 'member' as const,
 					user: participant
@@ -103,7 +103,7 @@
 			.slice(0, 5)
 			.map((r) => ({
 				id: r.id,
-				label: `${r.name}`,
+				label: `@${r.name}`,
 				insert: `<@&${r.id}>`,
 				type: 'role' as const,
 				user: null
@@ -118,7 +118,7 @@
 			.slice(0, 10)
 			.map((m) => ({
 				id: m.userId,
-				label: `${m.nickname ?? m.user?.displayName ?? m.user?.username ?? m.userId.slice(0, 8)}`,
+				label: `@${m.nickname ?? m.user?.displayName ?? m.user?.username ?? m.userId.slice(0, 8)}`,
 				insert: `<@${m.userId}>`,
 				type: 'member' as const,
 				user: m.user ?? null

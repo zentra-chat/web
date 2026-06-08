@@ -6,7 +6,8 @@ The frontend web-ui for zentra made in svelte
 
 The frontend uses a submodule for docs (`frontend/docs`).
 
-    git submodule update --init --recursive docs
+```bash
+git submodule update --init --recursive docs
 ```
 
 ## Deploy build + host binary
